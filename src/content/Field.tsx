@@ -132,10 +132,13 @@ export function TimeEditor({ value, onChange }: { value: TimeSpec; onChange: (va
       r = fields.raw ?? raw;
     let candidate: unknown;
     try {
-      if (p === 'unspecified') candidate = { precision: p, ...(d ? { date: d } : {}) };
-      else if (p === 'date') candidate = { precision: p, date: d };
-      else if (p === 'text') candidate = { precision: p, ...(d ? { date: d } : {}), rawText: r };
-      else if (p === 'local')
+      if (p === 'unspecified') {
+        candidate = { precision: p, ...(d ? { date: d } : {}) };
+      } else if (p === 'date') {
+        candidate = { precision: p, date: d };
+      } else if (p === 'text') {
+        candidate = { precision: p, ...(d ? { date: d } : {}), rawText: r };
+      } else if (p === 'local') {
         candidate = {
           precision: p,
           date: d,
@@ -143,7 +146,7 @@ export function TimeEditor({ value, onChange }: { value: TimeSpec; onChange: (va
           timeZoneStatus: z ? 'confirmed' : 'unknown',
           ...(z ? { timeZone: z } : {}),
         };
-      else {
+      } else {
         const instant = Temporal.ZonedDateTime.from(`${d}T${l}${o}[${z}]`, {
           offset: 'reject',
           disambiguation: 'reject',

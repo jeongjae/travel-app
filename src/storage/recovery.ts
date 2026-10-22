@@ -33,7 +33,9 @@ const strip = (row: Row) => {
   return value;
 };
 function assert(ok: unknown, message: string): asserts ok {
-  if (!ok) throw new Error(message);
+  if (!ok) {
+    throw new Error(message);
+  }
 }
 const allTables = (db: Dexie) =>
   [
@@ -47,7 +49,9 @@ const allTables = (db: Dexie) =>
   ].map((n) => db.table(n));
 const meta = async (db: Dexie) => {
   const m = await db.table<Workspace>('workspace_meta').get('workspace');
-  if (!m) throw new Error('저장소를 초기화하세요.');
+  if (!m) {
+    throw new Error('저장소를 초기화하세요.');
+  }
   return m;
 };
 const spaceRows = (db: Dexie, name: string, space: string) =>
@@ -69,7 +73,9 @@ export async function createBackup(
     const m = await meta(db);
     assert(m.mode === 'v2', '기존 여행을 검토·전환한 후 전체 백업하세요.');
     const fixed = blankRows();
-    for (const n of roots) fixed[n] = (await spaceRows(db, n, m.activeSpaceId)).map(strip);
+    for (const n of roots) {
+      fixed[n] = (await spaceRows(db, n, m.activeSpaceId)).map(strip);
+    }
     const s: Snapshot = { snapshotId, spaceId: m.activeSpaceId, cutSeq: m.writeSeq, roots: fixed };
     await db.table('snapshot_jobs').add(s);
     return s;
@@ -79,7 +85,9 @@ export async function createBackup(
     const rows = snapshot.roots,
       tripIds = new Set((rows.trip_headers as { tripId: string }[]).map((h) => h.tripId));
     for (const collection of exchangeCollections) {
-      if ((roots as readonly string[]).includes(collection)) continue;
+      if ((roots as readonly string[]).includes(collection)) {
+        continue;
+      }
       let last: IndexableType = [snapshot.spaceId];
       while (true) {
         abort(signal);
@@ -89,13 +97,19 @@ export async function createBackup(
           .between(last, [snapshot.spaceId, Dexie.maxKey], false, true)
           .limit(200)
           .toArray();
-        if (!page.length) break;
+        if (!page.length) {
+          break;
+        }
         const fields = db.table(collection).schema.primKey.keyPath as string[];
         last = fields.map((f) => page[page.length - 1][f]) as IndexableType;
-        for (const r of page)
-          if (tripIds.has(r.tripId) && (r.commitSeq === undefined || r.commitSeq <= snapshot.cutSeq))
+        for (const r of page) {
+          if (tripIds.has(r.tripId) && (r.commitSeq === undefined || r.commitSeq <= snapshot.cutSeq)) {
             rows[collection].push(strip(r));
-        if (rows[collection].length > LIMITS.records) throw new Error('백업 레코드 한도 초과.');
+          }
+        }
+        if (rows[collection].length > LIMITS.records) {
+          throw new Error('백업 레코드 한도 초과.');
+        }
       }
     }
     const plans = new Set(
@@ -103,17 +117,20 @@ export async function createBackup(
         canonicalJson([p.tripId, p.planVersionId]),
       ),
     );
-    for (const n of ['plan_days', 'plan_items', 'plan_legs', 'plan_stays'] as const)
+    for (const n of ['plan_days', 'plan_items', 'plan_legs', 'plan_stays'] as const) {
       rows[n] = rows[n].filter((r) => {
         const p = r as { tripId: string; planVersionId: string };
         return plans.has(canonicalJson([p.tripId, p.planVersionId]));
       });
+    }
     rows.import_packages = rows.import_packages.map((r) => backupPackageRow(r));
     const assets = new Map<string, Uint8Array>();
     for (const raw of rows.content_revisions) {
       abort(signal);
       const r = raw as { tripId: string; kind: string; payload: { hash: string; byteLength: number } };
-      if (r.kind !== 'asset') continue;
+      if (r.kind !== 'asset') {
+        continue;
+      }
       const a = await db.table<Asset>('asset_blobs').get([snapshot.spaceId, r.tripId, r.payload.hash]);
       assert(
         a?.verified && a.byteLength === r.payload.byteLength && a.bytes.size === r.payload.byteLength,
@@ -188,7 +205,7 @@ export async function prepareRestore(
       );
       await db.transaction('rw', [db.table('asset_blobs'), db.table('transfer_jobs')], async () => {
         assert((await db.table<Job>('transfer_jobs').get(jobId))?.status === 'loading', '복원 작업이 취소되었습니다.');
-        for (const tripId of trips)
+        for (const tripId of trips) {
           await db.table('asset_blobs').add({
             spaceId,
             tripId,
@@ -197,6 +214,7 @@ export async function prepareRestore(
             byteLength: bytes.length,
             verified: true,
           });
+        }
       });
     }
     abort(signal);
@@ -218,10 +236,14 @@ export async function activateRestore(db: Dexie, jobId: string, signal?: AbortSi
   abort(signal);
   const job = await db.table<Job>('transfer_jobs').get(jobId);
   assert(job?.mode === 'restore', '복원 작업이 없습니다.');
-  if (job.status === 'succeeded') return { status: 'replayed' as const, spaceId: job.spaceId };
+  if (job.status === 'succeeded') {
+    return { status: 'replayed' as const, spaceId: job.spaceId };
+  }
   assert(job.status === 'ready', '준비가 완료된 복원만 적용할 수 있습니다.');
   const rows = blankRows();
-  for (const n of exchangeCollections) rows[n] = (await spaceRows(db, n, job.spaceId)).map(strip);
+  for (const n of exchangeCollections) {
+    rows[n] = (await spaceRows(db, n, job.spaceId)).map(strip);
+  }
   rows.import_packages = rows.import_packages.map((r) => backupPackageRow(r));
   validateBackup(rows, job.tripIds, job.cutSeq);
   assert(
@@ -231,7 +253,9 @@ export async function activateRestore(db: Dexie, jobId: string, signal?: AbortSi
   for (const raw of rows.content_revisions) {
     abort(signal);
     const c = raw as { tripId: string; kind: string; payload: { hash: string; byteLength: number } };
-    if (c.kind !== 'asset') continue;
+    if (c.kind !== 'asset') {
+      continue;
+    }
     const a = await db.table<Asset>('asset_blobs').get([job.spaceId, c.tripId, c.payload.hash]);
     assert(
       a?.verified &&
@@ -243,7 +267,9 @@ export async function activateRestore(db: Dexie, jobId: string, signal?: AbortSi
   abort(signal);
   return db.transaction('rw', allTables(db), async () => {
     const current = await db.table<Job>('transfer_jobs').get(jobId);
-    if (current?.status === 'succeeded') return { status: 'replayed' as const, spaceId: job.spaceId };
+    if (current?.status === 'succeeded') {
+      return { status: 'replayed' as const, spaceId: job.spaceId };
+    }
     assert(current?.status === 'ready', '복원 작업 상태가 변경되었습니다.');
     const m = await meta(db);
     assert(
@@ -285,7 +311,9 @@ export async function assetStatus(db: Dexie, tripId: string) {
   const seen = new Set<string>();
   for (const raw of snapshot.contents.filter((c) => c.tripId === tripId && c.kind === 'asset')) {
     const c = raw as unknown as { entityId: string; payload: { hash: string; byteLength: number; title: string } };
-    if (seen.has(c.payload.hash)) continue;
+    if (seen.has(c.payload.hash)) {
+      continue;
+    }
     seen.add(c.payload.hash);
     const a = assets.get(c.payload.hash);
     const ready = Boolean(
@@ -311,7 +339,9 @@ export async function repairAssets(db: Dexie, tripId: string, assets: Map<string
     const refs = contents.filter(
       (c) => c.tripId === tripId && c.kind === 'asset' && (c.payload as { hash: string }).hash === sha256,
     );
-    if (!refs.length) continue;
+    if (!refs.length) {
+      continue;
+    }
     assert(
       bytes.length <= LIMITS.assetBytes &&
         refs.every((c) => (c.payload as { byteLength: number }).byteLength === bytes.length) &&
@@ -338,7 +368,9 @@ export async function repairAssets(db: Dexie, tripId: string, assets: Map<string
 export async function discardTransfer(db: Dexie, jobId: string) {
   return db.transaction('rw', allTables(db), async () => {
     const job = await db.table('transfer_jobs').get(jobId);
-    if (!job) return;
+    if (!job) {
+      return;
+    }
     assert(job.status !== 'succeeded', '완료한 복원은 정리할 수 없습니다.');
     const m = await meta(db);
     if (job.mode === 'restore') {
@@ -360,16 +392,25 @@ export async function collectOrphanAssets(db: Dexie) {
   return db.transaction('rw', allTables(db), async () => {
     const pins = new Set<string>();
     const pin = (space: string, trip: string, hash: string) => pins.add(canonicalJson([space, trip, hash]));
-    for (const c of await db.table('content_revisions').toArray())
-      if (c.kind === 'asset') pin(c.spaceId, c.tripId, c.payload.hash);
-    for (const j of await db.table('transfer_jobs').toArray())
-      for (const c of j.dataset?.contents ?? []) if (c.kind === 'asset') pin(j.spaceId, c.tripId, c.payload.hash);
+    for (const c of await db.table('content_revisions').toArray()) {
+      if (c.kind === 'asset') {
+        pin(c.spaceId, c.tripId, c.payload.hash);
+      }
+    }
+    for (const j of await db.table('transfer_jobs').toArray()) {
+      for (const c of j.dataset?.contents ?? []) {
+        if (c.kind === 'asset') {
+          pin(j.spaceId, c.tripId, c.payload.hash);
+        }
+      }
+    }
     let removed = 0;
-    for (const a of await db.table<Asset>('asset_blobs').toArray())
+    for (const a of await db.table<Asset>('asset_blobs').toArray()) {
       if (!pins.has(canonicalJson([a.spaceId, a.tripId, a.sha256]))) {
         await db.table('asset_blobs').delete([a.spaceId, a.tripId, a.sha256]);
         removed++;
       }
+    }
     return removed;
   });
 }

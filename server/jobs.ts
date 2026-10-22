@@ -31,8 +31,9 @@ export class JobManager {
       }
       await this.persist();
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'ENOENT')
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw new Error('AI 작업 저장소를 읽을 수 없습니다. 원본 파일을 보존했습니다.');
+      }
     }
   }
   private persist() {
@@ -48,12 +49,15 @@ export class JobManager {
   async create(raw: unknown) {
     const input = aiRequestSchema.parse(raw);
     validateTrip(input.trip);
-    if (input.fromDate < input.trip.startDate || input.fromDate > input.trip.endDate)
+    if (input.fromDate < input.trip.startDate || input.fromDate > input.trip.endDate) {
       throw new Error('변경 시작 날짜가 여행 범위 밖입니다.');
+    }
     const fingerprint = createHash('sha256').update(canonical(input)).digest('hex');
     const previous = this.jobs.get(input.id);
     if (previous) {
-      if (previous.fingerprint !== fingerprint) throw new Error('같은 요청 ID의 내용이 다릅니다.');
+      if (previous.fingerprint !== fingerprint) {
+        throw new Error('같은 요청 ID의 내용이 다릅니다.');
+      }
       return previous.job;
     }
     if (
@@ -62,12 +66,15 @@ export class JobManager {
         (r) =>
           r.job.tripId === input.trip.id && ['queued', 'researching', 'planning', 'validating'].includes(r.job.status),
       )
-    )
+    ) {
       throw new Error('이미 진행 중인 작업이 있습니다. 완료하거나 중단한 뒤 요청하세요.');
-    if ([...this.jobs.values()].filter((r) => r.job.createdAt.slice(0, 10) === now().slice(0, 10)).length >= 20)
+    }
+    if ([...this.jobs.values()].filter((r) => r.job.createdAt.slice(0, 10) === now().slice(0, 10)).length >= 20) {
       throw new Error('오늘의 로컬 AI 작업 한도(20회)에 도달했습니다.');
-    if (this.jobs.size >= 200)
+    }
+    if (this.jobs.size >= 200) {
       throw new Error('AI 작업 보관 한도에 도달했습니다. 기존 작업 저장소를 백업하고 관리해 주세요.');
+    }
     const job: AiJob = {
       id: input.id,
       tripId: input.trip.id,
@@ -99,8 +106,12 @@ export class JobManager {
   }
   async cancel(id: string) {
     const job = this.get(id);
-    if (!job) throw new Error('AI 작업을 찾을 수 없습니다.');
-    if (!['queued', 'researching', 'planning', 'validating'].includes(job.status)) return job;
+    if (!job) {
+      throw new Error('AI 작업을 찾을 수 없습니다.');
+    }
+    if (!['queued', 'researching', 'planning', 'validating'].includes(job.status)) {
+      return job;
+    }
     job.status = 'cancelled';
     job.updatedAt = now();
     this.controllers.get(id)?.abort();
@@ -119,7 +130,9 @@ export class JobManager {
           job.status = status;
           job.attempt = attempt;
           job.updatedAt = now();
-          if (sources) job.sources = sources;
+          if (sources) {
+            job.sources = sources;
+          }
           await this.persist();
         },
       );

@@ -33,7 +33,9 @@ const command = (tripId: string, kind: string, payload: unknown, expectedDomainR
 async function seed(repo: ContentRepository, short = false) {
   const t = await pilotTrip(short),
     assets = new Map<string, Uint8Array>();
-  for (const b of Object.values(fixtureAssets)) assets.set(await digestBytes(b), b);
+  for (const b of Object.values(fixtureAssets)) {
+    assets.set(await digestBytes(b), b);
+  }
   const provenance = {
     packageId: crypto.randomUUID(),
     packageDigest: 'a'.repeat(64),
@@ -54,7 +56,9 @@ async function seed(repo: ContentRepository, short = false) {
 }
 async function edit(repo: ContentRepository, tripId = 'fixture-a') {
   const g = await repo.content(tripId, 'guide', 'guide-place');
-  if (g?.kind !== 'guide') throw new Error('guide');
+  if (g?.kind !== 'guide') {
+    throw new Error('guide');
+  }
   const header = (await repo.get(tripId)).header;
   const c = command(
     tripId,
@@ -174,7 +178,9 @@ it('복원 중 취소·재시작은 반쪽 여행을 노출하지 않고 명시�
     before = await repo.meta();
   await expect(
     repo.prepareRestore(backup.blob, controller.signal, (text) => {
-      if (text.startsWith('content_revisions')) controller.abort();
+      if (text.startsWith('content_revisions')) {
+        controller.abort();
+      }
     }),
   ).rejects.toThrow();
   expect(await repo.list()).toEqual([]);
@@ -207,7 +213,9 @@ it('공간 부족과 활성화 저장 실패는 성공으로 보고하지 않고
   db.table('asset_blobs').hook('creating').unsubscribe(quota);
   expect(await repo.list()).toEqual([]);
   expect(await repo.meta()).toEqual(before);
-  for (const j of await repo.pendingTransfers()) await repo.discardTransfer(j.jobId);
+  for (const j of await repo.pendingTransfers()) {
+    await repo.discardTransfer(j.jobId);
+  }
   const job = await repo.prepareRestore(backup.blob),
     failure = () => {
       throw new Error('주입 활성화 실패');
@@ -274,7 +282,9 @@ it('참조 없는 첨부만 정리하고 현재·과거·준비 작업이 필요
   });
   expect(await repo.collectOrphanAssets()).toBe(1);
   expect(await db.table('asset_blobs').count()).toBe(before);
-  for (const j of await repo.pendingTransfers()) await repo.discardTransfer(j.jobId);
+  for (const j of await repo.pendingTransfers()) {
+    await repo.discardTransfer(j.jobId);
+  }
   expect(await repo.collectOrphanAssets()).toBe(0);
   expect(await db.table('asset_blobs').count()).toBe(before);
 });
@@ -344,7 +354,7 @@ it('200행 경계를 넘는 이력을 빠짐없이 복원하고 동시에 활성
   const dataset = await repo.get(t.header.tripId);
   const source = await setup();
   const clone = structuredClone(t);
-  for (let i = 0; i < 405; i++)
+  for (let i = 0; i < 405; i++) {
     clone.records.push({
       tripId: t.header.tripId,
       recordId: `page-note-${i}`,
@@ -358,6 +368,7 @@ it('200행 경계를 넘는 이력을 빠짐없이 복원하고 동시에 활성
         contextRefs: [],
       },
     });
+  }
   const prov = {
     packageId: 'paged-source',
     packageDigest: 'b'.repeat(64),
@@ -390,7 +401,9 @@ it('스키마상 유효한 staging 변조와 중단된 snapshot의 정리를 감
   expect(await target.repo.list()).toEqual([]);
   await expect(
     s.repo.createBackup(undefined, async () => {
-      for (const snap of await s.repo.pendingSnapshots()) await s.repo.discardSnapshot(snap.snapshotId);
+      for (const snap of await s.repo.pendingSnapshots()) {
+        await s.repo.discardSnapshot(snap.snapshotId);
+      }
     }),
   ).rejects.toThrow('정리');
   expect(await s.repo.pendingSnapshots()).toEqual([]);

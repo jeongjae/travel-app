@@ -8,7 +8,9 @@ test.beforeEach(async ({ page }) => {
   browserErrors = [];
   page.on('pageerror', (e) => browserErrors.push(e.message));
   page.on('console', (m) => {
-    if (m.type() === 'error') browserErrors.push(m.text());
+    if (m.type() === 'error') {
+      browserErrors.push(m.text());
+    }
   });
 });
 test.afterEach(async ({ page }, info) => {
@@ -222,11 +224,15 @@ test('새 원본과 앱 본문의 충돌을 검토하고 선택한 섹션만 반
   await page.getByRole('button', { name: '본문 저장', exact: true }).click();
   const t = await pilotTrip(),
     g = t.contents.find((c) => c.kind === 'guide')!;
-  if (g.kind !== 'guide') throw new Error();
+  if (g.kind !== 'guide') {
+    throw new Error();
+  }
   g.payload.sections.find((s) => s.key === 'practical')!.bodyMd = '새 원본 실용';
   g.payload.sections.find((s) => s.key === 'why_go')!.bodyMd = '새 원본 소개';
   const assets = new Map<string, Uint8Array>();
-  for (const b of Object.values(fixtureAssets)) assets.set(await digestBytes(b), b);
+  for (const b of Object.values(fixtureAssets)) {
+    assets.set(await digestBytes(b), b);
+  }
   const p = await buildPackage(t, assets, {
     sourceRepository: 'synthetic/pilot',
     sourceCommit: 'synthetic-v2',

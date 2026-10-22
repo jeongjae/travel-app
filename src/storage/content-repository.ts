@@ -47,7 +47,9 @@ export class RepositoryError extends Error {
   }
 }
 function must(ok: unknown, code: string, message: string): asserts ok {
-  if (!ok) throw new RepositoryError(code, message);
+  if (!ok) {
+    throw new RepositoryError(code, message);
+  }
 }
 export type Result = {
   status: 'applied' | 'replayed';
@@ -198,7 +200,7 @@ export class ContentRepository {
           commitSeq: cut,
           report: { warnings: converted[n].warnings, original: prepared.originals[n] },
         });
-        for (const receipt of prepared.originals[n].receipts)
+        for (const receipt of prepared.originals[n].receipts) {
           await this.db.table('command_receipts').add({
             spaceId: space,
             tripId: t.header.tripId,
@@ -208,6 +210,7 @@ export class ContentRepository {
             kind: 'legacy',
             commitSeq: cut,
           });
+        }
       }
       await this.db
         .table<Workspace>('workspace_meta')
@@ -274,7 +277,9 @@ export class ContentRepository {
         .table<Stored<TripDataset['heads'][number]>>('content_heads')
         .get([space, tripId, kind, entityId]);
       const revision = revisionId ?? head?.revisionId;
-      if (!revision) return undefined;
+      if (!revision) {
+        return undefined;
+      }
       const c = await this.db
         .table<Stored<ContentRevision>>('content_revisions')
         .get([space, tripId, kind, entityId, revision]);
@@ -415,7 +420,9 @@ export class ContentRepository {
       assetId,
       context?.find((r) => r.targetKind === 'asset' && r.entityId === assetId)?.revisionId,
     );
-    if (c?.kind !== 'asset') return undefined;
+    if (c?.kind !== 'asset') {
+      return undefined;
+    }
     const m = await this.meta();
     const row = await this.db
       .table<{ bytes: Blob; verified: boolean }>('asset_blobs')
@@ -429,10 +436,11 @@ export class ContentRepository {
   private async putDataset(t: TripDataset, spaceId: string, before?: TripDataset) {
     const store = async <T>(name: string, rows: T[], mutable = false) => {
       const table = this.db.table<Stored<T>>(name);
-      if (rows.length)
+      if (rows.length) {
         await (mutable
           ? table.bulkPut(rows.map((r) => ({ ...r, spaceId })))
           : table.bulkAdd(rows.map((r) => ({ ...r, spaceId }))));
+      }
     };
     await store('trip_headers', [t.header], true);
     await store('content_heads', t.heads, true);
@@ -468,7 +476,9 @@ export class ContentRepository {
     );
     const latest = new Map<string, Proposal>();
     t.proposals.forEach((p) => {
-      if ((latest.get(p.proposalId)?.proposalRevision ?? 0) < p.proposalRevision) latest.set(p.proposalId, p);
+      if ((latest.get(p.proposalId)?.proposalRevision ?? 0) < p.proposalRevision) {
+        latest.set(p.proposalId, p);
+      }
     });
     await store(
       'proposal_heads',
@@ -506,19 +516,20 @@ export class ContentRepository {
         '기준 B가 대상 콘텐츠와 다릅니다.',
       );
     }
-    for (const head of dataset.heads.filter((h) => h.status === 'active'))
+    for (const head of dataset.heads.filter((h) => h.status === 'active')) {
       must(
         provenance.mappings.some((m) => m.targetKind === head.targetKind && m.entityId === head.entityId),
         'INVALID_INPUT',
         '활성 콘텐츠의 완전한 원천 대응이 필요합니다.',
       );
+    }
     must(
       provenance.mappings.some((m) => m.targetKind === 'plan') &&
         provenance.mappings.some((m) => m.targetKind === 'trip'),
       'INVALID_INPUT',
       '계획·여행 메타데이터 대응이 필요합니다.',
     );
-    for (const c of dataset.contents)
+    for (const c of dataset.contents) {
       if (c.kind === 'asset') {
         const bytes = assets.get(c.payload.hash);
         must(
@@ -527,6 +538,7 @@ export class ContentRepository {
           '첨부 바이트/해시 불일치.',
         );
       }
+    }
     const rowCount =
       dataset.contents.length +
       dataset.heads.length +
@@ -544,10 +556,12 @@ export class ContentRepository {
       ['transfer_jobs', 'asset_blobs'].map((n) => this.db.table(n)),
       async () => {
         for (const [sha256, bytes] of assets) {
-          if (!dataset.contents.some((c) => c.kind === 'asset' && c.payload.hash === sha256)) continue;
+          if (!dataset.contents.some((c) => c.kind === 'asset' && c.payload.hash === sha256)) {
+            continue;
+          }
           const table = this.db.table('asset_blobs');
           const pk = [meta.activeSpaceId, dataset.header.tripId, sha256];
-          if (!(await table.get(pk)))
+          if (!(await table.get(pk))) {
             await table.add({
               spaceId: meta.activeSpaceId,
               tripId: dataset.header.tripId,
@@ -556,6 +570,7 @@ export class ContentRepository {
               byteLength: bytes.length,
               verified: true,
             });
+          }
         }
         await this.db.table<Prepared>('transfer_jobs').add({
           jobId,
@@ -571,8 +586,9 @@ export class ContentRepository {
   }
   private async importRows(spaceId: string, t: TripDataset, prov: Provenance, seq: number, selected?: ImportMapping[]) {
     const table = this.db.table('import_packages');
-    if (!(await table.get([spaceId, t.header.tripId, prov.packageId])))
+    if (!(await table.get([spaceId, t.header.tripId, prov.packageId]))) {
       await table.add({ ...prov, tripId: t.header.tripId, spaceId, commitSeq: seq });
+    }
     for (const mapping of selected ?? prov.mappings) {
       const mappingRevisionId = uid();
       await this.db.table('import_mappings').add({
@@ -632,7 +648,9 @@ export class ContentRepository {
           ...t.proposals.map((r) => r.commitSeq),
         );
         const offset = m.writeSeq;
-        for (const r of [...t.contents, ...t.plans, ...t.records, ...t.proposals]) r.commitSeq += offset;
+        for (const r of [...t.contents, ...t.plans, ...t.records, ...t.proposals]) {
+          r.commitSeq += offset;
+        }
         m.writeSeq = offset + Math.max(1, max);
         await this.checkAssets(t, space);
         await this.importRows(space, t, job.provenance, m.writeSeq);
@@ -656,15 +674,17 @@ export class ContentRepository {
       } else {
         before = await this.get(c.tripId, space);
         t = structuredClone(before);
-        if ('expectedDomainRevision' in c)
+        if ('expectedDomainRevision' in c) {
           must(
             c.expectedDomainRevision === t.header.domainRevision,
             'CONFLICT',
             '다른 변경이 저장되었습니다. 입력을 보존하고 최신 내용을 확인하세요.',
           );
+        }
         await this.mutate(t, c, seq, refs, space);
-        if (c.kind !== 'SaveProposal' && !(c.kind === 'DecideProposal' && c.payload.decision === 'reject'))
+        if (c.kind !== 'SaveProposal' && !(c.kind === 'DecideProposal' && c.payload.decision === 'reject')) {
           t.header.domainRevision++;
+        }
       }
       t = before ? validateImmutableTransition(before, t) : validateTripDataset(t);
       // Missing old bytes must not prevent field records. New asset revisions still require preparation.
@@ -709,7 +729,7 @@ export class ContentRepository {
     });
   }
   private async checkAssets(t: TripDataset, space: string) {
-    for (const c of t.contents)
+    for (const c of t.contents) {
       if (c.kind === 'asset') {
         const blob = await this.db.table('asset_blobs').get([space, t.header.tripId, c.payload.hash]);
         must(
@@ -718,6 +738,7 @@ export class ContentRepository {
           '로컬 첨부가 누락되었습니다.',
         );
       }
+    }
   }
   private newPlan(
     t: TripDataset,
@@ -734,8 +755,11 @@ export class ContentRepository {
     p.reason = reason;
     p.commitSeq = seq;
     p.createdAt = now();
-    if (proposalId) p.proposalId = proposalId;
-    else delete p.proposalId;
+    if (proposalId) {
+      p.proposalId = proposalId;
+    } else {
+      delete p.proposalId;
+    }
     for (const op of operations) {
       const activityId = op.type === 'remove-item' ? op.activityId : op.item.activityId;
       if (op.type === 'remove-item') {
@@ -757,7 +781,9 @@ export class ContentRepository {
       }
     }
     p.items = retarget(p.items, t) as PlanVersion['items'];
-    for (const row of [...p.days, ...p.items, ...p.legs, ...p.stays]) row.planVersionId = p.planVersionId;
+    for (const row of [...p.days, ...p.items, ...p.legs, ...p.stays]) {
+      row.planVersionId = p.planVersionId;
+    }
     p.contextRefs = t.heads.map((h) => {
       const c = t.contents.find(
         (c) => c.kind === h.targetKind && c.entityId === h.entityId && c.revisionId === h.revisionId,
@@ -847,13 +873,14 @@ export class ContentRepository {
       case 'AddNote':
       case 'SetTaskState': {
         const row = { ...c.payload.record, commitSeq: seq, recordedAt: now() } as FieldRecord;
-        if (row.supersedes)
+        if (row.supersedes) {
           must(
             t.records.some((r) => r.recordId === row.supersedes && r.kind === row.kind) &&
               !t.records.some((r) => r.supersedes === row.supersedes),
             'CONFLICT',
             '정정 대상이 이미 변경되었습니다.',
           );
+        }
         t.records.push(row);
         refs.push({ kind: 'record', id: row.recordId });
         break;
@@ -996,13 +1023,15 @@ export class ContentRepository {
         actor: 'import',
         commitSeq: seq,
       } as ContentRevision;
-      if (!previous) delete row.previousRevisionId;
+      if (!previous) {
+        delete row.previousRevisionId;
+      }
       t.contents.push(row);
       newRows.push(row);
       if (head) {
         head.revisionId = row.revisionId;
         head.status = 'active';
-      } else
+      } else {
         t.heads.push({
           tripId: t.header.tripId,
           targetKind: row.kind,
@@ -1010,6 +1039,7 @@ export class ContentRepository {
           revisionId: row.revisionId,
           status: 'active',
         });
+      }
       refs.push({ kind: row.kind, id: row.entityId, revisionId: row.revisionId });
     }
     let newPlan: PlanVersion | undefined;
@@ -1027,14 +1057,16 @@ export class ContentRepository {
         commitSeq: seq,
       };
       delete newPlan.proposalId;
-      for (const row of [...newPlan.days, ...newPlan.items, ...newPlan.legs, ...newPlan.stays])
+      for (const row of [...newPlan.days, ...newPlan.items, ...newPlan.legs, ...newPlan.stays]) {
         row.planVersionId = newPlan.planVersionId;
+      }
       t.plans.push(newPlan);
       t.header.currentPlanVersionId = newPlan.planVersionId;
       refs.push({ kind: 'plan', id: newPlan.planVersionId });
     }
-    for (const row of newRows)
+    for (const row of newRows) {
       row.payload = retarget(row.payload, t, remotePlanId, newPlan?.planVersionId) as ContentRevision['payload'];
+    }
     if (newPlan) {
       newPlan.items = retarget(newPlan.items, t) as PlanVersion['items'];
       newPlan.contextRefs = t.heads.map((h) => {

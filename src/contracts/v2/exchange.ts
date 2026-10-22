@@ -35,8 +35,9 @@ const recordInputSchema = z.union(
 const { commitSeq: _proposalCommitSeq, ...proposalInputShape } = proposalSchema.shape;
 const proposalInputSchema = z.strictObject(proposalInputShape).superRefine((p, ctx) => {
   const checked = proposalSchema.safeParse({ ...p, commitSeq: 1 });
-  if (!checked.success)
+  if (!checked.success) {
     checked.error.issues.forEach((issue) => ctx.addIssue({ code: 'custom', path: issue.path, message: issue.message }));
+  }
 });
 const envelope = {
   format: z.literal('travel-app-command'),
@@ -107,27 +108,33 @@ export function validateCommand(raw: unknown): Command {
   canonicalJson(raw);
   const c = commandSchema.parse(raw);
   const walk = (v: unknown) => {
-    if (!v || typeof v !== 'object') return;
+    if (!v || typeof v !== 'object') {
+      return;
+    }
     if (Array.isArray(v)) {
       v.forEach(walk);
       return;
     }
     const obj = v as Record<string, unknown>;
-    if ('tripId' in obj)
+    if ('tripId' in obj) {
       ensure(obj.tripId === c.tripId, 'command.payload.tripId', '다른 여행의 입력입니다.', 'BROKEN_REFERENCE');
+    }
     Object.values(obj).forEach(walk);
   };
   walk(c.payload);
-  if (c.kind === 'CorrectActual')
+  if (c.kind === 'CorrectActual') {
     ensure(c.payload.supersedes === c.payload.record.supersedes, 'command.supersedes', '정정 대상이 다릅니다.');
-  if (c.kind === 'SaveProposal')
+  }
+  if (c.kind === 'SaveProposal') {
     ensure(
       c.payload.baseDomainRevision === c.payload.proposal.baseDomainRevision,
       'command.baseDomainRevision',
       '초안 기준이 다릅니다.',
     );
-  if (c.kind === 'UpdateTripMetadata')
+  }
+  if (c.kind === 'UpdateTripMetadata') {
     ensure(c.payload.startDate <= c.payload.endDate, 'command.endDate', '기간 역순입니다.');
+  }
   return c;
 }
 export async function commandFingerprint(raw: unknown) {
@@ -182,12 +189,15 @@ export const fileEntrySchema = z
       f.path !== expectedPath ||
       f.path.includes('\\') ||
       (f.role === 'records') !== (f.collection !== undefined && f.recordCount !== undefined)
-    )
+    ) {
       ctx.addIssue({ code: 'custom', path: ['path'], message: '허용된 경로·collection·레코드 수 조합이 아닙니다.' });
-    if (f.role !== 'records' && (f.collection !== undefined || f.recordCount !== undefined))
+    }
+    if (f.role !== 'records' && (f.collection !== undefined || f.recordCount !== undefined)) {
       ctx.addIssue({ code: 'custom', message: '레코드 메타데이터는 records에만 허용합니다.' });
-    if (f.role === 'asset' && f.byteLength > LIMITS.assetBytes)
+    }
+    if (f.role === 'asset' && f.byteLength > LIMITS.assetBytes) {
       ctx.addIssue({ code: 'custom', message: '단일 첨부 한도 초과.' });
+    }
   });
 const source = z.strictObject({
   sourceRepository: text,
@@ -221,15 +231,18 @@ export const manifestSchema = z
     }),
   ])
   .superRefine((m, ctx) => {
-    if (new Set(m.files.map((f) => f.path.toLowerCase())).size !== m.files.length)
+    if (new Set(m.files.map((f) => f.path.toLowerCase())).size !== m.files.length) {
       ctx.addIssue({ code: 'custom', path: ['files'], message: '중복/대소문자 충돌 경로.' });
-    if (new Set(m.tripIds).size !== m.tripIds.length)
+    }
+    if (new Set(m.tripIds).size !== m.tripIds.length) {
       ctx.addIssue({ code: 'custom', path: ['tripIds'], message: '중복 여행 ID.' });
+    }
     if (
       m.files.reduce((n, f) => n + f.byteLength, 0) > LIMITS.uncompressedBytes ||
       m.files.reduce((n, f) => n + (f.recordCount ?? 0), 0) > LIMITS.records
-    )
+    ) {
       ctx.addIssue({ code: 'custom', path: ['files'], message: '해제 크기/레코드 합계 한도 초과.' });
+    }
   });
 export const sourceExtractSchema = z.strictObject({
   format: z.literal('travel-app-source-extract'),
@@ -280,8 +293,9 @@ export const receiptSchema = z
       r.requestId !== r.result.requestId ||
       r.commitSeq !== r.result.commitSeq ||
       r.domainRevision !== r.result.domainRevision
-    )
+    ) {
       ctx.addIssue({ code: 'custom', path: ['result'], message: '영수증과 저장 결과의 기준이 다릅니다.' });
+    }
   });
 
 export function parseCommandJson(input: string) {

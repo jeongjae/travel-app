@@ -17,7 +17,9 @@ const source = {
 const python = resolve(process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python');
 async function pack() {
   const assets = new Map<string, Uint8Array>();
-  for (const bytes of Object.values(fixtureAssets)) assets.set(await digestBytes(bytes), bytes);
+  for (const bytes of Object.values(fixtureAssets)) {
+    assets.set(await digestBytes(bytes), bytes);
+  }
   return buildPackage(await pilotTrip(), assets, source);
 }
 it('선택 원천을 실행 없이 읽고 JSON/AST/XLSX를 공유 계약·패키지로 정규화한다', async () => {
@@ -86,7 +88,9 @@ it('선택 원천을 실행 없이 읽고 JSON/AST/XLSX를 공유 계약·패키
       .locator,
   ).toContain('booking.py:');
   const assets = new Map<string, Uint8Array>();
-  for (const b of Object.values(fixtureAssets)) assets.set(await digestBytes(b), b);
+  for (const b of Object.values(fixtureAssets)) {
+    assets.set(await digestBytes(b), b);
+  }
   const p = await buildPackage(normalized.dataset, assets, source, normalized.report, normalized.mappings);
   expect((await readPackage(p.blob)).dataset.contents.filter((c) => c.kind === 'booking')).toHaveLength(2);
 }, 10000);
@@ -101,7 +105,9 @@ it('패키지의 모든 NDJSON·첨부 바이트·해시를 왕복하고 취소�
   cancelled.abort();
   await expect(readPackage(p.blob, cancelled.signal)).rejects.toThrow();
   const assets = new Map<string, Uint8Array>();
-  for (const b of Object.values(fixtureAssets)) assets.set(await digestBytes(b), b);
+  for (const b of Object.values(fixtureAssets)) {
+    assets.set(await digestBytes(b), b);
+  }
   const blocked = await buildPackage(await pilotTrip(), assets, source, { blocking: ['missing-fact'] });
   await expect(readPackage(blocked.blob)).rejects.toThrow('미해결');
 });
@@ -110,7 +116,9 @@ it('ZIP 경로·symlink·파일 변조를 거부한다', async () => {
     reader = new ZipReader(new BlobReader(p.blob), { useWebWorkers: false }),
     writer = new ZipWriter(new BlobWriter(), { useWebWorkers: false });
   for (const e of await reader.getEntries()) {
-    if (e.directory) continue;
+    if (e.directory) {
+      continue;
+    }
     const data = await e.getData(new (await import('@zip.js/zip.js')).Uint8ArrayWriter());
     await writer.add(
       e.filename,

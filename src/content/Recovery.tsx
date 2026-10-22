@@ -34,7 +34,9 @@ export default function Recovery({
       .catch(() => {});
     return () => {
       controller.current?.abort();
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      if (urlRef.current) {
+        URL.revokeObjectURL(urlRef.current);
+      }
     };
   }, []);
   async function run(fn: (signal: AbortSignal) => Promise<void>) {
@@ -133,13 +135,14 @@ export default function Recovery({
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = '';
-            if (file)
+            if (file) {
               void run(async (signal) => {
                 setPreview(null);
                 const result = await readBackup(file, signal);
                 setPreview({ blob: file, trips: result.manifest.tripIds.length, cutSeq: result.manifest.cutSeq });
                 setStatus('백업 파일 검증 완료. 복원 내용을 확인하세요.');
               });
+            }
           }}
         />
       </label>
@@ -187,12 +190,13 @@ export default function Recovery({
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 e.target.value = '';
-                if (file)
+                if (file) {
                   void run(async (signal) => {
                     const archive = await readArchive(file, signal);
                     const count = await repo.repairAssets(tripId, archive.assets, signal);
                     setStatus(`${count}개 첨부를 복구했습니다. 계획·본문·기록은 보존됩니다.`);
                   });
+                }
               }}
             />
           </label>

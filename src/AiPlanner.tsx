@@ -26,7 +26,9 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
         },
   );
   const value = await res.json().catch(() => ({ error: 'AI 서버에 연결할 수 없습니다.' }));
-  if (!res.ok) throw new Error(value.error || 'AI 요청을 완료할 수 없습니다.');
+  if (!res.ok) {
+    throw new Error(value.error || 'AI 요청을 완료할 수 없습니다.');
+  }
   return value as T;
 }
 export function AiPlanner({ trip }: { trip: Trip }) {
@@ -53,7 +55,9 @@ export function AiPlanner({ trip }: { trip: Trip }) {
         }
       })
       .catch(() => {
-        if (!cancelled) setConfigured(false);
+        if (!cancelled) {
+          setConfigured(false);
+        }
       });
     const update = () => setOnline(navigator.onLine);
     window.addEventListener('online', update);
@@ -65,14 +69,20 @@ export function AiPlanner({ trip }: { trip: Trip }) {
     };
   }, [nonce]);
   useEffect(() => {
-    if (!jobId || !online) return;
+    if (!jobId || !online) {
+      return;
+    }
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     async function poll() {
       try {
         const value = await api<AiJob>(`/api/ai/jobs/${jobId}`);
-        if (stopped) return;
-        if (value.tripId !== trip.id) throw new Error('다른 여행의 AI 작업입니다.');
+        if (stopped) {
+          return;
+        }
+        if (value.tripId !== trip.id) {
+          throw new Error('다른 여행의 AI 작업입니다.');
+        }
         setJob(value);
         setError('');
         if (
@@ -83,12 +93,18 @@ export function AiPlanner({ trip }: { trip: Trip }) {
           try {
             await repository.propose(value.proposal, `ai-save-${value.id}`);
           } catch (e) {
-            if (!stopped) setError(e instanceof Error ? e.message : '변경안 저장에 실패했습니다.');
+            if (!stopped) {
+              setError(e instanceof Error ? e.message : '변경안 저장에 실패했습니다.');
+            }
           }
         }
-        if (!terminal.has(value.status) && !stopped) timer = setTimeout(poll, 1200);
+        if (!terminal.has(value.status) && !stopped) {
+          timer = setTimeout(poll, 1200);
+        }
       } catch (e) {
-        if (!stopped) setError(e instanceof Error ? e.message : '연결이 끊겼습니다. 상태를 다시 확인하세요.');
+        if (!stopped) {
+          setError(e instanceof Error ? e.message : '연결이 끊겼습니다. 상태를 다시 확인하세요.');
+        }
       }
     }
     void poll();
@@ -99,7 +115,9 @@ export function AiPlanner({ trip }: { trip: Trip }) {
   }, [jobId, trip.id, trip.revision, trip.proposals.length, online, nonce]);
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (starting) return;
+    if (starting) {
+      return;
+    }
     setStarting(true);
     setError('');
     const input: AiRequest = { id: uid(), trip: structuredClone(trip), fromDate, prompt };
@@ -118,7 +136,9 @@ export function AiPlanner({ trip }: { trip: Trip }) {
     }
   }
   async function cancel() {
-    if (!jobId) return;
+    if (!jobId) {
+      return;
+    }
     try {
       setJob(await api<AiJob>(`/api/ai/jobs/${jobId}/cancel`, {}));
       setError('');

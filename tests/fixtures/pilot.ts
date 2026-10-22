@@ -71,10 +71,11 @@ export async function pilotTrip(short = false): Promise<TripDataset> {
   });
   const owner = { tripId, targetKind: 'place', entityId: 'shared-source-slug' } as const;
   const regionIds = short ? ['region-1'] : ['region-1', 'region-2'];
-  for (const [n, entityId] of regionIds.entries())
+  for (const [n, entityId] of regionIds.entries()) {
     add('region', entityId, { name: `가상 지역 ${n + 1}`, guideIds: [], assetRefs: [] });
+  }
   const placeIds = short ? ['shared-source-slug'] : ['shared-source-slug', 'place-2', 'place-3', 'place-4'];
-  for (const [n, entityId] of placeIds.entries())
+  for (const [n, entityId] of placeIds.entries()) {
     add('place', entityId, {
       regionIds: [regionIds[n % regionIds.length]],
       name: short ? '가상 전시관 B' : `가상 장소 ${n + 1}`,
@@ -85,6 +86,7 @@ export async function pilotTrip(short = false): Promise<TripDataset> {
       ...(n === 0 ? { guideId: 'guide-place', mapTargetId: 'map-place' } : {}),
       assetRefs: [],
     });
+  }
   add('evidence', 'evidence-1', {
     sourceType: 'code',
     sourceUrlOrRef: 'synthetic/booking_literals.py:2',
@@ -100,7 +102,7 @@ export async function pilotTrip(short = false): Promise<TripDataset> {
     evidenceRefs: [ref('evidence', 'evidence-1')],
     appReviewStatus: 'unverified',
   });
-  for (const [entityId, bytes] of Object.entries(fixtureAssets))
+  for (const [entityId, bytes] of Object.entries(fixtureAssets)) {
     add('asset', entityId, {
       hash: await digestBytes(bytes),
       mimeType: entityId === 'asset-image' ? 'image/png' : 'application/pdf',
@@ -112,6 +114,7 @@ export async function pilotTrip(short = false): Promise<TripDataset> {
       evidenceRefs: [],
       originalPath: `synthetic/${entityId}`,
     });
+  }
   const inline = [{ assetId: 'asset-image', role: 'inline' as const }];
   add('guide', 'guide-place', {
     documentKind: 'place-guide',
@@ -250,7 +253,7 @@ export async function pilotTrip(short = false): Promise<TripDataset> {
         item(4, 3, 'place-3'),
         item(5, 3, 'place-4'),
       ];
-  if (!short)
+  if (!short) {
     items[2].time = {
       start: {
         precision: 'instant',
@@ -261,9 +264,11 @@ export async function pilotTrip(short = false): Promise<TripDataset> {
         instant: '2026-11-01T06:30:00Z',
       },
     };
+  }
   // One confirmed local time without inventing an instant.
-  if (!short)
+  if (!short) {
     items[3].time = { start: { precision: 'local', date: dates[2], localTime: '10:00', timeZoneStatus: 'unknown' } };
+  }
   return {
     domainSchemaVersion: 2,
     header: {
@@ -379,14 +384,18 @@ export async function pilotTrip(short = false): Promise<TripDataset> {
 export const invalidFixtures: Record<string, (t: TripDataset) => void> = {
   'cross-trip': (t) => {
     const c = t.contents.find((c) => c.kind === 'guide')!;
-    if (c.kind === 'guide') c.payload.ownerRef.tripId = 'fixture-b';
+    if (c.kind === 'guide') {
+      c.payload.ownerRef.tripId = 'fixture-b';
+    }
   },
   'duplicate-id': (t) => {
     t.contents.push(structuredClone(t.contents[0]));
   },
   'broken-fact': (t) => {
     const c = t.contents.find((c) => c.kind === 'guide')!;
-    if (c.kind === 'guide') c.payload.sections[2].bodyMd = '{{fact:missing}}';
+    if (c.kind === 'guide') {
+      c.payload.sections[2].bodyMd = '{{fact:missing}}';
+    }
   },
   'broken-asset': (t) => {
     t.contents = t.contents.filter((c) => c.entityId !== 'asset-image');
@@ -401,6 +410,8 @@ export const invalidFixtures: Record<string, (t: TripDataset) => void> = {
   },
   'broken-link': (t) => {
     const c = t.contents.find((c) => c.kind === 'guide')!;
-    if (c.kind === 'guide') c.payload.sections[0].bodyMd = '[오류](travel://place/missing)';
+    if (c.kind === 'guide') {
+      c.payload.sections[0].bodyMd = '[오류](travel://place/missing)';
+    }
   },
 };

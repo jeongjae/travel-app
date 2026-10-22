@@ -184,7 +184,9 @@ export function GuideDetail({
     section: Extract<ContentRevision, { kind: 'guide' }>['payload']['sections'][number];
     expected: number;
   } | null>(null);
-  if (!owner) return <p>자료를 찾는 중입니다.</p>;
+  if (!owner) {
+    return <p>자료를 찾는 중입니다.</p>;
+  }
   return (
     <article className="guide-detail">
       <h2>
@@ -297,7 +299,7 @@ export function GuideDetail({
 }
 function StructuredGuide({ guide }: { guide: Extract<ContentRevision, { kind: 'guide' }> }) {
   const p = guide.payload;
-  if (p.documentKind === 'region-essentials')
+  if (p.documentKind === 'region-essentials') {
     return (
       <div>
         <h3>현장 생활 정보</h3>
@@ -310,7 +312,8 @@ function StructuredGuide({ guide }: { guide: Extract<ContentRevision, { kind: 'g
         <p>{p.structuredData.lateReturnRule}</p>
       </div>
     );
-  if (p.documentKind === 'transit')
+  }
+  if (p.documentKind === 'transit') {
     return (
       <div>
         <h3>교통 정보</h3>
@@ -330,7 +333,8 @@ function StructuredGuide({ guide }: { guide: Extract<ContentRevision, { kind: 'g
         ))}
       </div>
     );
-  if (p.documentKind === 'language-guide')
+  }
+  if (p.documentKind === 'language-guide') {
     return (
       <div>
         <h3>발음·표지판</h3>
@@ -346,6 +350,7 @@ function StructuredGuide({ guide }: { guide: Extract<ContentRevision, { kind: 'g
         ))}
       </div>
     );
+  }
   return null;
 }
 function AssetLink({
@@ -364,7 +369,9 @@ function AssetLink({
     <button
       disabled={!data}
       onClick={() => {
-        if (!data) return;
+        if (!data) {
+          return;
+        }
         const url = URL.createObjectURL(data.blob);
         const a = document.createElement('a');
         a.href = url;

@@ -1,0 +1,4 @@
+# The root package is the only workspace package.
+saveExact: true
+cacheDir: .cache/pnpm/cache
+storeDir: .cache/pnpm/store

@@ -5,7 +5,9 @@ export function parseStrictJson(input: string, maxBytes = 512 * 1024): unknown {
   ensure(new TextEncoder().encode(input).byteLength <= maxBytes, '$', 'JSON 바이트 한도 초과.', 'LIMIT_EXCEEDED');
   let pos = 0;
   const ws = () => {
-    while (/[\x20\t\r\n]/.test(input[pos] ?? '\0')) pos++;
+    while (/[\x20\t\r\n]/.test(input[pos] ?? '\0')) {
+      pos++;
+    }
   };
   const fail = (message: string): never => {
     throw new SyntaxError(`JSON ${pos}: ${message}`);
@@ -15,9 +17,14 @@ export function parseStrictJson(input: string, maxBytes = 512 * 1024): unknown {
     let escaped = false;
     while (pos < input.length) {
       const c = input[pos++];
-      if (!escaped && c === '"') return JSON.parse(input.slice(start, pos)) as string;
-      if (!escaped && c === '\\') escaped = true;
-      else escaped = false;
+      if (!escaped && c === '"') {
+        return JSON.parse(input.slice(start, pos)) as string;
+      }
+      if (!escaped && c === '\\') {
+        escaped = true;
+      } else {
+        escaped = false;
+      }
     }
     return fail('문자열 종료 누락');
   };
@@ -25,7 +32,9 @@ export function parseStrictJson(input: string, maxBytes = 512 * 1024): unknown {
     ensure(depth <= 100, '$', 'JSON 중첩 한도 초과.', 'LIMIT_EXCEEDED');
     ws();
     const c = input[pos];
-    if (c === '"') return string();
+    if (c === '"') {
+      return string();
+    }
     if (c === '{') {
       pos++;
       ws();
@@ -37,17 +46,25 @@ export function parseStrictJson(input: string, maxBytes = 512 * 1024): unknown {
       }
       while (true) {
         ws();
-        if (input[pos] !== '"') return fail('객체 키 필요');
+        if (input[pos] !== '"') {
+          return fail('객체 키 필요');
+        }
         const k = string();
         ensure(!keys.has(k), `$[${JSON.stringify(k)}]`, '중복 JSON 객체 키.', 'DUPLICATE_ID');
         keys.add(k);
         ws();
-        if (input[pos++] !== ':') return fail('콜론 필요');
+        if (input[pos++] !== ':') {
+          return fail('콜론 필요');
+        }
         result[k] = value(depth + 1);
         ws();
         const delimiter = input[pos++];
-        if (delimiter === '}') return result;
-        if (delimiter !== ',') return fail('객체 구분자 필요');
+        if (delimiter === '}') {
+          return result;
+        }
+        if (delimiter !== ',') {
+          return fail('객체 구분자 필요');
+        }
       }
     }
     if (c === '[') {
@@ -62,12 +79,18 @@ export function parseStrictJson(input: string, maxBytes = 512 * 1024): unknown {
         result.push(value(depth + 1));
         ws();
         const delimiter = input[pos++];
-        if (delimiter === ']') return result;
-        if (delimiter !== ',') return fail('배열 구분자 필요');
+        if (delimiter === ']') {
+          return result;
+        }
+        if (delimiter !== ',') {
+          return fail('배열 구분자 필요');
+        }
       }
     }
     const token = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(input.slice(pos))?.[0];
-    if (!token) return fail('잘못된 값');
+    if (!token) {
+      return fail('잘못된 값');
+    }
     pos += token.length;
     const parsed: unknown = JSON.parse(token);
     ensure(
@@ -80,7 +103,9 @@ export function parseStrictJson(input: string, maxBytes = 512 * 1024): unknown {
   };
   const result = value(0);
   ws();
-  if (pos !== input.length) return fail('남은 입력');
+  if (pos !== input.length) {
+    return fail('남은 입력');
+  }
   return result;
 }
 
@@ -88,7 +113,9 @@ export function parseStrictJson(input: string, maxBytes = 512 * 1024): unknown {
 export function canonicalJson(value: unknown): string {
   const visit = (v: unknown, depth: number): string => {
     ensure(depth <= 100, '$', 'JSON 중첩 한도 초과.', 'LIMIT_EXCEEDED');
-    if (v === null || typeof v === 'string' || typeof v === 'boolean') return JSON.stringify(v);
+    if (v === null || typeof v === 'string' || typeof v === 'boolean') {
+      return JSON.stringify(v);
+    }
     if (typeof v === 'number') {
       ensure(
         Number.isFinite(v) && (!Number.isInteger(v) || Number.isSafeInteger(v)),

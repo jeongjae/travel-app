@@ -150,7 +150,9 @@ describe('P-01 F-01/02/04 계약·의미', () => {
       b = await pilotTrip(true),
       bBefore = structuredClone(b);
     const fact = after.contents.find((c) => c.kind === 'fact')!;
-    if (fact.kind !== 'fact') throw new Error();
+    if (fact.kind !== 'fact') {
+      throw new Error();
+    }
     after.contents.push({
       ...fact,
       revisionId: 'r2',
@@ -161,7 +163,9 @@ describe('P-01 F-01/02/04 계약·의미', () => {
     after.heads.find((h) => h.targetKind === 'fact')!.revisionId = 'r2';
     after.header.domainRevision++;
     const guide = after.contents.find((c) => c.kind === 'guide')!;
-    if (guide.kind !== 'guide') throw new Error();
+    if (guide.kind !== 'guide') {
+      throw new Error();
+    }
     after.contents.push({
       ...guide,
       revisionId: 'r2',
@@ -222,12 +226,13 @@ describe('P-01 F-01/02/04 계약·의미', () => {
     expect(fieldRecordSchema.safeParse({ ...legacy, occurredTime: foldedTime }).success).toBe(false);
   });
   it('가상 PNG/PDF 바이트와 asset revision의 해시/크기가 일치한다', async () => {
-    for (const c of (await pilotTrip()).contents)
+    for (const c of (await pilotTrip()).contents) {
       if (c.kind === 'asset') {
         const bytes = fixtureAssets[c.entityId as keyof typeof fixtureAssets];
         expect(c.payload.byteLength).toBe(bytes.length);
         expect(c.payload.hash).toBe(createHash('sha256').update(bytes).digest('hex'));
       }
+    }
     expect(new TextDecoder().decode(fixtureAssets['asset-pdf']).startsWith('%PDF-1.4')).toBe(true);
     expect([...fixtureAssets['asset-image'].slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
   });
@@ -393,7 +398,9 @@ describe('P-01 명령/교환 입력 경계', () => {
         payload: { target: { targetKind: 'place', entityId: 'shared-source-slug', revisionId: 'r1' } },
       },
     ];
-    for (const input of cases) expect(validateCommand({ ...env, ...input }).kind).toBe(input.kind);
+    for (const input of cases) {
+      expect(validateCommand({ ...env, ...input }).kind).toBe(input.kind);
+    }
     expect(cases).toHaveLength(commandSchema.options.length);
     const updateInput = { ...env, ...cases[3] };
     expect(() =>
@@ -431,8 +438,9 @@ describe('P-01 명령/교환 입력 경계', () => {
     },
   );
   it('undefined/비JSON/깊이·UTF-8 바이트 한도를 거부하고 위험 키를 데이터로 읽는다', () => {
-    for (const v of [{ a: undefined }, NaN, Infinity, new Date(), [undefined]])
+    for (const v of [{ a: undefined }, NaN, Infinity, new Date(), [undefined]]) {
       expect(() => canonicalJson(v)).toThrow();
+    }
     expect(() => parseStrictJson('"가"', 4)).toThrow('LIMIT');
     expect(() => parseStrictJson('['.repeat(110) + '0' + ']'.repeat(110))).toThrow('LIMIT');
     expect(Object.getPrototypeOf(parseStrictJson('{"__proto__":{"polluted":true}}'))).toBe(null);
@@ -445,8 +453,9 @@ describe('P-01 명령/교환 입력 경계', () => {
     expect(manifestSchema.safeParse({ ...m, files: [{ ...m.files[0], collection: 'workspace_meta' }] }).success).toBe(
       false,
     );
-    for (const path of ['../escape', 'C:/secret', '/absolute', 'records\\trip_headers.ndjson', 'manifest.json'])
+    for (const path of ['../escape', 'C:/secret', '/absolute', 'records\\trip_headers.ndjson', 'manifest.json']) {
       expect(manifestSchema.safeParse({ ...m, files: [{ ...m.files[0], path }] }).success).toBe(false);
+    }
     expect(manifestSchema.safeParse({ ...m, files: [...m.files, ...m.files] }).success).toBe(false);
     const parsed = manifestSchema.parse(m);
     validateManifestPaths(['manifest.json', m.files[0].path], parsed);

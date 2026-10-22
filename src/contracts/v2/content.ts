@@ -169,8 +169,9 @@ export const contentRevisionSchema = z.discriminatedUnion('kind', [
         relatedRefs: z.array(targetRef),
       })
       .superRefine((p, ctx) => {
-        if (p.sourceType === 'web' && !webUrl.safeParse(p.sourceUrlOrRef).success)
+        if (p.sourceType === 'web' && !webUrl.safeParse(p.sourceUrlOrRef).success) {
           ctx.addIssue({ code: 'custom', path: ['sourceUrlOrRef'], message: 'HTTP(S) 근거 URL이 필요합니다.' });
+        }
       }),
   }),
   z.strictObject({

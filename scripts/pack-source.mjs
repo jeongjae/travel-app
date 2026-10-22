@@ -13,23 +13,27 @@ const { values } = parseArgs({
     output: { type: 'string' },
   },
 });
-if (!values.extract || !values['dataset-key'] || !values.root || !values.output)
+if (!values.extract || !values['dataset-key'] || !values.root || !values.output) {
   throw new Error('--extract --dataset-key --root --output을 지정하세요. 실제 자료 출력은 local-data/를 권장합니다.');
+}
 const normalized = normalizeExtract(
   parseStrictJson(await readFile(values.extract, 'utf8'), 32 * 1024 ** 2),
   values['dataset-key'],
   values.rules ? JSON.parse(await readFile(values.rules, 'utf8')) : [],
 );
-if (normalized.report.blocking.length)
+if (normalized.report.blocking.length) {
   throw new Error(
     `차단 미해결 ${normalized.report.blocking.length}건. 원천을 수정하거나 명시적 어댑터 규칙을 보완하세요.`,
   );
+}
 const root = await realpath(values.root),
   assets = new Map();
 for (const entry of normalized.extract.entries.filter((e) => e.sourceKind === 'asset')) {
   const file = await realpath(resolve(root, entry.sourceKey)),
     rel = relative(root, file);
-  if (rel.startsWith('..') || isAbsolute(rel)) throw new Error('원천 밖 첨부 경로');
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error('원천 밖 첨부 경로');
+  }
   const bytes = new Uint8Array(await readFile(file));
   assets.set(await digestBytes(bytes), bytes);
 }

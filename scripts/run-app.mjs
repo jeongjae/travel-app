@@ -8,7 +8,9 @@ const server = spawn(process.execPath, ['--env-file-if-exists=.env.local', 'serv
 const frontend = spawn(process.execPath, [resolve('node_modules/vite/bin/vite.js'), ...args], { stdio: 'inherit' });
 let stopping = false;
 function stop(code = 0) {
-  if (stopping) return;
+  if (stopping) {
+    return;
+  }
   stopping = true;
   server.kill();
   frontend.kill();
@@ -16,4 +18,6 @@ function stop(code = 0) {
 }
 server.on('exit', (code) => stop(code ?? 1));
 frontend.on('exit', (code) => stop(code ?? 1));
-for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => stop());
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => stop());
+}

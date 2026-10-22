@@ -59,19 +59,30 @@ function outputText(data: ResponseData) {
 export function collectedSources(data: ResponseData): Source[] {
   const sources = new Map<string, Source>();
   const add = (url?: string, title?: string) => {
-    if (!url) return;
+    if (!url) {
+      return;
+    }
     try {
       const u = new URL(url);
-      if (!/^https?:$/.test(u.protocol) || u.username || u.password) return;
+      if (!/^https?:$/.test(u.protocol) || u.username || u.password) {
+        return;
+      }
       sources.set(u.href, { url: u.href, title: title || u.hostname });
     } catch {
       /* Non-web feeds are not web citations. */
     }
   };
   for (const o of data.output ?? []) {
-    for (const source of o.action?.sources ?? []) add(source.url, source.title);
-    for (const c of o.content ?? [])
-      for (const a of c.annotations ?? []) if (a.type === 'url_citation') add(a.url, a.title);
+    for (const source of o.action?.sources ?? []) {
+      add(source.url, source.title);
+    }
+    for (const c of o.content ?? []) {
+      for (const a of c.annotations ?? []) {
+        if (a.type === 'url_citation') {
+          add(a.url, a.title);
+        }
+      }
+    }
   }
   return [...sources.values()].slice(0, 40);
 }
@@ -92,13 +103,18 @@ export class OpenAiProvider implements AiProvider {
     if (!res.ok) {
       // Provider bodies can contain secret prefixes and user inputs. Never log or return them.
       await res.body?.cancel();
-      if (res.status === 401 || res.status === 403) throw new Error('OpenAI 인증 또는 프로젝트 권한을 확인하세요.');
-      if (res.status === 429) throw new Error('OpenAI 사용 한도·결제 잔액·요청 제한을 확인한 뒤 재시도하세요.');
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('OpenAI 인증 또는 프로젝트 권한을 확인하세요.');
+      }
+      if (res.status === 429) {
+        throw new Error('OpenAI 사용 한도·결제 잔액·요청 제한을 확인한 뒤 재시도하세요.');
+      }
       throw new Error(`OpenAI 요청이 실패했습니다 (HTTP ${res.status}).`);
     }
     const data = (await res.json()) as ResponseData;
-    if (data.status !== 'completed')
+    if (data.status !== 'completed') {
       throw new Error('AI 응답이 완성되지 않았습니다. 입력 범위를 줄여 다시 시도하세요.');
+    }
     return data;
   }
   async research(input: AiRequest, signal: AbortSignal): Promise<Research> {
@@ -116,8 +132,9 @@ export class OpenAiProvider implements AiProvider {
     );
     const text = outputText(data),
       sources = collectedSources(data);
-    if (!sources.length || !text)
+    if (!sources.length || !text) {
       throw new Error('인용 가능한 조사 출처를 얻지 못했습니다. 요청을 구체화해 다시 시도하세요.');
+    }
     return { text, sources };
   }
   async plan(input: AiRequest, research: Research, repair: string, signal: AbortSignal): Promise<ModelPlan> {
@@ -139,7 +156,9 @@ export class OpenAiProvider implements AiProvider {
 }
 export function validateAiProposal(input: AiRequest, output: ModelPlan, research: Research) {
   const sources = new Set(research.sources.map((s) => s.url));
-  if (!output.evidence.length) throw new Error('조사 근거가 하나 이상 필요합니다.');
+  if (!output.evidence.length) {
+    throw new Error('조사 근거가 하나 이상 필요합니다.');
+  }
   const activities = currentPlan(input.trip).activities;
   const proposal = proposalInputSchema.parse({
     id: `ai-${input.id}`,
@@ -164,18 +183,23 @@ export function validateAiProposal(input: AiRequest, output: ModelPlan, research
           },
     ),
     evidence: output.evidence.map((e, i) => {
-      if (!sources.has(e.source)) throw new Error('실제 조사에 없는 출처 URL입니다.');
+      if (!sources.has(e.source)) {
+        throw new Error('실제 조사에 없는 출처 URL입니다.');
+      }
       return { ...e, id: `ai-evidence-${i}`, checkedAt: now(), status: 'unverified' };
     }),
   });
   for (const o of proposal.operations) {
     const previous = activities.find((a) => a.id === (o.type === 'remove' ? o.activityId : o.activity.id));
-    if (previous && localDate(previous.start, previous.timeZone) < input.fromDate)
+    if (previous && localDate(previous.start, previous.timeZone) < input.fromDate) {
       throw new Error('변경 범위 이전의 일정을 수정할 수 없습니다.');
-    if (o.type === 'upsert' && localDate(o.activity.start, o.activity.timeZone) < input.fromDate)
+    }
+    if (o.type === 'upsert' && localDate(o.activity.start, o.activity.timeZone) < input.fromDate) {
       throw new Error('새 일정이 변경 범위 이전입니다.');
-    if (o.type === 'upsert' && previous && canonical(previous) === canonical(o.activity))
+    }
+    if (o.type === 'upsert' && previous && canonical(previous) === canonical(o.activity)) {
       throw new Error('실제 변경 내용이 없는 수정입니다.');
+    }
   }
   applyOperations(input.trip, proposal.operations);
   const candidate = structuredClone(input.trip);
@@ -196,10 +220,12 @@ export async function generateProposal(
 ) {
   const input = aiRequestSchema.parse(raw);
   validateTrip(input.trip);
-  if (JSON.stringify(contextForModel(input)).length > 60_000)
+  if (JSON.stringify(contextForModel(input)).length > 60_000) {
     throw new Error('AI 컨텍스트가 너무 큽니다. 일정과 메모의 범위를 줄여 주세요.');
-  if (input.fromDate < input.trip.startDate || input.fromDate > input.trip.endDate)
+  }
+  if (input.fromDate < input.trip.startDate || input.fromDate > input.trip.endDate) {
     throw new Error('변경 시작 날짜가 여행 범위 밖입니다.');
+  }
   await progress('researching', 0);
   const research = await provider.research(input, signal);
   signal.throwIfAborted();
@@ -214,8 +240,9 @@ export async function generateProposal(
     } catch (error) {
       signal.throwIfAborted();
       // HTTP/auth/quota errors must not trigger additional paid requests.
-      if (!(error instanceof z.ZodError) && error instanceof Error && /^OpenAI|AI 응답/.test(error.message))
+      if (!(error instanceof z.ZodError) && error instanceof Error && /^OpenAI|AI 응답/.test(error.message)) {
         throw error;
+      }
       repair =
         error instanceof z.ZodError
           ? error.issues
@@ -225,7 +252,9 @@ export async function generateProposal(
           : error instanceof Error
             ? error.message
             : '출력 검증 오류';
-      if (attempt === 2) throw new Error(`변경안 검증 실패: ${repair}`);
+      if (attempt === 2) {
+        throw new Error(`변경안 검증 실패: ${repair}`);
+      }
     }
   }
   throw new Error('AI 변경안 작성 실패');

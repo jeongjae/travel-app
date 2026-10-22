@@ -47,8 +47,9 @@ export const legacySchema = z
 export function convertLegacy(input: unknown): Trip {
   const source = legacySchema.parse(input);
   const days = [...source.days].sort((a, b) => a.date.localeCompare(b.date));
-  if (new Set(days.map((d) => d.date)).size !== days.length || new Set(days.map((d) => d.day)).size !== days.length)
+  if (new Set(days.map((d) => d.date)).size !== days.length || new Set(days.map((d) => d.day)).size !== days.length) {
     throw new Error('일일카드 날짜 또는 일차가 중복됩니다.');
+  }
   const trip = newTrip({
     name: source.name,
     startDate: days[0].date,
@@ -56,11 +57,14 @@ export function convertLegacy(input: unknown): Trip {
     timeZone: source.timeZone,
   });
   const activities = days.flatMap((day) => {
-    if (new Set(day.stops.map((s) => s.id)).size !== day.stops.length)
+    if (new Set(day.stops.map((s) => s.id)).size !== day.stops.length) {
       throw new Error('일일카드에 중복 stop ID가 있습니다.');
+    }
     return day.stops.map((stop) => {
       const placeId = stop.place_ref || undefined;
-      if (placeId && !trip.places.some((p) => p.id === placeId)) trip.places.push({ id: placeId, name: stop.name });
+      if (placeId && !trip.places.some((p) => p.id === placeId)) {
+        trip.places.push({ id: placeId, name: stop.name });
+      }
       const timeZone = day.timeZone ?? source.timeZone;
       const endDate = stop.end < stop.start ? addDate(day.date, 1) : day.date;
       return activitySchema.parse({
@@ -96,18 +100,23 @@ export function convertLegacy(input: unknown): Trip {
   return validateTrip(trip);
 }
 export function parseFile(raw: string) {
-  if (new TextEncoder().encode(raw).byteLength > 10 * 1024 * 1024)
+  if (new TextEncoder().encode(raw).byteLength > 10 * 1024 * 1024) {
     throw new Error('10 MiB 이하 JSON 파일만 지원합니다.');
+  }
   const data: unknown = JSON.parse(raw);
   const format = z.object({ format: z.string() }).parse(data).format;
-  if (format === 'spfr-daily-cards') return { kind: 'trip' as const, trip: convertLegacy(data) };
-  if (format === 'travel-app-trip')
+  if (format === 'spfr-daily-cards') {
+    return { kind: 'trip' as const, trip: convertLegacy(data) };
+  }
+  if (format === 'travel-app-trip') {
     return { kind: 'trip' as const, trip: validateTrip(tripFileSchema.parse(data).trip) };
+  }
   if (format === 'travel-app-backup') {
     const backup = backupSchema.parse(data);
     backup.trips.forEach(validateTrip);
-    if (new Set(backup.trips.map((t) => t.id)).size !== backup.trips.length)
+    if (new Set(backup.trips.map((t) => t.id)).size !== backup.trips.length) {
       throw new Error('백업의 여행 ID가 중복됩니다.');
+    }
     return { kind: 'backup' as const, backup };
   }
   if (format === 'travel-app-proposal') {

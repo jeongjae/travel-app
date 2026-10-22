@@ -39,7 +39,9 @@ async function setup() {
 async function seed(repo: ContentRepository, short = false) {
   const t = await pilotTrip(short),
     assets = new Map<string, Uint8Array>();
-  for (const bytes of Object.values(fixtureAssets)) assets.set(await digestBytes(bytes), bytes);
+  for (const bytes of Object.values(fixtureAssets)) {
+    assets.set(await digestBytes(bytes), bytes);
+  }
   const prov = {
     packageId: `package-${t.header.tripId}`,
     packageDigest: await digestBytes(new TextEncoder().encode(canonicalJson(t))),
@@ -94,7 +96,9 @@ it('두 여행 저장/작은 조회/본문 revision 변경과 정확한 동일 �
   await seed(repo, true);
   const before = await repo.get(t.header.tripId);
   const guide = await repo.content(t.header.tripId, 'guide', 'guide-place');
-  if (guide?.kind !== 'guide') throw new Error();
+  if (guide?.kind !== 'guide') {
+    throw new Error();
+  }
   const cmd = env(
     t.header.tripId,
     'EditContentSection',
@@ -300,11 +304,12 @@ it('기존 승인/실제/영수증을 변환하고 미확인 근거의 수집 �
     (c) => c.kind === 'evidence' && c.payload.sourceUrlOrRef === 'https://example.org/legacy',
   );
   expect(evidence.length).toBeGreaterThan(0);
-  for (const row of evidence)
+  for (const row of evidence) {
     if (row.kind === 'evidence') {
       expect(row.payload.sourceVerifiedAt).toBeUndefined();
       expect(row.payload.collectedAt).toBe('2026-10-21T00:00:00Z');
     }
+  }
   await expect(
     repo.execute(
       env(

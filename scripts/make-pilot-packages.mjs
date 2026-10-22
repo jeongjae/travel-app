@@ -4,7 +4,9 @@ import { digestBytes } from '../src/contracts/v2/index.ts';
 import { buildPackage } from '../src/transfer/package.ts';
 await mkdir('public/pilot', { recursive: true });
 const assets = new Map();
-for (const b of Object.values(fixtureAssets)) assets.set(await digestBytes(b), b);
+for (const b of Object.values(fixtureAssets)) {
+  assets.set(await digestBytes(b), b);
+}
 for (const short of [false, true]) {
   const t = await pilotTrip(short),
     p = await buildPackage(

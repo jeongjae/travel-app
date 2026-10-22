@@ -103,28 +103,43 @@ const fail = (message: string): never => {
 
 // Only legacy originals need this codec: preserve explicit undefined without relaxing v2 JSON.
 export function encodeLegacy(value: unknown): unknown {
-  if (value === undefined) return ['undefined'];
-  if (Array.isArray(value)) return ['array', value.map(encodeLegacy)];
-  if (value !== null && typeof value === 'object')
+  if (value === undefined) {
+    return ['undefined'];
+  }
+  if (Array.isArray(value)) {
+    return ['array', value.map(encodeLegacy)];
+  }
+  if (value !== null && typeof value === 'object') {
     return ['object', Object.entries(value).map(([k, v]) => [k, encodeLegacy(v)])];
+  }
   return ['value', value];
 }
 export function decodeLegacy(value: unknown): unknown {
-  if (!Array.isArray(value)) return fail('legacy 원문 인코딩');
-  if (value[0] === 'undefined' && value.length === 1) return undefined;
+  if (!Array.isArray(value)) {
+    return fail('legacy 원문 인코딩');
+  }
+  if (value[0] === 'undefined' && value.length === 1) {
+    return undefined;
+  }
   if (
     value[0] === 'value' &&
     value.length === 2 &&
     (value[1] === null || ['string', 'number', 'boolean'].includes(typeof value[1]))
-  )
+  ) {
     return value[1];
-  if (value.length !== 2 || !Array.isArray(value[1])) return fail('legacy 원문 인코딩');
-  if (value[0] === 'array') return value[1].map(decodeLegacy);
+  }
+  if (value.length !== 2 || !Array.isArray(value[1])) {
+    return fail('legacy 원문 인코딩');
+  }
+  if (value[0] === 'array') {
+    return value[1].map(decodeLegacy);
+  }
   if (value[0] === 'object') {
     const result: Record<string, unknown> = {};
     for (const pair of value[1]) {
-      if (!Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== 'string' || Object.hasOwn(result, pair[0]))
+      if (!Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== 'string' || Object.hasOwn(result, pair[0])) {
         return fail('legacy 키');
+      }
       Object.defineProperty(result, pair[0], {
         value: decodeLegacy(pair[1]),
         enumerable: true,
@@ -138,9 +153,13 @@ export function decodeLegacy(value: unknown): unknown {
 }
 export function backupPackageRow(raw: unknown, decode = false): unknown {
   const row = raw as Row;
-  if (row.lineageId !== 'prototype-v1') return raw;
+  if (row.lineageId !== 'prototype-v1') {
+    return raw;
+  }
   const report = row.report as Record<string, unknown>;
-  if (!report || !Object.hasOwn(report, 'original')) return fail('legacy 원문 누락');
+  if (!report || !Object.hasOwn(report, 'original')) {
+    return fail('legacy 원문 누락');
+  }
   return {
     ...row,
     report: { ...report, original: decode ? decodeLegacy(report.original) : encodeLegacy(report.original) },
@@ -149,7 +168,9 @@ export function backupPackageRow(raw: unknown, decode = false): unknown {
 
 export function validateBackup(rows: BackupRows, tripIds: string[], cutSeq: number) {
   const known = new Set(tripIds);
-  if (known.size !== tripIds.length || rows.trip_headers.length !== known.size) fail('여행 목록/헤더 수');
+  if (known.size !== tripIds.length || rows.trip_headers.length !== known.size) {
+    fail('여행 목록/헤더 수');
+  }
   for (const collection of exchangeCollections) {
     const keys = new Set<string>();
     const fields = storesV2[collection]
@@ -158,17 +179,24 @@ export function validateBackup(rows: BackupRows, tripIds: string[], cutSeq: numb
       .split('+')
       .filter((f) => f !== 'spaceId');
     for (const raw of rows[collection]) {
-      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('객체 행 필요');
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        fail('객체 행 필요');
+      }
       const r = raw as Row;
-      if (!known.has(r.tripId) || 'spaceId' in r) fail('알 수 없는 여행/물리 공간');
+      if (!known.has(r.tripId) || 'spaceId' in r) {
+        fail('알 수 없는 여행/물리 공간');
+      }
       const key = canonicalJson(fields.map((f) => r[f]));
-      if (keys.has(key)) fail(`중복 ${collection}`);
+      if (keys.has(key)) {
+        fail(`중복 ${collection}`);
+      }
       keys.add(key);
       if (
         'commitSeq' in r &&
         (!Number.isSafeInteger(r.commitSeq) || (r.commitSeq as number) < 0 || (r.commitSeq as number) > cutSeq)
-      )
+      ) {
         fail('cutSeq 이후/잘못된 순번');
+      }
     }
   }
   rows.import_packages.forEach((r) => importPackage.parse(r));
@@ -180,45 +208,59 @@ export function validateBackup(rows: BackupRows, tripIds: string[], cutSeq: numb
   );
   for (const tripId of tripIds) {
     const group = blankRows();
-    for (const n of exchangeCollections) group[n] = rows[n].filter((r) => (r as Row).tripId === tripId);
+    for (const n of exchangeCollections) {
+      group[n] = rows[n].filter((r) => (r as Row).tripId === tripId);
+    }
     const t = rowsDataset(group),
       packages = group.import_packages as Row[],
       mappings = group.import_mappings as Row[];
     for (const m of mappings) {
-      if (!packages.some((p) => p.packageId === m.packageId && p.lineageId === m.lineageId)) fail('B의 패키지 참조');
+      if (!packages.some((p) => p.packageId === m.packageId && p.lineageId === m.lineageId)) {
+        fail('B의 패키지 참조');
+      }
       if (
         m.targetKind === 'trip'
           ? m.entityId !== tripId
           : m.targetKind === 'plan'
             ? m.entityId !== 'current-plan'
             : !t.contents.some((c) => c.kind === m.targetKind && c.entityId === m.entityId)
-      )
+      ) {
         fail('B의 대상 참조');
-      if (m.targetKind === 'trip') tripHeaderSchema.parse({ ...t.header, ...metadataSchema.parse(m.baselineValue) });
-      else if (m.targetKind === 'plan')
+      }
+      if (m.targetKind === 'trip') {
+        tripHeaderSchema.parse({ ...t.header, ...metadataSchema.parse(m.baselineValue) });
+      } else if (m.targetKind === 'plan') {
         z.strictObject({
           days: z.array(planDaySchema.omit({ planVersionId: true })),
           items: z.array(planItemSchema.omit({ planVersionId: true })),
           legs: z.array(planLegSchema.omit({ planVersionId: true })),
           stays: z.array(planStaySchema.omit({ planVersionId: true })),
         }).parse(m.baselineValue);
-      else {
+      } else {
         const target = t.contents.find((c) => c.kind === m.targetKind && c.entityId === m.entityId)!;
         contentRevisionSchema.parse({ ...target, payload: m.baselineValue });
       }
     }
     const mappingGroups = new Set(mappings.map((m) => canonicalJson([m.lineageId, m.sourceKind, m.sourceKey])));
-    if (group.import_heads.length !== mappingGroups.size) fail('B head 수');
-    for (const h of group.import_heads as Row[])
+    if (group.import_heads.length !== mappingGroups.size) {
+      fail('B head 수');
+    }
+    for (const h of group.import_heads as Row[]) {
       if (
         !mappings.some((m) => ['lineageId', 'sourceKind', 'sourceKey', 'mappingRevisionId'].every((k) => m[k] === h[k]))
-      )
+      ) {
         fail('B head 참조');
+      }
+    }
     const latest = new Map<string, (typeof t.proposals)[number]>();
-    for (const p of t.proposals)
-      if (!latest.has(p.proposalId) || latest.get(p.proposalId)!.proposalRevision < p.proposalRevision)
+    for (const p of t.proposals) {
+      if (!latest.has(p.proposalId) || latest.get(p.proposalId)!.proposalRevision < p.proposalRevision) {
         latest.set(p.proposalId, p);
-    if (group.proposal_heads.length !== latest.size) fail('초안 head 수');
+      }
+    }
+    if (group.proposal_heads.length !== latest.size) {
+      fail('초안 head 수');
+    }
     for (const h of group.proposal_heads as Row[]) {
       const p = latest.get(h.proposalId as string);
       if (
@@ -226,13 +268,18 @@ export function validateBackup(rows: BackupRows, tripIds: string[], cutSeq: numb
         p.proposalRevisionId !== h.proposalRevisionId ||
         p.proposalRevision !== h.proposalRevision ||
         p.status !== h.status
-      )
+      ) {
         fail('초안 head 참조');
+      }
     }
     for (const raw of group.command_receipts) {
       const r = raw as z.infer<typeof receiptSchema>;
-      if (r.fingerprintVersion !== 2) continue;
-      if (r.domainRevision > t.header.domainRevision) fail('영수증 revision');
+      if (r.fingerprintVersion !== 2) {
+        continue;
+      }
+      if (r.domainRevision > t.header.domainRevision) {
+        fail('영수증 revision');
+      }
       for (const ref of r.result.resultRefs) {
         const found =
           ref.kind === 'trip'
@@ -251,7 +298,9 @@ export function validateBackup(rows: BackupRows, tripIds: string[], cutSeq: numb
                         c.entityId === ref.id &&
                         (!ref.revisionId || c.revisionId === ref.revisionId),
                     );
-        if (!found) fail('영수증 결과 참조');
+        if (!found) {
+          fail('영수증 결과 참조');
+        }
       }
     }
   }
@@ -271,12 +320,16 @@ export async function buildBackup(
   for (const n of exchangeCollections) {
     signal?.throwIfAborted();
     const lines = rows[n].map((r) => canonicalJson(r));
-    if (lines.some((l) => encode(l).length > LIMITS.recordBytes)) fail('단일 행 한도');
+    if (lines.some((l) => encode(l).length > LIMITS.recordBytes)) {
+      fail('단일 행 한도');
+    }
     files.set(`records/${n}.ndjson`, encode(lines.map((l) => l + '\n').join('')));
   }
   for (const [hash, bytes] of assets) {
     signal?.throwIfAborted();
-    if (bytes.length > LIMITS.assetBytes || (await digestBytes(bytes)) !== hash) fail('첨부 해시/한도');
+    if (bytes.length > LIMITS.assetBytes || (await digestBytes(bytes)) !== hash) {
+      fail('첨부 해시/한도');
+    }
     files.set(`assets/sha256/${hash}`, bytes);
   }
   files.set(
@@ -304,9 +357,12 @@ export async function buildBackup(
     tripIds,
     files: entries,
   });
-  if (manifest.format !== 'travel-app-backup') return fail('백업 manifest');
-  if ([...files.values()].some((b) => b.length > LIMITS.commandBytes && ![...assets.values()].includes(b)))
+  if (manifest.format !== 'travel-app-backup') {
+    return fail('백업 manifest');
+  }
+  if ([...files.values()].some((b) => b.length > LIMITS.commandBytes && ![...assets.values()].includes(b))) {
     fail('레코드 파일 한도');
+  }
   const writer = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: false });
   try {
     await writer.add('manifest.json', new Uint8ArrayReader(encode(canonicalJson(manifest))), { signal });
@@ -315,7 +371,9 @@ export async function buildBackup(
       await writer.add(path, new Uint8ArrayReader(bytes), { signal });
     }
     const blob = await writer.close();
-    if (blob.size > LIMITS.zipBytes) fail('ZIP 한도');
+    if (blob.size > LIMITS.zipBytes) {
+      fail('ZIP 한도');
+    }
     return { blob, manifest };
   } catch (error) {
     await writer.close().catch(() => {});
@@ -324,7 +382,9 @@ export async function buildBackup(
 }
 export async function readBackup(blob: Blob, signal?: AbortSignal) {
   const archive = await readArchive(blob, signal);
-  if (archive.manifest.format !== 'travel-app-backup') fail('전체 백업 v2 필요');
+  if (archive.manifest.format !== 'travel-app-backup') {
+    fail('전체 백업 v2 필요');
+  }
   z.strictObject({ backupContract: z.literal('full-v2'), legacyOriginalEncoding: z.literal('tagged-v1') }).parse(
     archive.report,
   );
@@ -334,11 +394,19 @@ export async function readBackup(blob: Blob, signal?: AbortSignal) {
   for (const raw of archive.rows.content_revisions) {
     const c = raw as { kind: string; payload: { hash: string; byteLength: number } };
     if (c.kind === 'asset') {
-      if (required.has(c.payload.hash) && required.get(c.payload.hash) !== c.payload.byteLength) fail('첨부 크기 충돌');
+      if (required.has(c.payload.hash) && required.get(c.payload.hash) !== c.payload.byteLength) {
+        fail('첨부 크기 충돌');
+      }
       required.set(c.payload.hash, c.payload.byteLength);
     }
   }
-  if (required.size !== archive.assets.size) fail('불필요한/누락 첨부');
-  for (const [hash, size] of required) if (archive.assets.get(hash)?.length !== size) fail('첨부 크기');
+  if (required.size !== archive.assets.size) {
+    fail('불필요한/누락 첨부');
+  }
+  for (const [hash, size] of required) {
+    if (archive.assets.get(hash)?.length !== size) {
+      fail('첨부 크기');
+    }
+  }
   return { ...archive, manifest };
 }

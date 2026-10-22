@@ -27,7 +27,9 @@ it('고정 ZIP 버전이 현재 Node에서 UTF-8 자료를 왕복한다 (복원 
     const entries = await reader.getEntries();
     expect(entries.map((e) => e.filename)).toEqual(['manifest.json']);
     const entry = entries[0];
-    if (entry.directory) throw new Error('파일 entry가 필요합니다.');
+    if (entry.directory) {
+      throw new Error('파일 entry가 필요합니다.');
+    }
     expect(await entry.getData(new TextWriter())).toBe('{"가상":true}');
   } finally {
     await reader.close();

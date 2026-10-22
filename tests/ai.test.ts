@@ -12,7 +12,9 @@ import type { AiRequest, ModelPlan } from '../src/ai-contract';
 
 const dirs: string[] = [];
 afterEach(async () => {
-  for (const path of dirs.splice(0)) await rm(path, { recursive: true, force: true });
+  for (const path of dirs.splice(0)) {
+    await rm(path, { recursive: true, force: true });
+  }
 });
 const request = (): AiRequest => ({
   id: uid(),
@@ -86,7 +88,9 @@ it('구조·도메인 오류는 자동 보정하되 작성은 두 번까지만 �
   p.plan = vi.fn(async () => {
     count++;
     const o = output(input);
-    if (count === 1) o.operations[0].end = 'invalid';
+    if (count === 1) {
+      o.operations[0].end = 'invalid';
+    }
     return o;
   });
   await generateProposal(input, p, new AbortController().signal, async () => {});
@@ -173,7 +177,9 @@ it('API는 키 값을 노출하지 않고 외부 Origin 및 앱 헤더 없는 �
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('no port');
+  if (!address || typeof address === 'string') {
+    throw new Error('no port');
+  }
   const base = `http://127.0.0.1:${address.port}`;
   try {
     const status = await fetch(base + '/api/ai/status').then((r) => r.json());

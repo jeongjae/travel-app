@@ -32,7 +32,9 @@ export function normalizeExtract(
 ) {
   const extract = sourceExtractSchema.parse(raw),
     seed = extract.entries.find((e) => e.sourceKey === datasetSourceKey && e.sourceKind === 'json');
-  if (!seed) throw new Error('정규화된 공통 여행 JSON 원천을 지정하세요.');
+  if (!seed) {
+    throw new Error('정규화된 공통 여행 JSON 원천을 지정하세요.');
+  }
   const dataset = validateTripDataset(seed.rawValue),
     report: ImportReport = {
       adapterVersion: 'neutral-v1',
@@ -44,15 +46,20 @@ export function normalizeExtract(
   for (const rule of rules) {
     if (rule.mode === 'xlsx-booking') {
       const match = /^(.*!)([A-Z]+)(\d+)$/.exec(rule.sourceKey);
-      if (!match) throw new Error('XLSX 예약 행의 A열 locator가 필요합니다.');
+      if (!match) {
+        throw new Error('XLSX 예약 행의 A열 locator가 필요합니다.');
+      }
       const cell = (col: string) => {
         const e = extract.entries.find((e) => e.sourceKey === `${match[1]}${col}${match[3]}`);
         return e ? z.record(z.string(), z.json()).parse(e.rawValue).value : undefined;
       };
       const template = dataset.contents.find((c) => c.kind === 'booking');
-      if (template?.kind !== 'booking') throw new Error('예약 형식의 기준 행이 필요합니다.');
-      if (cell('A') !== rule.targetBookingId || typeof cell('E') !== 'string')
+      if (template?.kind !== 'booking') {
+        throw new Error('예약 형식의 기준 행이 필요합니다.');
+      }
+      if (cell('A') !== rule.targetBookingId || typeof cell('E') !== 'string') {
         throw new Error('XLSX 행 ID/상태를 확인하세요.');
+      }
       const dateCell = cell('C'),
         sourceDate =
           typeof dateCell === 'object' && dateCell !== null && 'isoValue' in dateCell
@@ -77,7 +84,9 @@ export function normalizeExtract(
               : { precision: 'unspecified' },
         ),
       };
-      if (typeof cell('B') === 'string') payload.placeId = String(cell('B'));
+      if (typeof cell('B') === 'string') {
+        payload.placeId = String(cell('B'));
+      }
       const sourceRefs = [
         { sourceKind: 'xlsx', sourceKey: rule.sourceKey, sourcePath: match[1].split(':')[0], locator: rule.sourceKey },
       ];
@@ -89,13 +98,14 @@ export function normalizeExtract(
         revisionId: template.revisionId,
         status: 'active',
       });
-      for (const p of dataset.plans)
+      for (const p of dataset.plans) {
         p.contextRefs.push({
           tripId: dataset.header.tripId,
           targetKind: 'booking',
           entityId: rule.targetBookingId,
           revisionId: template.revisionId,
         });
+      }
       for (const e of extract.entries.filter((e) =>
         new RegExp(`^${match[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[A-Z]+${match[3]}$`).test(e.sourceKey),
       )) {
@@ -112,10 +122,14 @@ export function normalizeExtract(
       continue;
     }
     const entry = extract.entries.find((e) => e.sourceKey === rule.sourceKey);
-    if (!entry || !Array.isArray(entry.rawValue)) throw new Error('예약 리터럴 원천이 없습니다.');
+    if (!entry || !Array.isArray(entry.rawValue)) {
+      throw new Error('예약 리터럴 원천이 없습니다.');
+    }
     const record = z.record(z.string(), z.json()).parse(entry.rawValue[rule.index]);
     const booking = dataset.contents.find((c) => c.kind === 'booking' && c.entityId === rule.targetBookingId);
-    if (booking?.kind !== 'booking') throw new Error('예약 대상 대응이 없습니다.');
+    if (booking?.kind !== 'booking') {
+      throw new Error('예약 대상 대응이 없습니다.');
+    }
     const string = (key: string, fallback: string) =>
       typeof record[key] === 'string' ? (record[key] as string) : fallback;
     booking.payload.title = string('name', booking.payload.title);
@@ -150,10 +164,12 @@ export function normalizeExtract(
       rawValue: record,
     });
   }
-  for (const entry of extract.entries)
+  for (const entry of extract.entries) {
     if (!report.decisions.some((d) => d.sourceKey === entry.sourceKey)) {
       const blocking = entry.status === 'unresolved' && !retainedUnresolved.includes(entry.sourceKey);
-      if (blocking) report.blocking.push(entry.sourceKey);
+      if (blocking) {
+        report.blocking.push(entry.sourceKey);
+      }
       report.decisions.push({
         sourceKey: entry.sourceKey,
         locator: entry.locator,
@@ -165,6 +181,7 @@ export function normalizeExtract(
         rawValue: entry.rawValue,
       });
     }
+  }
   validateTripDataset(dataset);
   const mappings = currentMappings(dataset);
   return { dataset, report, mappings, extract };

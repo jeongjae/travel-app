@@ -112,8 +112,9 @@ export function convertLegacy(raw: unknown): { dataset: TripDataset; warnings: s
   const plans: PlanVersion[] = old.versions.map((v) => {
     const planVersionId = `legacy-plan-${v.number}`;
     const dates: string[] = [];
-    for (let d = Temporal.PlainDate.from(old.startDate); d.toString() <= old.endDate; d = d.add({ days: 1 }))
+    for (let d = Temporal.PlainDate.from(old.startDate); d.toString() <= old.endDate; d = d.add({ days: 1 })) {
       dates.push(d.toString());
+    }
     // Preserve per-version evidence as separate immutable identities.
     v.evidence.forEach((e) =>
       contents.push({
@@ -169,10 +170,11 @@ export function convertLegacy(raw: unknown): { dataset: TripDataset; warnings: s
     };
   });
   const records: TripDataset['records'] = old.actuals.map((a) => {
-    if (a.activityId)
+    if (a.activityId) {
       warnings.push(
         `actual ${legacyId(a.id)}: v1에 당시 계획 ID가 없어 연결은 원문 보고서에 보존하고 고정 계획을 추정하지 않음.`,
       );
+    }
     return {
       tripId,
       recordId: legacyId(a.id),
@@ -194,8 +196,9 @@ export function convertLegacy(raw: unknown): { dataset: TripDataset; warnings: s
   });
   const proposals: Proposal[] = [];
   for (const p of old.proposals) {
-    if (p.status !== 'pending' && (!p.decidedAt || p.decidedBy !== 'user'))
+    if (p.status !== 'pending' && (!p.decidedAt || p.decidedBy !== 'user')) {
       throw new Error('기존 결정의 사용자·시각을 확인할 수 없어 전환하지 않았습니다. v1 원문을 보존했습니다.');
+    }
     p.evidence.forEach((e) =>
       contents.push({
         tripId,
@@ -251,7 +254,7 @@ export function convertLegacy(raw: unknown): { dataset: TripDataset; warnings: s
       commitSeq: ++seq,
     };
     proposals.push(proposal);
-    if (p.status !== 'pending')
+    if (p.status !== 'pending') {
       proposals.push({
         ...proposal,
         proposalRevision: 2,
@@ -268,6 +271,7 @@ export function convertLegacy(raw: unknown): { dataset: TripDataset; warnings: s
           : {}),
         commitSeq: ++seq,
       });
+    }
   }
   return {
     dataset: validateTripDataset({

@@ -43,14 +43,17 @@ export const timeSpecSchema = z
     }),
   ])
   .superRefine((value, ctx) => {
-    if (value.precision === 'local' && (value.timeZoneStatus === 'confirmed') !== Boolean(value.timeZone))
+    if (value.precision === 'local' && (value.timeZoneStatus === 'confirmed') !== Boolean(value.timeZone)) {
       ctx.addIssue({ code: 'custom', path: ['timeZoneStatus'], message: '시간대 값과 확인 상태가 일치해야 합니다.' });
+    }
     if (value.precision === 'local' && value.timeZone) {
       try {
         const local = Temporal.PlainDateTime.from(`${value.date}T${value.localTime}`);
         const earlier = local.toZonedDateTime(value.timeZone, { disambiguation: 'earlier' }).toPlainDateTime();
         const later = local.toZonedDateTime(value.timeZone, { disambiguation: 'later' }).toPlainDateTime();
-        if (!local.equals(earlier) && !local.equals(later)) throw new Error();
+        if (!local.equals(earlier) && !local.equals(later)) {
+          throw new Error();
+        }
       } catch {
         ctx.addIssue({
           code: 'custom',
@@ -59,13 +62,17 @@ export const timeSpecSchema = z
         });
       }
     }
-    if (value.precision !== 'instant') return;
+    if (value.precision !== 'instant') {
+      return;
+    }
     try {
       const zoned = Temporal.ZonedDateTime.from(`${value.date}T${value.localTime}${value.offset}[${value.timeZone}]`, {
         offset: 'reject',
         disambiguation: 'reject',
       });
-      if (Temporal.Instant.compare(zoned.toInstant(), Temporal.Instant.from(value.instant)) !== 0) throw new Error();
+      if (Temporal.Instant.compare(zoned.toInstant(), Temporal.Instant.from(value.instant)) !== 0) {
+        throw new Error();
+      }
     } catch {
       ctx.addIssue({
         code: 'custom',
@@ -82,6 +89,7 @@ export const timeRangeSchema = z
       start.precision === 'instant' &&
       end?.precision === 'instant' &&
       Temporal.Instant.compare(start.instant, end.instant) > 0
-    )
+    ) {
       ctx.addIssue({ code: 'custom', path: ['end'], message: '종료가 시작보다 이릅니다.' });
+    }
   });

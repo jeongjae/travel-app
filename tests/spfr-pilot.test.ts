@@ -80,8 +80,9 @@ async function fixture() {
   await put('data/map-queries.json', {
     places: { 'pilot-place': { query: 'Fictional pilot', verdict: 'source-only' } },
   });
-  for (const name of ['region-essentials', 'transit-facts', 'transit-resources', 'tourist-maps'])
+  for (const name of ['region-essentials', 'transit-facts', 'transit-resources', 'tourist-maps']) {
     await put(`data/${name}.json`, { regions: { 'pilot-region': [] } });
+  }
   await put('data/travel-french-phrases.json', { phrases: [] });
   await put('data/travel-french-guide.json', {});
   await put('data/field-notes.json', {});
@@ -120,8 +121,11 @@ async function fixture() {
   async function walk(path: string) {
     for (const e of await readdir(path, { withFileTypes: true })) {
       const p = join(path, e.name);
-      if (e.isDirectory()) await walk(p);
-      else files.push(p);
+      if (e.isDirectory()) {
+        await walk(p);
+      } else {
+        files.push(p);
+      }
     }
   }
   await walk(root);
@@ -178,7 +182,9 @@ it('고정 원천 실행 없이 AST/XLSX/본문을 추출하고 v2 후보/원문
   expect(n.dataset.plans[0].items).toHaveLength(2);
   expect(n.dataset.plans[0].legs).toHaveLength(1);
   const booking = n.dataset.contents.find((c) => c.kind === 'booking');
-  if (booking?.kind !== 'booking') throw Error();
+  if (booking?.kind !== 'booking') {
+    throw Error();
+  }
   expect(booking.payload.time.start).toEqual({ precision: 'text', date: '2033-05-01', rawText: '오후' });
   expect(booking.payload.passNote).toBe('가상 패스 조건');
   expect(booking.payload.actionTiming).toEqual({ precision: 'text', rawText: '판매 시작 시' });

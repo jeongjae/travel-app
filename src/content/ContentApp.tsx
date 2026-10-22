@@ -54,7 +54,9 @@ export function ContentApp() {
     repo
       .init()
       .then(() => {
-        if (live) setReady(true);
+        if (live) {
+          setReady(true);
+        }
       })
       .catch((e) => setError(errorText(e)));
     const update = () => setOnline(navigator.onLine);
@@ -77,7 +79,9 @@ export function ContentApp() {
   );
   const catalog = useLiveQuery(
     async () => {
-      if (!tripId) return [];
+      if (!tripId) {
+        return [];
+      }
       return (
         await Promise.all(
           (['place', 'region', 'booking', 'task', 'phrase-book', 'map-target'] as const).map((k) =>
@@ -144,7 +148,9 @@ export function ContentApp() {
     item?: PlanVersion['items'][number],
     original?: Extract<FieldRecord, { kind: 'actual' }>,
   ) {
-    if (!header) return;
+    if (!header) {
+      return;
+    }
     await action(async () => {
       setActualEditor({
         header: { ...header },
@@ -158,7 +164,9 @@ export function ContentApp() {
     }, '');
   }
   async function toggleTask(task: Extract<ContentRevision, { kind: 'task' }>) {
-    if (!header) return;
+    if (!header) {
+      return;
+    }
     const states = records
       .filter(
         (r): r is Extract<FieldRecord, { kind: 'task-state' }> =>
@@ -198,12 +206,13 @@ export function ContentApp() {
       );
     });
   }
-  if (!ready && !error)
+  if (!ready && !error) {
     return (
       <main className="main">
         <p>여행 저장소를 여는 중입니다.</p>
       </main>
     );
+  }
   return (
     <div className="content-app app-layout">
       <aside className="sidebar">
@@ -238,7 +247,9 @@ export function ContentApp() {
             disabled={busy || meta?.mode !== 'v2'}
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) void load(file);
+              if (file) {
+                void load(file);
+              }
               e.target.value = '';
             }}
           />
@@ -607,7 +618,9 @@ export function ContentApp() {
                     if (place) {
                       setRecordContext(r.payload.contextRefs);
                       navigate('place', place);
-                    } else setNotice('이 기록에는 연결된 장소 본문이 없습니다.');
+                    } else {
+                      setNotice('이 기록에는 연결된 장소 본문이 없습니다.');
+                    }
                   }}
                 />
               </section>
@@ -655,7 +668,9 @@ export function ContentApp() {
               onClick={() =>
                 void action(async () => {
                   const r = await fetch(`/pilot/fixture-${short ? 'b' : 'a'}.zip`);
-                  if (!r.ok) throw new Error('가상 패키지를 읽을 수 없습니다.');
+                  if (!r.ok) {
+                    throw new Error('가상 패키지를 읽을 수 없습니다.');
+                  }
                   setPreview(await readPackage(await r.blob()));
                   setSample(false);
                 }, '가져오기 미리보기를 확인하세요.')
@@ -916,8 +931,9 @@ function PlanEditor({
               sourceFlags: [],
             };
             const item = { ...base, dayId: day, title, time: { start: time } };
-            if (editor.item && editor.item.dayId !== day)
+            if (editor.item && editor.item.dayId !== day) {
               item.order = Math.max(-1, ...editor.plan.items.filter((i) => i.dayId === day).map((i) => i.order)) + 1;
+            }
             await repo.execute(
               command(
                 editor.header.tripId,
@@ -1040,12 +1056,16 @@ function TripCreator({
         onSubmit={async (e) => {
           e.preventDefault();
           try {
-            if (end < start) throw new Error('기간을 확인하세요.');
+            if (end < start) {
+              throw new Error('기간을 확인하세요.');
+            }
             const tripId = crypto.randomUUID(),
               planVersionId = crypto.randomUUID(),
               days: PlanVersion['days'] = [];
             for (let d = Temporal.PlainDate.from(start); d.toString() <= end; d = d.add({ days: 1 })) {
-              if (days.length >= 3660) throw new Error('여행 날짜 수 한도는 3660일입니다.');
+              if (days.length >= 3660) {
+                throw new Error('여행 날짜 수 한도는 3660일입니다.');
+              }
               days.push({
                 tripId,
                 planVersionId,

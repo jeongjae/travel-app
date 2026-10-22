@@ -32,17 +32,25 @@ const rowRef = (r: ContentRevision): RevisionRef => ({
 });
 
 function explicitRefs(value: unknown): TargetRef[] {
-  if (!value || typeof value !== 'object') return [];
-  if (Array.isArray(value)) return value.flatMap(explicitRefs);
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap(explicitRefs);
+  }
   const obj = value as Record<string, unknown>;
-  if ('tripId' in obj && 'targetKind' in obj && 'entityId' in obj) return [obj as TargetRef];
+  if ('tripId' in obj && 'targetKind' in obj && 'entityId' in obj) {
+    return [obj as TargetRef];
+  }
   return Object.values(obj).flatMap(explicitRefs);
 }
 /** Stable-ID edges are resolved against a supplied context for historical views. */
 function contentEdges(r: ContentRevision): TargetRef[] {
   const refs: TargetRef[] = explicitRefs(r.payload);
   const add = (targetKind: ContentRef['targetKind'], entityId?: string) => {
-    if (entityId) refs.push({ tripId: r.tripId, targetKind, entityId });
+    if (entityId) {
+      refs.push({ tripId: r.tripId, targetKind, entityId });
+    }
   };
   const assets = (values: { assetId: string }[]) => values.forEach((a) => add('asset', a.assetId));
   switch (r.kind) {
@@ -108,8 +116,9 @@ export function validateTripDataset(raw: unknown): TripDataset {
     sameTrip(ref.tripId, path);
     const found = contents.get(revisionKey(ref));
     ensure(found, path, '고정 revision이 없습니다.', 'BROKEN_REFERENCE');
-    if (found.kind === 'asset')
+    if (found.kind === 'asset') {
       ensure(ref.hash === found.payload.hash, path, '첨부 revision과 해시가 다릅니다.', 'BROKEN_REFERENCE');
+    }
     return found;
   };
   const target = (ref: TargetRef, path: string) => {
@@ -137,7 +146,9 @@ export function validateTripDataset(raw: unknown): TripDataset {
     }
     ensure(!ref.planVersionId, path, '콘텐츠 참조에 계획 ID를 넣지 않습니다.');
     ensure(heads.has(identity(ref as ContentRef)), path, '콘텐츠 대상이 없습니다.', 'BROKEN_REFERENCE');
-    if ('revisionId' in ref) resolve(ref as RevisionRef, path);
+    if ('revisionId' in ref) {
+      resolve(ref as RevisionRef, path);
+    }
   };
   const context = (refs: RevisionRef[], path: string) => {
     unique(refs.map(identity), path);
@@ -146,7 +157,9 @@ export function validateTripDataset(raw: unknown): TripDataset {
     for (const ref of refs) {
       for (const edge of contentEdges(resolve(ref, path))) {
         target(edge, path);
-        if (['trip', 'plan', 'day', 'activity'].includes(edge.targetKind)) continue;
+        if (['trip', 'plan', 'day', 'activity'].includes(edge.targetKind)) {
+          continue;
+        }
         ensure(
           pinned.has(identity(edge as ContentRef)),
           path,
@@ -156,17 +169,20 @@ export function validateTripDataset(raw: unknown): TripDataset {
       }
     }
     return (kind: ContentRef['targetKind'], entityId?: string) => {
-      if (entityId)
+      if (entityId) {
         ensure(
           pinned.has(key(kind, entityId)),
           path,
           `${kind}/${entityId}의 당시 revision이 필요합니다.`,
           'BROKEN_REFERENCE',
         );
+      }
     };
   };
   const content = (kind: ContentRef['targetKind'], entityId: string | undefined, path: string) => {
-    if (entityId) target({ tripId, targetKind: kind, entityId }, path);
+    if (entityId) {
+      target({ tripId, targetKind: kind, entityId }, path);
+    }
   };
   const planActivity = (planVersionId: string | undefined, activityId: string, path: string) =>
     target({ tripId, targetKind: 'activity', entityId: activityId, ...(planVersionId ? { planVersionId } : {}) }, path);
@@ -199,12 +215,13 @@ export function validateTripDataset(raw: unknown): TripDataset {
         p.factBindings.map((b) => b.token),
         'factBindings',
       );
-      if (p.documentKind === 'place-guide')
+      if (p.documentKind === 'place-guide') {
         ensure(
           ['why_go', 'deep', 'practical'].every((k) => p.sections.some((s) => s.key === k)),
           'sections',
           '장소 본문의 세 섹션이 필요합니다.',
         );
+      }
       const bindings = new Map(p.factBindings.map((b) => [b.token, b.ref]));
       p.sections.forEach((s) => {
         const tokens = [...s.bodyMd.matchAll(/\{\{fact:([^{}]+)\}\}/g)];
@@ -242,27 +259,31 @@ export function validateTripDataset(raw: unknown): TripDataset {
           );
         }
       });
-      if (p.documentKind === 'transit')
+      if (p.documentKind === 'transit') {
         p.structuredData.itineraryUses.forEach((u) =>
           u.dayIds.forEach((d) =>
             target({ tripId, targetKind: 'day', entityId: d, planVersionId: u.planVersionId }, 'transit.itineraryUses'),
           ),
         );
+      }
     }
-    if (c.kind === 'booking')
+    if (c.kind === 'booking') {
       c.payload.activityIds.forEach((a) => planActivity(c.payload.planVersionId, a, 'booking.activityIds'));
-    if (c.kind === 'fact')
+    }
+    if (c.kind === 'fact') {
       ensure(
         !c.payload.appliesFrom || !c.payload.appliesTo || c.payload.appliesFrom <= c.payload.appliesTo,
         'fact.appliesTo',
         '사실 적용 기간이 역순입니다.',
       );
-    if (c.kind === 'map-target' && c.payload.mapKind === 'place')
+    }
+    if (c.kind === 'map-target' && c.payload.mapKind === 'place') {
       ensure(
         (c.payload.lat === undefined) === (c.payload.lng === undefined),
         'map-target',
         '위도·경도 쌍이 필요합니다.',
       );
+    }
     if (c.kind === 'phrase-book') {
       const p = c.payload;
       unique(p.categories, 'phrase.categories');
@@ -418,12 +439,14 @@ export function validateTripDataset(raw: unknown): TripDataset {
           item.bookingIds.forEach((b) => pin('booking', b));
           item.taskRefs.forEach((t) => pin('task', t.entityId));
           pin('map-target', item.mapTargetId);
-        } else if (r.payload.planVersionId)
+        } else if (r.payload.planVersionId) {
           ensure(plans.has(r.payload.planVersionId), 'actual.planVersionId', '계획이 없습니다.', 'BROKEN_REFERENCE');
+        }
         pin('place', r.payload.placeRef?.entityId);
       }
-      if (r.kind === 'note' && !['trip', 'plan', 'day', 'activity'].includes(r.payload.targetRef.targetKind))
+      if (r.kind === 'note' && !['trip', 'plan', 'day', 'activity'].includes(r.payload.targetRef.targetKind)) {
         pin(r.payload.targetRef.targetKind as ContentRef['targetKind'], r.payload.targetRef.entityId);
+      }
       if (r.kind === 'task-state') {
         const task = resolve(r.payload.taskRef, 'task-state');
         ensure(
@@ -474,14 +497,16 @@ export function validateTripDataset(raw: unknown): TripDataset {
         o.item.bookingIds.forEach((b) => content('booking', b, 'proposal.booking'));
         content('map-target', o.item.mapTargetId, 'proposal.map');
         o.item.taskRefs.forEach((r) => resolve(r, 'proposal.task'));
-      } else planActivity(p.basePlanVersionId, o.activityId, 'proposal.remove');
+      } else {
+        planActivity(p.basePlanVersionId, o.activityId, 'proposal.remove');
+      }
     }
     ensure(
       Boolean(p.previousProposalRevisionId) === p.proposalRevision > 1,
       'proposal.previous',
       '초안 revision 연결이 필요합니다.',
     );
-    if (p.previousProposalRevisionId)
+    if (p.previousProposalRevisionId) {
       ensure(
         t.proposals.some(
           (prev) =>
@@ -494,18 +519,22 @@ export function validateTripDataset(raw: unknown): TripDataset {
         '이전 초안 revision이 없습니다.',
         'BROKEN_REFERENCE',
       );
-    if (p.previousProposalRevisionId) proposalParents.push(key(p.proposalId, p.previousProposalRevisionId));
-    if (p.resultPlanVersionId)
+    }
+    if (p.previousProposalRevisionId) {
+      proposalParents.push(key(p.proposalId, p.previousProposalRevisionId));
+    }
+    if (p.resultPlanVersionId) {
       ensure(
         plans.get(p.resultPlanVersionId)?.proposalId === p.proposalId,
         'proposal.result',
         '결과 계획의 변경안 연결이 없습니다.',
         'BROKEN_REFERENCE',
       );
+    }
   }
   unique(proposalParents, 'proposal.previous');
-  for (const p of t.plans)
-    if (p.proposalId)
+  for (const p of t.plans) {
+    if (p.proposalId) {
       ensure(
         t.proposals.some(
           (r) => r.proposalId === p.proposalId && r.status === 'applied' && r.resultPlanVersionId === p.planVersionId,
@@ -514,6 +543,8 @@ export function validateTripDataset(raw: unknown): TripDataset {
         '적용한 변경안이 없습니다.',
         'BROKEN_REFERENCE',
       );
+    }
+  }
   return t;
 }
 

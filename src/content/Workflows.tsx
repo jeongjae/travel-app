@@ -21,7 +21,9 @@ export function ProposalPanel({
     [busy, setBusy] = useState(false);
   const latest = new Map<string, Proposal>();
   proposals.forEach((p) => {
-    if ((latest.get(p.proposalId)?.proposalRevision ?? 0) < p.proposalRevision) latest.set(p.proposalId, p);
+    if ((latest.get(p.proposalId)?.proposalRevision ?? 0) < p.proposalRevision) {
+      latest.set(p.proposalId, p);
+    }
   });
   async function decide(p: Proposal, decision: 'apply' | 'reject') {
     setBusy(true);

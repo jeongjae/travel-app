@@ -29,7 +29,9 @@ export const instant = z.string().refine((value) => {
   }
 }, '오프셋이 있는 ISO instant가 필요합니다.');
 export const timeZone = z.string().refine((value) => {
-  if (/^[+-]/.test(value)) return false;
+  if (/^[+-]/.test(value)) {
+    return false;
+  }
   try {
     Temporal.Instant.from('2026-01-01T00:00:00Z').toZonedDateTimeISO(value);
     return true;
@@ -59,8 +61,9 @@ export const contentKind = z.enum([
 ]);
 export const contentRef = z.strictObject({ tripId: id, targetKind: contentKind, entityId: id });
 export const revisionRef = contentRef.extend({ revisionId: id, hash: sha256.optional() }).superRefine((r, ctx) => {
-  if (r.targetKind === 'asset' ? !r.hash : r.hash !== undefined)
+  if (r.targetKind === 'asset' ? !r.hash : r.hash !== undefined) {
     ctx.addIssue({ code: 'custom', path: ['hash'], message: 'Asset만 해시를 필수로 고정합니다.' });
+  }
 });
 export const targetRef = z.strictObject({
   tripId: id,
@@ -101,7 +104,9 @@ export function ensure(
   message: string,
   code: ContractError['code'] = 'INVALID_INPUT',
 ): asserts condition {
-  if (!condition) throw new ContractError(code, path, message);
+  if (!condition) {
+    throw new ContractError(code, path, message);
+  }
 }
 export function unique(values: string[], path: string) {
   ensure(new Set(values).size === values.length, path, '중복 키입니다.', 'DUPLICATE_ID');

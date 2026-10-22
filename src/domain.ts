@@ -49,7 +49,9 @@ export const evidenceSchema = z
       .min(1)
       .max(2000)
       .refine((v) => {
-        if (!/^\w+:/.test(v)) return !v.startsWith('//');
+        if (!/^\w+:/.test(v)) {
+          return !v.startsWith('//');
+        }
         try {
           const url = new URL(v);
           return /^https?:$/.test(url.protocol) && !!url.hostname && !url.username && !url.password;
@@ -170,7 +172,9 @@ export function fromLocal(value: string, timeZone: string): string {
 export const addDate = (value: string, days: number) => Temporal.PlainDate.from(value).add({ days }).toString();
 export function dateRange(start: string, end: string) {
   const dates: string[] = [];
-  for (let d = start; d <= end && dates.length < 367; d = addDate(d, 1)) dates.push(d);
+  for (let d = start; d <= end && dates.length < 367; d = addDate(d, 1)) {
+    dates.push(d);
+  }
   return dates;
 }
 export const sortByStart = <T extends { start: string }>(rows: T[]) =>
@@ -180,7 +184,9 @@ export function effectiveActuals(trip: Trip) {
   return sortByStart(trip.actuals.filter((a) => !superseded.has(a.id)));
 }
 function assert(ok: unknown, message: string): asserts ok {
-  if (!ok) throw new Error(message);
+  if (!ok) {
+    throw new Error(message);
+  }
 }
 function unique(ids: string[], label: string) {
   assert(new Set(ids).size === ids.length, `${label} ID가 중복됩니다.`);
@@ -210,8 +216,11 @@ export function applyOperations(trip: Trip, operations: Operation[]): Activity[]
     if (op.type === 'remove') {
       assert(index >= 0, '제거할 일정이 현재 계획에 없습니다.');
       activities.splice(index, 1);
-    } else if (index >= 0) activities[index] = op.activity;
-    else activities.push(op.activity);
+    } else if (index >= 0) {
+      activities[index] = op.activity;
+    } else {
+      activities.push(op.activity);
+    }
   }
   return sortByStart(activities);
 }
@@ -266,11 +275,12 @@ export function validateTrip(input: unknown): Trip {
     );
     v.activities.forEach(checkRow);
     v.evidence.forEach((e) => checkEvidence(e, historical));
-    if (v.proposalId)
+    if (v.proposalId) {
       assert(
         t.proposals.some((p) => p.id === v.proposalId && p.status === 'applied'),
         '버전의 적용 변경안이 없습니다.',
       );
+    }
   });
   for (const a of t.actuals) {
     checkRow(a);
@@ -300,8 +310,11 @@ export function validateTrip(input: unknown): Trip {
       ...p.operations.flatMap((o) => (o.type === 'upsert' ? [o.activity.id] : [])),
     ]);
     p.operations.forEach((o) => {
-      if (o.type === 'upsert') checkRow(o.activity);
-      else assert(historical.has(o.activityId), '삭제 대상 일정이 없습니다.');
+      if (o.type === 'upsert') {
+        checkRow(o.activity);
+      } else {
+        assert(historical.has(o.activityId), '삭제 대상 일정이 없습니다.');
+      }
     });
     unique(
       p.evidence.map((e) => e.id),
@@ -312,11 +325,12 @@ export function validateTrip(input: unknown): Trip {
       p.status === 'pending' ? !p.decidedAt && !p.decidedBy : !!p.decidedAt && !!p.decidedBy,
       '변경안 결정 기록이 올바르지 않습니다.',
     );
-    if (p.status === 'applied')
+    if (p.status === 'applied') {
       assert(
         t.versions.some((v) => v.proposalId === p.id),
         '적용 변경안의 계획 버전이 없습니다.',
       );
+    }
   }
   return t;
 }
@@ -339,12 +353,15 @@ export function newTrip(input: {
   });
 }
 export function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (value && typeof value === 'object')
+  if (Array.isArray(value)) {
+    return `[${value.map(canonical).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
     return `{${Object.entries(value)
       .filter(([, v]) => v !== undefined)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)
       .join(',')}}`;
+  }
   return JSON.stringify(value);
 }

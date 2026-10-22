@@ -27,11 +27,12 @@ type DialogKind = DialogContent & { baseRevision: number };
 const tabs = ['일정', '실제 기록', '변경안', '여행 설정'] as const;
 type Tab = (typeof tabs)[number];
 function describeError(error: unknown) {
-  if (error instanceof ZodError)
+  if (error instanceof ZodError) {
     return `입력 형식 오류: ${error.issues
       .slice(0, 3)
       .map((i) => `${i.path.join('.')} ${i.message}`)
       .join(' / ')}`;
+  }
   return error instanceof Error ? error.message : '작업 중 오류가 발생했습니다. 저장 상태를 확인하세요.';
 }
 function Icon({ kind }: { kind: 'left' | 'right' | 'plus' }) {
@@ -76,7 +77,9 @@ function Modal({
       aria-labelledby="dialog-title"
       onCancel={(event) => {
         event.preventDefault();
-        if (!busy) onClose();
+        if (!busy) {
+          onClose();
+        }
       }}
     >
       <div className="dialog-heading">
@@ -114,7 +117,9 @@ export function App() {
     };
   }, []);
   const run: Action = async (task, success = '이 기기에 저장했습니다.') => {
-    if (busy) return false;
+    if (busy) {
+      return false;
+    }
     setBusy(true);
     setError('');
     setMessage('');
@@ -135,14 +140,18 @@ export function App() {
     await run(async () => {
       const demos = demoTrips();
       await repository.db.transaction('rw', repository.db.trips, async () => {
-        if (await repository.db.trips.count()) throw new Error('예시는 빈 저장소에서만 불러옵니다.');
+        if (await repository.db.trips.count()) {
+          throw new Error('예시는 빈 저장소에서만 불러옵니다.');
+        }
         await repository.db.trips.bulkAdd(demos);
       });
       setSelected(demos[0].id);
     }, '가상 예시 여행 두 개를 불러왔습니다.');
   }
   async function confirmImport() {
-    if (!preview) return;
+    if (!preview) {
+      return;
+    }
     const ok = await run(async () => {
       if (preview.kind === 'trip') {
         await repository.importTrip(preview.trip);
@@ -155,7 +164,9 @@ export function App() {
         setSelected(preview.proposal.tripId);
       }
     });
-    if (ok) setPreview(null);
+    if (ok) {
+      setPreview(null);
+    }
   }
   return (
     <div className="app-layout">
@@ -255,11 +266,14 @@ export function App() {
         onChange={(event) => {
           const selectedFile = event.target.files?.[0];
           event.target.value = '';
-          if (selectedFile)
+          if (selectedFile) {
             void run(async () => {
-              if (selectedFile.size > 10 * 1024 * 1024) throw new Error('10 MiB 이하 파일만 지원합니다.');
+              if (selectedFile.size > 10 * 1024 * 1024) {
+                throw new Error('10 MiB 이하 파일만 지원합니다.');
+              }
               setPreview(parseFile(await selectedFile.text()));
             }, '파일을 검증했습니다. 미리보기를 확인하세요.');
+          }
         }}
       />
       {newOpen ? (
@@ -271,7 +285,9 @@ export function App() {
                 const created = await repository.create(input);
                 setSelected(created.id);
               });
-              if (ok) setNewOpen(false);
+              if (ok) {
+                setNewOpen(false);
+              }
             }}
           />
         </Modal>
@@ -729,7 +745,9 @@ function TripWorkspace({
                         '사용자 일정 제거',
                       ),
                     );
-                    if (ok) setDialog(null);
+                    if (ok) {
+                      setDialog(null);
+                    }
                   }
                 : undefined
             }

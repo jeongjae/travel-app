@@ -32,10 +32,12 @@ export const tripHeaderSchema = z
       .optional(),
   })
   .superRefine((t, ctx) => {
-    if (t.endDate < t.startDate)
+    if (t.endDate < t.startDate) {
       ctx.addIssue({ code: 'custom', path: ['endDate'], message: '여행 종료일이 시작일보다 이릅니다.' });
-    if ((t.timeZoneStatus === 'confirmed') !== Boolean(t.defaultTimeZone))
+    }
+    if ((t.timeZoneStatus === 'confirmed') !== Boolean(t.defaultTimeZone)) {
       ctx.addIssue({ code: 'custom', path: ['timeZoneStatus'], message: '시간대 확인 상태가 값과 다릅니다.' });
+    }
   });
 const row = { tripId: id, planVersionId: id };
 export const planDaySchema = z.strictObject({
@@ -209,8 +211,9 @@ export const proposalSchema = z
         : !p.decision ||
           p.decision.action !== (p.status === 'applied' ? 'apply' : 'reject') ||
           (p.status === 'applied') !== Boolean(p.resultPlanVersionId)
-    )
+    ) {
       ctx.addIssue({ code: 'custom', path: ['decision'], message: '변경안 상태·사용자 결정·결과가 일치해야 합니다.' });
+    }
   });
 export type PlanVersion = z.infer<typeof planVersionSchema>;
 export type FieldRecord = z.infer<typeof fieldRecordSchema>;

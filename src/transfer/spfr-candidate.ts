@@ -32,8 +32,9 @@ export async function normalizeSpfrCandidate(
     contents: ContentRevision[] = [],
     tripId = options.tripId,
     planVersionId = 'source-plan-1';
-  if (!options.days.length || new Set(options.days).size !== options.days.length)
+  if (!options.days.length || new Set(options.days).size !== options.days.length) {
     throw new Error('중복 없는 대표 일자가 필요합니다.');
+  }
   const mapped: { sourceKey: string; target: string; note: string }[] = [];
   const blocking = [
     'XLSX_MAPPING_PENDING',
@@ -41,10 +42,14 @@ export async function normalizeSpfrCandidate(
     'REGION_LANGUAGE_FIELD_STATE_MAPPING_PENDING',
     'FULL_FIELD_COVERAGE_PENDING',
   ];
-  if (extract.unresolved.length) blocking.push('UNRESOLVED_SOURCE');
+  if (extract.unresolved.length) {
+    blocking.push('UNRESOLVED_SOURCE');
+  }
   const entry = (path: string) => {
     const e = extract.entries.find((e) => e.sourceKey === path);
-    if (!e || e.status !== 'extracted') throw new Error(`원천 누락/미해결: ${path}`);
+    if (!e || e.status !== 'extracted') {
+      throw new Error(`원천 누락/미해결: ${path}`);
+    }
     return e;
   };
   const json = (path: string) => object(entry(path).rawValue);
@@ -86,7 +91,9 @@ export async function normalizeSpfrCandidate(
     .toSorted((a, b) => a - b)
     .map((day) => {
       const c = json(pathFor(day));
-      if (c.day !== day) throw new Error('일일카드 번호가 다릅니다.');
+      if (c.day !== day) {
+        throw new Error('일일카드 번호가 다릅니다.');
+      }
       return c;
     });
   const dates = cards.map((c) => string(c.date)),
@@ -98,7 +105,9 @@ export async function normalizeSpfrCandidate(
     regions = objects(json('source/CURRENT/10_Core/regions.json').regions);
   for (const regionId of regionIds) {
     const r = regions.find((r) => r.slug === regionId);
-    if (!r) throw new Error('지역 원천 누락');
+    if (!r) {
+      throw new Error('지역 원천 누락');
+    }
     add(
       'region',
       regionId,
@@ -152,7 +161,9 @@ export async function normalizeSpfrCandidate(
     const localRegions = stays
       .filter((s) => string(s.checkin) <= date && date < string(s.checkout))
       .map((s) => string(s.key));
-    if (!localRegions.length) throw new Error('명시적인 숙박 지역이 없습니다.');
+    if (!localRegions.length) {
+      throw new Error('명시적인 숙박 지역이 없습니다.');
+    }
     plan.days.push({
       tripId,
       planVersionId,
@@ -180,7 +191,9 @@ export async function normalizeSpfrCandidate(
       const rawId = string(stop.id),
         activityId = `${dayId}-${rawId}`,
         placeId = optionalString(stop.place_ref);
-      if (placeId) places.set(placeId, stop);
+      if (placeId) {
+        places.set(placeId, stop);
+      }
       plan.items.push({
         tripId,
         planVersionId,
@@ -205,7 +218,7 @@ export async function normalizeSpfrCandidate(
         sourceFlags: [],
       });
     }
-    for (const [i, l] of objects(c.legs).entries())
+    for (const [i, l] of objects(c.legs).entries()) {
       plan.legs.push({
         tripId,
         planVersionId,
@@ -219,6 +232,7 @@ export async function normalizeSpfrCandidate(
         lineText: optionalString(l.line),
         geometryStatus: optionalString(l.geometryStatus),
       });
+    }
     mapped.push({
       sourceKey: path,
       target: `plan/${dayId}`,
@@ -231,7 +245,9 @@ export async function normalizeSpfrCandidate(
     const path = `source/CURRENT/30_Places/${slug}.md`,
       rawMd = string(entry(path).rawValue),
       front = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(rawMd);
-    if (!front) throw new Error('명시적 장소 frontmatter가 필요합니다.');
+    if (!front) {
+      throw new Error('명시적 장소 frontmatter가 필요합니다.');
+    }
     const values = new Map<string, string>();
     for (const line of front[1].split(/\r?\n/)) {
       const m = /^([a-z_]+):\s*(.*)$/.exec(line);
@@ -239,12 +255,15 @@ export async function normalizeSpfrCandidate(
         blocking.push(`FRONTMATTER_UNSUPPORTED:${slug}`);
         continue;
       }
-      if (values.has(m[1])) throw new Error('중복 frontmatter');
+      if (values.has(m[1])) {
+        throw new Error('중복 frontmatter');
+      }
       const v = m[2];
       values.set(m[1], v.startsWith('"') ? string(JSON.parse(v)) : v);
     }
-    if (values.get('slug') !== slug || !regionIds.includes(values.get('region') ?? ''))
+    if (values.get('slug') !== slug || !regionIds.includes(values.get('region') ?? '')) {
       throw new Error('장소 ID/지역이 다릅니다.');
+    }
     const map = maps[slug] ? object(maps[slug]) : undefined,
       mapId = `map-${slug}`;
     add(
@@ -284,7 +303,7 @@ export async function normalizeSpfrCandidate(
     );
     const factBindings: { token: string; ref: RevisionRef }[] = [],
       factIds: string[] = [];
-    if (facts[slug])
+    if (facts[slug]) {
       for (const [key, value] of Object.entries(object(object(facts[slug]).facts))) {
         const f = object(value),
           factId = await stable('fact', `${slug}:${key}`),
@@ -309,7 +328,9 @@ export async function normalizeSpfrCandidate(
             where,
           );
           evidenceRefs.push(ref('evidence', evidenceId));
-        } else blocking.push(`FACT_SOURCE_MISSING:${slug}:${key}`);
+        } else {
+          blocking.push(`FACT_SOURCE_MISSING:${slug}:${key}`);
+        }
         add(
           'fact',
           factId,
@@ -329,10 +350,13 @@ export async function normalizeSpfrCandidate(
         factBindings.push({ token: key, ref: ref('fact', factId) });
         factIds.push(factId);
       }
+    }
     const body = rawMd.slice(front[0].length),
       sections: Extract<ContentRevision, { kind: 'guide' }>['payload']['sections'] = [];
     const pieces = body.split(/^## /m);
-    if (pieces[0].trim()) blocking.push(`GUIDE_PREAMBLE_PENDING:${slug}`);
+    if (pieces[0].trim()) {
+      blocking.push(`GUIDE_PREAMBLE_PENDING:${slug}`);
+    }
     for (const [i, piece] of pieces.slice(1).entries()) {
       const split = piece.indexOf('\n'),
         title = (split < 0 ? piece : piece.slice(0, split)).trim(),
@@ -344,12 +368,13 @@ export async function normalizeSpfrCandidate(
           : /실용/.test(title)
             ? 'practical'
             : await stable('section', title);
-      if (/<\/?[A-Za-z]|!\[|travel:\/\/|asset:\/\//.test(bodyMd))
+      if (/<\/?[A-Za-z]|!\[|travel:\/\/|asset:\/\//.test(bodyMd)) {
         blocking.push(`GUIDE_BINDINGS_PENDING:${slug}:${key}`);
+      }
       sections.push({ key, title, order: i, bodyMd, factRefs: [], assetRefs: [], linkRefs: [] });
     }
     // Keep narrative and structured source facts separately; never silently replace conflicting prose.
-    if (factIds.length)
+    if (factIds.length) {
       sections.push({
         key: 'source-facts',
         title: '구조화 원천 사실 · 본문 대조 필요',
@@ -359,6 +384,7 @@ export async function normalizeSpfrCandidate(
         assetRefs: [],
         linkRefs: [],
       });
+    }
     add(
       'guide',
       `guide-${slug}`,
@@ -382,7 +408,9 @@ export async function normalizeSpfrCandidate(
   const code = entry('build/render.py:PARIS_MUSEUM_BOOKINGS');
   for (const [index, b] of objects(code.rawValue).entries()) {
     const card = cards.find((c) => c.day === b.day);
-    if (!card) continue;
+    if (!card) {
+      continue;
+    }
     const id = await stable('booking', string(b.id)),
       date = string(card.date),
       slug = optionalString(b.slug),
@@ -415,7 +443,9 @@ export async function normalizeSpfrCandidate(
       'build/render.py',
       `${code.locator}[${index}]`,
     );
-    for (const i of plan.items.filter((i) => activityIds.includes(i.activityId))) i.bookingIds.push(id);
+    for (const i of plan.items.filter((i) => activityIds.includes(i.activityId))) {
+      i.bookingIds.push(id);
+    }
     mapped.push({
       sourceKey: `${code.sourceKey}[${index}]`,
       target: `booking/${id}`,

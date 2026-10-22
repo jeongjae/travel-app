@@ -3,7 +3,9 @@ import { resolve, dirname, sep } from 'node:path';
 
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((pairs, value, index, all) => {
-    if (value.startsWith('--')) pairs.push([value.slice(2), all[index + 1]]);
+    if (value.startsWith('--')) {
+      pairs.push([value.slice(2), all[index + 1]]);
+    }
     return pairs;
   }, []),
 );
@@ -16,17 +18,21 @@ if (!args['source-dir'] || !args.name || !args['time-zone']) {
 try {
   const sourceDir = resolve(args['source-dir']);
   const output = resolve(args.output ?? 'local-data/spfr-import.json');
-  if (output === sourceDir || output.startsWith(sourceDir + sep))
+  if (output === sourceDir || output.startsWith(sourceDir + sep)) {
     throw new Error('원본 폴더 밖에 출력 파일을 지정하세요.');
+  }
   new Intl.DateTimeFormat('en', { timeZone: args['time-zone'] });
   const zones = args['zone-map'] ? JSON.parse(await readFile(resolve(args['zone-map']), 'utf8')) : {};
   const files = (await readdir(sourceDir)).filter((name) => /^day-\d+\.json$/.test(name)).sort();
-  if (!files.length) throw new Error('day-NN.json 일일카드를 찾지 못했습니다.');
+  if (!files.length) {
+    throw new Error('day-NN.json 일일카드를 찾지 못했습니다.');
+  }
   const days = await Promise.all(
     files.map(async (name) => {
       const card = JSON.parse(await readFile(resolve(sourceDir, name), 'utf8'));
-      if (card.schemaVersion !== '1.0' || !Array.isArray(card.stops))
+      if (card.schemaVersion !== '1.0' || !Array.isArray(card.stops)) {
         throw new Error(`${name}: 지원하지 않는 카드 형식`);
+      }
       const timeZone = zones[card.date] ?? zones[String(card.day)] ?? args['time-zone'];
       new Intl.DateTimeFormat('en', { timeZone });
       // Keep only the supported itinerary fields; do not package hotel, ticket, or booking objects.

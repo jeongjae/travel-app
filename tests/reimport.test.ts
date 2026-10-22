@@ -7,11 +7,15 @@ import { command } from '../src/content/ui';
 import type { Choice, Review } from '../src/transfer/reimport';
 const dbs: TravelDB[] = [];
 afterEach(async () => {
-  for (const d of dbs.splice(0)) await d.delete();
+  for (const d of dbs.splice(0)) {
+    await d.delete();
+  }
 });
 async function prepared(repo: ContentRepository, t: TripDataset) {
   const assets = new Map<string, Uint8Array>();
-  for (const b of Object.values(fixtureAssets)) assets.set(await digestBytes(b), b);
+  for (const b of Object.values(fixtureAssets)) {
+    assets.set(await digestBytes(b), b);
+  }
   const p = await readPackage(
     (
       await buildPackage(t, assets, {
@@ -55,12 +59,16 @@ async function apply(repo: ContentRepository, review: Review, select?: (key: Rev
 }
 function editRemote(t: TripDataset, key: string, body: string) {
   const g = t.contents.find((c) => c.kind === 'guide')!;
-  if (g.kind === 'guide') g.payload.sections.find((s) => s.key === key)!.bodyMd = body;
+  if (g.kind === 'guide') {
+    g.payload.sections.find((s) => s.key === key)!.bodyMd = body;
+  }
 }
 async function editLocal(repo: ContentRepository, key: string, body: string) {
   const t = await repo.get('fixture-a'),
     g = await repo.content('fixture-a', 'guide', 'guide-place');
-  if (g?.kind !== 'guide') throw new Error();
+  if (g?.kind !== 'guide') {
+    throw new Error();
+  }
   await repo.execute(
     command(
       'fixture-a',
@@ -86,7 +94,9 @@ it('원본만/앱만/양쪽 수정과 충돌을 구분하고 보류 B·실제 �
   const records = (await repo.get('fixture-a')).records;
   await apply(repo, review);
   const guide = await repo.content('fixture-a', 'guide', 'guide-place');
-  if (guide?.kind !== 'guide') throw new Error();
+  if (guide?.kind !== 'guide') {
+    throw new Error();
+  }
   expect(guide.payload.sections.find((s) => s.key === 'practical')!.bodyMd).toBe('앱의 실용');
   expect(guide.payload.sections.find((s) => s.key === 'deep')!.bodyMd).toBe('원본의 깊이');
   expect((await repo.get('fixture-a')).records).toEqual(records);
