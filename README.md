@@ -1,5 +1,7 @@
 # travel-app
 
+Phase 0의 코드 전후 비교와 확인 항목은 [가독성 확인 자료](docs/phase-0-readability.md), 실행·검증·대기 상태는 [Phase 0 보고](docs/phase-0-report.md)에 있습니다. 현재 실행 순서는 [개발 실행계획](docs/development-plan.md)을 따릅니다.
+
 ## 최신 구현: P-06 완료, P-07 진행
 
 공통 가이드 화면은 `/?workspace=content`입니다. 기존 화면은 `/?workspace=legacy`로 보존합니다. 여행 ZIP 패키지 미리보기·두 여행 선택·가이드/Fact/첨부·본문 편집·현장 기록/정정·모의 변경안 확인 적용·B/L/R 재가져오기·전체 ZIP 백업/빈 저장소 복원·첨부 복구를 구현했습니다. [P-06](docs/p06-report.md), [P-07 진행 보고](docs/p07-report.md), [pnpm 전환 검증](docs/pnpm-transition.md), [현재 인계](docs/handoff.md)를 따릅니다.
@@ -8,6 +10,7 @@ AI 서버 없이 가이드/로컬 저장 흐름을 실행하려면:
 
 ```powershell
 corepack enable
+$env:COREPACK_HOME = Join-Path (Get-Location) '.cache/corepack'
 pnpm install --frozen-lockfile
 pnpm run dev:ui
 # 또는 pnpm run build 이후 pnpm run preview:ui
@@ -34,7 +37,8 @@ AI는 서버의 `.env.local`을 사용합니다. 키를 브라우저·JSON 백�
 - Node `24.13.1` (`.node-version`), pnpm `12.14.0` (`packageManager`)에서 확인
 - TypeScript, React, Vite, Dexie/IndexedDB, Zod, Temporal, Vite PWA
 - 직접 의존성은 정확 버전, 전이 의존성은 `pnpm-lock.yaml`으로 고정
-- Chromium·프로젝트 임시 검사는 `.cache/`, 프로젝트 의존성은 `node_modules/`; pnpm 공유 store는 현재 사용자 설정을 유지
+- Chromium·프로젝트 임시 검사는 `.cache/`, 프로젝트 의존성은 `node_modules/`; pnpm 캐시·store는 `pnpm-workspace.yaml`의 `.cache/pnpm/`으로 고정
+- pnpm 12의 일반 프로젝트 설정은 `.npmrc` 대신 `pnpm-workspace.yaml`에서 관리
 - 다른 프로젝트의 런타임·설정·원본 파일을 변경하지 않음
 - 추출 검사: Python 3.12.7, 프로젝트 `.venv/`, 고정 `requirements-extract.txt`. `pnpm run check`에는 Python 원천 표본 검사가 포함되므로 전용 환경을 먼저 준비
 
@@ -60,7 +64,9 @@ pnpm run test:e2e
 pnpm run preview
 ```
 
-`check`는 데이터 테스트·타입 검사·빌드입니다. `test:e2e`는 빌드 결과를 `http://127.0.0.1:4173`에서 PC와 모바일 크기로 검사합니다. PWA 오프라인은 개발 서버가 아닌 프로덕션 빌드에서 검증합니다. HTTPS 또는 localhost에서 서비스워커가 작동하며, 최초 온라인 실행·셸 설치가 필요합니다. 앱 업데이트는 편집 중 강제 재로드하지 않고 안내합니다.
+`check`는 포맷 검사·가독성 린트·데이터 테스트·타입 검사·빌드입니다. `pnpm run format`은 Prettier 지원 소스(JS/TS/JSX/CSS/JSON/HTML/YAML)를 정리합니다. Python·문서·생성물·실제 데이터는 이 명령으로 수정하지 않습니다. `pnpm run lint:fix`의 중괄호 수정 후에는 `pnpm run format`과 `pnpm run lint`로 줄바꿈까지 확인합니다. 포맷·린트 자동 수정·구조 리팩터링은 별도 변경으로 보관합니다.
+
+`test:e2e`는 빌드 결과를 `http://127.0.0.1:4173`에서 PC와 모바일 크기로 검사합니다. PWA 오프라인은 개발 서버가 아닌 프로덕션 빌드에서 검증합니다. HTTPS 또는 localhost에서 서비스워커가 작동하며, 최초 온라인 실행·셸 설치가 필요합니다. 앱 업데이트는 편집 중 강제 재로드하지 않고 안내합니다.
 
 AI 단위/HTTP 통합 검사와 브라우저 AI 흐름은 모의 제공자를 사용하므로 요금이 발생하지 않습니다. 로컬 HTTP 실행이 제한된 샌드박스에서는 해당 검사에 loopback 연결 권한이 필요합니다. `node scripts/smoke-ai.ts`는 실행 중인 로컬 AI 서버에 **가상 데이터로 실제 유료 요청**을 보내는 수동 검사이므로 일반 CI에는 포함하지 않습니다.
 

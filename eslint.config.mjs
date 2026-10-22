@@ -22,6 +22,7 @@ export default [
       '.cache/**',
       '.venv/**',
       'local-data/**',
+      'backup/**',
       'dist/**',
       'coverage/**',
       'test-results/**',
