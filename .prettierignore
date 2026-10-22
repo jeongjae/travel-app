@@ -1,0 +1,10 @@
+node_modules/
+.cache/
+.venv/
+local-data/
+dist/
+coverage/
+test-results/
+playwright-report/
+pnpm-lock.yaml
+public/pilot/

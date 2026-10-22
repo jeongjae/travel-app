@@ -1,19 +1,290 @@
-import {useState} from 'react';
-import type {ContentRepository} from '../repository';
-import type {PlanVersion,Proposal,TripDataset} from '../contracts/v2';
-import type {Review,Choice,Slot} from '../transfer/reimport';
-import {command,errorText,ErrorText,Modal} from './ui';
-export function ProposalPanel({repo,header,plan,proposals,onSaved}:{repo:ContentRepository;header:TripDataset['header'];plan:PlanVersion;proposals:Proposal[];onSaved:()=>void}){
- const [editor,setEditor]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false);const latest=new Map<string,Proposal>();proposals.forEach(p=>{if((latest.get(p.proposalId)?.proposalRevision??0)<p.proposalRevision)latest.set(p.proposalId,p);});
- async function decide(p:Proposal,decision:'apply'|'reject'){setBusy(true);setError('');try{await repo.execute(command(header.tripId,'DecideProposal',{proposalId:p.proposalId,decision,confirmedByUser:true},undefined,{expectedProposalRevision:p.proposalRevision}));onSaved();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
- return <section><div className="section-heading"><h2>변경안 검토</h2><button disabled={!plan.items.length} onClick={()=>setEditor(true)}>모의 변경안 만들기</button></div><p className="muted">모의 변경안은 조사·유료 AI 호출 없이 저장 흐름을 확인합니다. 확인 후 적용하면 새 계획이 만들어집니다.</p><ErrorText error={error}/>{[...latest.values()].map(p=><article className="content-row" key={p.proposalId}><h3>{p.reason}</h3><p>{p.status==='pending'?'확인 대기':p.status==='applied'?'적용됨':'거절됨'} · 기준 revision {p.baseDomainRevision}</p>{p.baseDomainRevision!==header.domainRevision&&p.status==='pending'?<p className="notice">기준이 오래됐습니다. 적용할 수 없습니다. 최신 내용으로 다시 작성하세요.</p>:null}<p>예약 영향: {p.impact.reservationText}</p><ul>{p.operations.map((o,n)=><li key={n}>{o.type==='upsert-item'?`${o.item.title} (이전: ${plan.items.find(i=>i.activityId===o.item.activityId)?.title??'새 활동'})`:`활동 제거: ${o.activityId}`}</li>)}</ul>{p.status==='pending'?<div className="button-row"><button disabled={busy||p.baseDomainRevision!==header.domainRevision} className="primary" onClick={()=>void decide(p,'apply')}>확인 후 적용</button><button disabled={busy} onClick={()=>void decide(p,'reject')}>변경안 거절</button></div>:null}<details><summary>변경안 이력</summary>{proposals.filter(r=>r.proposalId===p.proposalId).map(r=><p key={r.proposalRevisionId}>{r.proposalRevision} · {r.status} · {r.decision?.decidedAt??'미결정'}</p>)}</details></article>)}{editor?<MockEditor repo={repo} header={header} plan={plan} onClose={()=>setEditor(false)} onSaved={()=>{setEditor(false);onSaved();}}/>:null}</section>;
+import { useState } from 'react';
+import type { ContentRepository } from '../repository';
+import type { PlanVersion, Proposal, TripDataset } from '../contracts/v2';
+import type { Review, Choice, Slot } from '../transfer/reimport';
+import { command, errorText, ErrorText, Modal } from './ui';
+export function ProposalPanel({
+  repo,
+  header,
+  plan,
+  proposals,
+  onSaved,
+}: {
+  repo: ContentRepository;
+  header: TripDataset['header'];
+  plan: PlanVersion;
+  proposals: Proposal[];
+  onSaved: () => void;
+}) {
+  const [editor, setEditor] = useState(false),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  const latest = new Map<string, Proposal>();
+  proposals.forEach((p) => {
+    if ((latest.get(p.proposalId)?.proposalRevision ?? 0) < p.proposalRevision) latest.set(p.proposalId, p);
+  });
+  async function decide(p: Proposal, decision: 'apply' | 'reject') {
+    setBusy(true);
+    setError('');
+    try {
+      await repo.execute(
+        command(
+          header.tripId,
+          'DecideProposal',
+          { proposalId: p.proposalId, decision, confirmedByUser: true },
+          undefined,
+          { expectedProposalRevision: p.proposalRevision },
+        ),
+      );
+      onSaved();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section>
+      <div className="section-heading">
+        <h2>변경안 검토</h2>
+        <button disabled={!plan.items.length} onClick={() => setEditor(true)}>
+          모의 변경안 만들기
+        </button>
+      </div>
+      <p className="muted">
+        모의 변경안은 조사·유료 AI 호출 없이 저장 흐름을 확인합니다. 확인 후 적용하면 새 계획이 만들어집니다.
+      </p>
+      <ErrorText error={error} />
+      {[...latest.values()].map((p) => (
+        <article className="content-row" key={p.proposalId}>
+          <h3>{p.reason}</h3>
+          <p>
+            {p.status === 'pending' ? '확인 대기' : p.status === 'applied' ? '적용됨' : '거절됨'} · 기준 revision{' '}
+            {p.baseDomainRevision}
+          </p>
+          {p.baseDomainRevision !== header.domainRevision && p.status === 'pending' ? (
+            <p className="notice">기준이 오래됐습니다. 적용할 수 없습니다. 최신 내용으로 다시 작성하세요.</p>
+          ) : null}
+          <p>예약 영향: {p.impact.reservationText}</p>
+          <ul>
+            {p.operations.map((o, n) => (
+              <li key={n}>
+                {o.type === 'upsert-item'
+                  ? `${o.item.title} (이전: ${plan.items.find((i) => i.activityId === o.item.activityId)?.title ?? '새 활동'})`
+                  : `활동 제거: ${o.activityId}`}
+              </li>
+            ))}
+          </ul>
+          {p.status === 'pending' ? (
+            <div className="button-row">
+              <button
+                disabled={busy || p.baseDomainRevision !== header.domainRevision}
+                className="primary"
+                onClick={() => void decide(p, 'apply')}
+              >
+                확인 후 적용
+              </button>
+              <button disabled={busy} onClick={() => void decide(p, 'reject')}>
+                변경안 거절
+              </button>
+            </div>
+          ) : null}
+          <details>
+            <summary>변경안 이력</summary>
+            {proposals
+              .filter((r) => r.proposalId === p.proposalId)
+              .map((r) => (
+                <p key={r.proposalRevisionId}>
+                  {r.proposalRevision} · {r.status} · {r.decision?.decidedAt ?? '미결정'}
+                </p>
+              ))}
+          </details>
+        </article>
+      ))}
+      {editor ? (
+        <MockEditor
+          repo={repo}
+          header={header}
+          plan={plan}
+          onClose={() => setEditor(false)}
+          onSaved={() => {
+            setEditor(false);
+            onSaved();
+          }}
+        />
+      ) : null}
+    </section>
+  );
 }
-function MockEditor({repo,header,plan,onClose,onSaved}:{repo:ContentRepository;header:TripDataset['header'];plan:PlanVersion;onClose:()=>void;onSaved:()=>void}){
- const [title,setTitle]=useState(plan.items[0].title),[reason,setReason]=useState('가상 상황에 따른 변경'),[impact,setImpact]=useState('실제 예약 변경 없음'),[error,setError]=useState('');
- return <Modal title="모의 변경안 작성" onClose={onClose}><form onSubmit={async e=>{e.preventDefault();try{const proposal={tripId:header.tripId,proposalId:crypto.randomUUID(),proposalRevisionId:crypto.randomUUID(),proposalRevision:1,baseDomainRevision:header.domainRevision,basePlanVersionId:plan.planVersionId,origin:'ai',operations:[{type:'upsert-item',item:{...plan.items[0],title}}],reason,evidenceRefs:plan.contextRefs.filter(r=>r.targetKind==='evidence'),impact:{activityIds:[plan.items[0].activityId],reservationText:impact},status:'pending'};await repo.execute(command(header.tripId,'SaveProposal',{proposal,baseDomainRevision:header.domainRevision},undefined,{expectedProposalRevision:0}));onSaved();}catch(err){setError(errorText(err));}}}><label>변경할 활동 이름<input required value={title} onChange={e=>setTitle(e.target.value)}/></label><label>변경 이유<textarea required value={reason} onChange={e=>setReason(e.target.value)}/></label><label>예약 영향<textarea required value={impact} onChange={e=>setImpact(e.target.value)}/></label><ErrorText error={error}/><button className="primary">미적용 초안 저장</button></form></Modal>;
+function MockEditor({
+  repo,
+  header,
+  plan,
+  onClose,
+  onSaved,
+}: {
+  repo: ContentRepository;
+  header: TripDataset['header'];
+  plan: PlanVersion;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(plan.items[0].title),
+    [reason, setReason] = useState('가상 상황에 따른 변경'),
+    [impact, setImpact] = useState('실제 예약 변경 없음'),
+    [error, setError] = useState('');
+  return (
+    <Modal title="모의 변경안 작성" onClose={onClose}>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          try {
+            const proposal = {
+              tripId: header.tripId,
+              proposalId: crypto.randomUUID(),
+              proposalRevisionId: crypto.randomUUID(),
+              proposalRevision: 1,
+              baseDomainRevision: header.domainRevision,
+              basePlanVersionId: plan.planVersionId,
+              origin: 'ai',
+              operations: [{ type: 'upsert-item', item: { ...plan.items[0], title } }],
+              reason,
+              evidenceRefs: plan.contextRefs.filter((r) => r.targetKind === 'evidence'),
+              impact: { activityIds: [plan.items[0].activityId], reservationText: impact },
+              status: 'pending',
+            };
+            await repo.execute(
+              command(
+                header.tripId,
+                'SaveProposal',
+                { proposal, baseDomainRevision: header.domainRevision },
+                undefined,
+                { expectedProposalRevision: 0 },
+              ),
+            );
+            onSaved();
+          } catch (err) {
+            setError(errorText(err));
+          }
+        }}
+      >
+        <label>
+          변경할 활동 이름
+          <input required value={title} onChange={(e) => setTitle(e.target.value)} />
+        </label>
+        <label>
+          변경 이유
+          <textarea required value={reason} onChange={(e) => setReason(e.target.value)} />
+        </label>
+        <label>
+          예약 영향
+          <textarea required value={impact} onChange={(e) => setImpact(e.target.value)} />
+        </label>
+        <ErrorText error={error} />
+        <button className="primary">미적용 초안 저장</button>
+      </form>
+    </Modal>
+  );
 }
-const slotText=(s:Slot)=>s.present?typeof s.value==='string'?s.value:JSON.stringify(s.value,null,2):'원본에 없음';
-export function ReimportReview({repo,review,onClose,onSaved}:{repo:ContentRepository;review:Review;onClose:()=>void;onSaved:()=>void}){
- const [choices,setChoices]=useState<Record<string,Choice>>(()=>Object.fromEntries(review.units.map(u=>[u.key,u.recommendation]))),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- return <Modal title="재가져오기 차이 검토" onClose={onClose}><p>{review.units.length}개 차이 · 기준 revision {review.baseDomainRevision}</p><p>승인한 원본 값만 반영합니다. 앱 유지·보류한 항목은 이전 기준을 유지합니다.</p>{review.units.map(u=><section className="review-unit" key={u.key}><h3>{u.targetKind} / {u.entityId} / {u.path.join('/')||'전체'}</h3><p>{u.status==='conflict'?'양쪽 수정 충돌':u.status==='app-only'?'앱에서만 수정':u.status==='deleted-source'?'원본에서 제거':u.status==='same'?'양쪽 값이 같음':'원본 변경'}</p><div className="comparison"><details><summary>이전 기준 B</summary><pre>{slotText(u.base)}</pre></details><details><summary>앱 L</summary><pre>{slotText(u.local)}</pre></details><details><summary>새 원본 R</summary><pre>{slotText(u.remote)}</pre></details></div><label>반영 선택<select aria-label={`반영 선택 ${u.entityId} ${u.path.join('/')||'전체'}`} value={choices[u.key]} onChange={e=>setChoices({...choices,[u.key]:e.target.value as Choice})}><option value="remote">새 원본 반영</option><option value="local">앱 내용 유지</option><option value="defer">보류</option></select></label></section>)}<ErrorText error={error}/><button className="primary" disabled={busy} onClick={async()=>{setBusy(true);try{const reviewDigest=await repo.prepareReimportDecision(review,choices);await repo.execute(command(review.tripId,'ApplyReimport',{packageId:review.packageId,packageDigest:review.packageDigest,lineageId:review.lineageId,reviewDigest},review.baseDomainRevision));onSaved();}catch(e){setError(errorText(e));}finally{setBusy(false);}}}>검토한 선택 적용</button></Modal>;
+const slotText = (s: Slot) =>
+  s.present ? (typeof s.value === 'string' ? s.value : JSON.stringify(s.value, null, 2)) : '원본에 없음';
+export function ReimportReview({
+  repo,
+  review,
+  onClose,
+  onSaved,
+}: {
+  repo: ContentRepository;
+  review: Review;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [choices, setChoices] = useState<Record<string, Choice>>(() =>
+      Object.fromEntries(review.units.map((u) => [u.key, u.recommendation])),
+    ),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  return (
+    <Modal title="재가져오기 차이 검토" onClose={onClose}>
+      <p>
+        {review.units.length}개 차이 · 기준 revision {review.baseDomainRevision}
+      </p>
+      <p>승인한 원본 값만 반영합니다. 앱 유지·보류한 항목은 이전 기준을 유지합니다.</p>
+      {review.units.map((u) => (
+        <section className="review-unit" key={u.key}>
+          <h3>
+            {u.targetKind} / {u.entityId} / {u.path.join('/') || '전체'}
+          </h3>
+          <p>
+            {u.status === 'conflict'
+              ? '양쪽 수정 충돌'
+              : u.status === 'app-only'
+                ? '앱에서만 수정'
+                : u.status === 'deleted-source'
+                  ? '원본에서 제거'
+                  : u.status === 'same'
+                    ? '양쪽 값이 같음'
+                    : '원본 변경'}
+          </p>
+          <div className="comparison">
+            <details>
+              <summary>이전 기준 B</summary>
+              <pre>{slotText(u.base)}</pre>
+            </details>
+            <details>
+              <summary>앱 L</summary>
+              <pre>{slotText(u.local)}</pre>
+            </details>
+            <details>
+              <summary>새 원본 R</summary>
+              <pre>{slotText(u.remote)}</pre>
+            </details>
+          </div>
+          <label>
+            반영 선택
+            <select
+              aria-label={`반영 선택 ${u.entityId} ${u.path.join('/') || '전체'}`}
+              value={choices[u.key]}
+              onChange={(e) => setChoices({ ...choices, [u.key]: e.target.value as Choice })}
+            >
+              <option value="remote">새 원본 반영</option>
+              <option value="local">앱 내용 유지</option>
+              <option value="defer">보류</option>
+            </select>
+          </label>
+        </section>
+      ))}
+      <ErrorText error={error} />
+      <button
+        className="primary"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            const reviewDigest = await repo.prepareReimportDecision(review, choices);
+            await repo.execute(
+              command(
+                review.tripId,
+                'ApplyReimport',
+                {
+                  packageId: review.packageId,
+                  packageDigest: review.packageDigest,
+                  lineageId: review.lineageId,
+                  reviewDigest,
+                },
+                review.baseDomainRevision,
+              ),
+            );
+            onSaved();
+          } catch (e) {
+            setError(errorText(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        검토한 선택 적용
+      </button>
+    </Modal>
+  );
 }

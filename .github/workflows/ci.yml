@@ -19,6 +19,7 @@ jobs:
       - run: python -m venv .venv
       - run: .venv/bin/python -m pip --cache-dir .cache/pip install -r requirements-extract.txt
       - run: .venv/bin/python -m pip check
+      # Includes the formatting check; the build alone does not enforce readable source.
       - run: pnpm run check
       - run: pnpm run check:pilot
       - run: node scripts/playwright.mjs install --with-deps chromium
