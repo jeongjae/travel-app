@@ -1,0 +1,25 @@
+name: travel-app checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - run: corepack install
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip --cache-dir .cache/pip install -r requirements-extract.txt
+      - run: .venv/bin/python -m pip check
+      - run: pnpm run check
+      - run: pnpm run check:pilot
+      - run: node scripts/playwright.mjs install --with-deps chromium
+      - run: pnpm run test:e2e

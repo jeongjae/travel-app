@@ -1,0 +1,3 @@
+# PC-only source-reading tools. Domain normalization belongs to TypeScript.
+openpyxl==3.1.5
+et-xmlfile==2.0.0
