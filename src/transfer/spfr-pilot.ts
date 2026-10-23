@@ -23,6 +23,10 @@ import {
 } from './spfr-source.ts';
 import { mapSpfrWorkbook, workbookPath } from './spfr-workbook.ts';
 import { mapSpfrMedia, type PilotMediaFile } from './spfr-media.ts';
+import { mapSpfrFieldState } from './spfr-field-state.ts';
+import { splitSpfrGuides } from './spfr-guide-chunks.ts';
+import { bindSpfrFacts } from './spfr-fact-bindings.ts';
+import { bindSpfrLinks } from './spfr-links.ts';
 
 const cloneJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 const escaped = (value: string) => value.replaceAll('~', '~0').replaceAll('/', '~1');
@@ -37,6 +41,7 @@ export async function normalizeSpfrPilot(
     media: PilotMediaFile[];
     additionalPlaceIds?: string[];
     bodylessPlaceIds?: string[];
+    fullSourceScope?: boolean;
   },
 ) {
   const extract = sourceExtractSchema.parse(raw);
@@ -133,7 +138,15 @@ export async function normalizeSpfrPilot(
       path,
       '원천 형식·생성 정보; 이행 보고서의 고정 원천과 함께 보존',
     );
-  const defer = (path: string, prefix: string) =>
+  const defer = (path: string, prefix: string) => {
+    if (options.fullSourceScope) {
+      let value: unknown = extract.entries.find((entry) => entry.sourceKey === path)!.rawValue;
+      for (const key of prefix.split('/').slice(1)) {
+        value = Array.isArray(value) ? value[Number(key)] : obj(value)[key.replaceAll('~1', '/').replaceAll('~0', '~')];
+      }
+      show(path, prefix, value, `통합 원천 보충 · ${prefix || path}`);
+      return;
+    }
     coverage.mark(
       path,
       prefix,
@@ -141,6 +154,7 @@ export async function normalizeSpfrPilot(
       'Phase 2',
       '선택 일자·명시 지역 밖의 원천. 삭제·전체 이행 범위 제외가 아니며 다음 배치에서 재처리',
     );
+  };
   const selectedRegions = contents.filter((content) => content.kind === 'region').map((content) => content.entityId);
   const selectedPlaces = contents.filter((content) => content.kind === 'place').map((content) => content.entityId);
   const dates = plan.days.map((day) => day.date);
@@ -215,7 +229,9 @@ export async function normalizeSpfrPilot(
         dayGuide,
       );
     }
-    day.overnightRegionId = day.regionIds.length === 1 ? day.regionIds[0] : undefined;
+    if (day.regionIds.length === 1) {
+      day.overnightRegionId = day.regionIds[0];
+    }
     const map = obj(card.map);
     day.sourceMetadata = {
       ...(typeof card.prototypeType === 'string' ? { prototypeType: card.prototypeType } : {}),
@@ -389,7 +405,7 @@ export async function normalizeSpfrPilot(
             assetRefs: [],
             structuredData: {
               recommendation: `${text(obj(transit.recommendation).title)} · ${text(obj(transit.recommendation).summary)}`,
-              products: arr(transit.products).map((product, index) => ({
+              products: arr(transit.products === undefined ? [] : transit.products).map((product, index) => ({
                 id: `product-${index}`,
                 title: product.name,
                 priceText: text(product.price),
@@ -445,6 +461,41 @@ export async function normalizeSpfrPilot(
     phrasePath,
   );
   show(phrasePath, '', phrases, '프랑스어 회화 · 원천 분류·우선순위 대조');
+  const phraseBook = contents.find((content) => content.kind === 'phrase-book' && content.entityId === 'source-french');
+  for (const name of ['DAY_FRENCH_MAP', 'PLACE_CATEGORY_FRENCH_MAP', 'FRENCH_CATEGORY_LABEL']) {
+    const key = `build/render.py:${name}`;
+    const entry = extract.entries.find((entry) => entry.sourceKey === key);
+    if (!entry) {
+      continue;
+    }
+    show(key, '', entry.rawValue, `회화 추천 원천 · ${name}`);
+    if (phraseBook?.kind !== 'phrase-book' || name === 'FRENCH_CATEGORY_LABEL') {
+      continue;
+    }
+    for (const [contextKey, rawIds] of Object.entries(obj(entry.rawValue))) {
+      const ids = z.array(z.string()).parse(rawIds);
+      if (ids.some((id) => !phraseBook.payload.phrases.some((phrase) => phrase.id === id))) {
+        throw new Error('회화 추천의 원천 문구가 없습니다.');
+      }
+      const dayId = name === 'DAY_FRENCH_MAP' ? `day-${contextKey}` : undefined;
+      if (dayId && !plan.days.some((day) => day.dayId === dayId)) {
+        continue;
+      }
+      phraseBook.payload.contextRecommendations.push({
+        ...(dayId ? { planVersionId: plan.planVersionId } : { placeType: contextKey }),
+        dayIds: dayId ? [dayId] : [],
+        phraseIds: ids,
+      });
+      for (const phrase of phraseBook.payload.phrases.filter((phrase) => ids.includes(phrase.id))) {
+        if (dayId) {
+          phrase.dayIds.push(dayId);
+          phrase.planVersionId = plan.planVersionId;
+        } else {
+          phrase.placeTypes.push(contextKey);
+        }
+      }
+    }
+  }
   const languagePath = 'data/travel-french-guide.json';
   const language = json(languagePath);
   add(
@@ -468,6 +519,18 @@ export async function normalizeSpfrPilot(
     languagePath,
   );
   show(languagePath, '', language, '발음·표지 원천의 분류와 보충');
+  const workbook = mapSpfrWorkbook(
+    extract,
+    coverage,
+    plan,
+    selectedRegions,
+    (id, payload, locator) => add('booking', id, payload, workbookPath, locator),
+    options.fullSourceScope,
+  );
+  guide('source-workbook', '운영 통합문서 · 12시트 대조', workbook.sections, workbookPath);
+  const fieldState = await mapSpfrFieldState(extract, plan, contents);
+  dataset.records.push(...fieldState.records);
+  blocking.push(...fieldState.errors);
   const codePath = 'build/render.py:PARIS_MUSEUM_BOOKINGS';
   const code = extract.entries.find((entry) => entry.sourceKey === codePath)!;
   for (const [index, booking] of arr(code.rawValue).entries()) {
@@ -475,6 +538,35 @@ export async function normalizeSpfrPilot(
       show(codePath, `/${index}`, booking, '코드에 보관된 예약 원천 · 날짜·상태·대안');
     } else {
       defer(codePath, `/${index}`);
+    }
+  }
+  for (const [index, entry] of extract.entries
+    .filter((entry) => /^build\/render\.py:prose-/.test(entry.sourceKey))
+    .entries()) {
+    const prose = obj(entry.rawValue);
+    const id = `source-common-prose-${index}`;
+    guide(
+      id,
+      `원천 공통 안내 · ${str(prose.title)}`,
+      [
+        section(
+          'notice',
+          '원천 안내의 시점',
+          '고정 원천의 안내입니다. 예약 상태·날짜·연락처의 최신성을 새로 확인한 내용이 아닙니다.',
+        ),
+        section('body', '원천 본문', str(prose.bodyMd), 1),
+      ],
+      'build/render.py',
+    );
+    coverage.mark(
+      entry.sourceKey,
+      '',
+      'displayed',
+      `guide/${id}`,
+      'AST로 읽은 명시적 정적 안내. 동적 실행 결과는 만들지 않음',
+    );
+    if (arr(prose.dynamicExpressions).length) {
+      blocking.push(`COMMON_PROSE_DYNAMIC_REVIEW_REQUIRED:${entry.sourceKey}`);
     }
   }
   for (const basename of ['field-notes', 'booking-overrides']) {
@@ -494,9 +586,11 @@ export async function normalizeSpfrPilot(
         const entity = recordObject.entity ? obj(recordObject.entity) : undefined;
         const entityKey = entity ? text(entity.key) : child;
         const inPilot = options.days.some((day) => entityKey === `day-${day}` || entityKey.startsWith(`day-${day}/`));
-        if (inPilot) {
-          // New source states must receive an explicit semantic adapter; never fabricate a visit from a timestamp.
-          blocking.push(`FIELD_STATE_ADAPTER_REQUIRED:${path}#/${key}/${child}`);
+        const locator = `${path}#/${key}/${escaped(child)}`;
+        if (fieldState.imported.has(locator)) {
+          show(path, `/${key}/${escaped(child)}`, record, '원천 메모·체크·예약 상태 · 시각/작성자 대조');
+        } else if (inPilot) {
+          blocking.push(`FIELD_STATE_ADAPTER_REQUIRED:${locator}`);
           show(path, `/${key}/${escaped(child)}`, record, '미적용 현장 상태 · 대응 검토 필요');
         } else {
           defer(path, `/${key}/${escaped(child)}`);
@@ -544,6 +638,16 @@ export async function normalizeSpfrPilot(
       }
       coverage.mark(path, '', 'displayed', `guide/${id}`, '지역 본문 전체를 보존; 다른 날짜 언급도 지역 안내로 구분');
     } else if (path === 'source/ASSETS/91_Place_Registry_v1.0.md') {
+      if (options.fullSourceScope) {
+        guide(
+          'source-registry',
+          '전체 장소 레지스트리 · 원천 대조',
+          [section('registry', '전체 원천 명부', rawMd)],
+          path,
+        );
+        coverage.mark(path, '', 'displayed', 'guide/source-registry', '원천 명부 전체 보존. 방문 계획과 구분');
+        continue;
+      }
       const selected = rawMd
         .split(/\r?\n/)
         .filter((line) => selectedPlaces.some((slug) => line.startsWith(`| \`${slug}\` |`)));
@@ -568,14 +672,21 @@ export async function normalizeSpfrPilot(
         'guide/source-registry; Phase 2',
         '표본 장소 행만 화면 표시. 전체 레지스트리 본문·다른 장소는 Phase 2 보류',
       );
+    } else if (path.startsWith('source/CURRENT/10_Core/') || path.startsWith('source/CURRENT/20_Regional_Chapters/')) {
+      const id = `source-document-${(await digestBytes(new TextEncoder().encode(path))).slice(0, 24)}`;
+      const title = /^#\s+(.+)$/m.exec(rawMd)?.[1] ?? path.split('/').at(-1)!;
+      guide(id, title, [section('body', '원천 전체 본문', front ? rawMd.slice(front[0].length) : rawMd)], path);
+      coverage.mark(
+        path,
+        '',
+        'displayed',
+        `guide/${id}`,
+        '전체 원천 장/공통 안내를 원문으로 표시. 구조화 내용과 자동 병합하지 않음',
+      );
     } else {
       blocking.push(`MARKDOWN_UNSUPPORTED:${path}`);
     }
   }
-  const workbook = mapSpfrWorkbook(extract, coverage, plan, selectedRegions, (id, payload, locator) =>
-    add('booking', id, payload, workbookPath, locator),
-  );
-  guide('source-workbook', '운영 통합문서 · 12시트 대조', workbook.sections, workbookPath);
   const media = await mapSpfrMedia({
     extract,
     coverage,
@@ -586,6 +697,7 @@ export async function normalizeSpfrPilot(
     show,
     defer,
     warnings,
+    allMedia: options.fullSourceScope,
   });
   for (const [path, group] of comparison) {
     const existing = contents.find((content) => content.kind === 'guide' && content.entityId === group.id);
@@ -641,6 +753,9 @@ export async function normalizeSpfrPilot(
   if (correspondenceGuide.kind === 'guide') {
     correspondenceGuide.payload.assetRefs.push({ assetId: correspondence.entityId, role: 'reference' });
   }
+  bindSpfrFacts(contents);
+  bindSpfrLinks(contents, warnings);
+  splitSpfrGuides(contents);
   plan.reason = `고정 원천의 실제 ${options.days.length}일 배치 · 원천 상태와 미확인 사실을 보존`;
   plan.contextRefs = contents.map((content) => ({
     ...ref(content.kind, content.entityId),

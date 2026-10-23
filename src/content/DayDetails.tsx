@@ -3,6 +3,7 @@ import type { ContentRepository } from '../repository';
 import type { ContentRevision, PlanVersion, RevisionRef } from '../contracts/v2';
 import { AssetImage } from './Guide';
 import { timeLabel } from './ui';
+import { PhraseContext } from './PhraseContext';
 
 export function DayDetails({
   repo,
@@ -89,6 +90,7 @@ export function DayDetails({
           </button>
         ))}
       </div>
+      <PhraseContext repo={repo} tripId={day.tripId} dayId={day.dayId} context={context} />
     </div>
   );
 }

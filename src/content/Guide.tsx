@@ -6,6 +6,7 @@ import type { ContentRepository } from '../repository';
 import type { ContentRevision, RevisionRef, TripDataset } from '../contracts/v2';
 import { command, ErrorText, Modal, errorText } from './ui';
 import { literalHtml } from './markdown';
+import { PhraseContext } from './PhraseContext';
 
 export function AssetImage({
   repo,
@@ -32,7 +33,12 @@ export function AssetImage({
     return () => URL.revokeObjectURL(next);
   }, [data]);
   return url ? (
-    <img src={url} alt={alt ?? data?.content.payload.title ?? '첨부'} style={{ maxWidth: '100%', height: 'auto' }} />
+    <img
+      src={url}
+      loading="lazy"
+      alt={alt ?? data?.content.payload.title ?? '첨부'}
+      style={{ maxWidth: '100%', height: 'auto' }}
+    />
   ) : (
     <span>첨부가 준비되지 않았습니다: {alt ?? assetId}</span>
   );
@@ -68,7 +74,7 @@ export function GuideMarkdown({
             ] as const,
         ),
       ),
-    [repo, tripId, guide.revisionId, context],
+    [repo, tripId, guide.entityId, guide.revisionId, context],
   );
   const rendered = body.replace(/\{\{fact:([^{}]+)\}\}/g, (_, token: string) => {
     const fact = facts?.find(([t]) => t === token)?.[1];
@@ -86,6 +92,9 @@ export function GuideMarkdown({
         }
         components={{
           a({ href, children }) {
+            if (href?.startsWith('asset://')) {
+              return <AssetLink repo={repo} tripId={tripId} assetId={href.slice(8)} context={context} />;
+            }
             if (href?.startsWith('travel://')) {
               const [, kind, entityId] = /^travel:\/\/([^/]+)\/(.+)$/.exec(href) ?? [];
               return (
@@ -246,6 +255,7 @@ export function GuideDetail({
       {owner.kind === 'place' ? (
         <>
           <p>{owner.payload.summary}</p>
+          <PhraseContext repo={repo} tripId={header.tripId} placeType={owner.payload.placeKind} context={context} />
           {owner.payload.wikiRef ? (
             <a href={owner.payload.wikiRef} target="_blank" rel="noreferrer">
               위키 자료
@@ -451,7 +461,7 @@ function AssetLink({
             : data.content.payload.mimeType === 'application/json'
               ? '.json'
               : '';
-        a.download = data.content.payload.title + extension;
+        a.download = data.content.payload.originalPath?.split('/').at(-1) || data.content.payload.title + extension;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }}

@@ -29,6 +29,7 @@ export async function mapSpfrMedia({
   show,
   defer,
   warnings,
+  allMedia = false,
 }: {
   extract: SourceExtract;
   coverage: SourceCoverage;
@@ -39,6 +40,7 @@ export async function mapSpfrMedia({
   show: (path: string, prefix: string, value: unknown, title: string, existingGuide?: string) => void;
   defer: (path: string, prefix: string) => void;
   warnings: string[];
+  allMedia?: boolean;
 }) {
   const tripId = plan.tripId;
   const path = 'data/images/image-manifest.json';
@@ -72,22 +74,29 @@ export async function mapSpfrMedia({
           ? 'image/jpeg'
           : sourcePath.endsWith('.pdf')
             ? 'application/pdf'
-            : '';
+            : sourcePath.endsWith('.geojson')
+              ? 'application/geo+json'
+              : sourcePath.endsWith('.kml')
+                ? 'application/vnd.google-earth.kml+xml'
+                : sourcePath.endsWith('.html')
+                  ? 'text/html'
+                  : '';
     if (!mimeType) {
       throw new Error(`지원 첨부 MIME 판정 불가: ${sourcePath}`);
     }
-    if (!text(details.license) || !text(details.sourceUrl)) {
-      throw new Error(`첨부 권리·원본 주소 누락: ${sourcePath}`);
+    const missingRights = !text(details.license) || !text(details.sourceUrl) || details.licenseCode === 'unknown';
+    if (missingRights) {
+      warnings.push(`MEDIA_RIGHTS_UNVERIFIED:${sourcePath}`);
     }
     const evidenceId = `rights-${id}`;
     add(
       'evidence',
       evidenceId,
       {
-        sourceType: 'web',
-        sourceUrlOrRef: details.sourceUrl,
-        label: '원천의 이미지 출처·권리 표기',
-        claim: `${text(details.license)}; ${text(details.creator)}; ${text(details.changes)}`,
+        sourceType: text(details.sourceUrl) ? 'web' : 'local',
+        sourceUrlOrRef: text(details.sourceUrl) || `${extract.sourceRepository}@${extract.sourceCommit}:${locator}`,
+        label: missingRights ? '원천 이미지 · 출처/권리 미확인' : '원천의 이미지 출처·권리 표기',
+        claim: `${text(details.license) || '라이선스 미상'}; ${text(details.creator)}; ${text(details.changes)}`,
         relatedRefs: [{ tripId, targetKind: 'asset', entityId: id }],
       },
       sourceFile,
@@ -119,6 +128,7 @@ export async function mapSpfrMedia({
   };
   for (const [index, image] of arr(manifest.images).entries()) {
     const included =
+      allMedia ||
       places.includes(text(image.placeId)) ||
       arrUsage(image.usage).some((use) => uses.has(use)) ||
       (regions.includes(text(image.region)) && image.regionHero === true);
@@ -140,6 +150,7 @@ export async function mapSpfrMedia({
     const details = {
       title: image.titleKo || image.title,
       license: image.license,
+      licenseCode: image.licenseCode,
       sourceUrl: image.sourcePage,
       creator: image.creator,
       changes: image.changes,
@@ -172,7 +183,10 @@ export async function mapSpfrMedia({
     const imageSection = section(
       `photo-${photoGroups}`,
       title,
-      `![${tableText(image.altKo || title)}](asset://${id})\n\n${tableText(caption)}\n\n[원본·권리 표기](${str(image.sourcePage)})`,
+      `![${tableText(image.altKo || title)}](asset://${id})\n\n${tableText(caption)}\n\n` +
+        (text(image.sourcePage)
+          ? `[원본·권리 표기](${str(image.sourcePage)})`
+          : '원천에 원본 주소가 없습니다. 출처·권리는 미확인이며 재배포 허락을 뜻하지 않습니다.'),
       mediaSections.length,
     );
     imageSection.assetRefs = [{ assetId: id, role: 'inline', caption }];
@@ -202,7 +216,8 @@ export async function mapSpfrMedia({
   const tourist = obj(extract.entries.find((entry) => entry.sourceKey === touristPath)!.rawValue);
   let mapCount = 0;
   for (const region of regions) {
-    for (const [index, map] of arr(obj(tourist.regions)[region]).entries()) {
+    const maps = obj(tourist.regions)[region];
+    for (const [index, map] of arr(maps === undefined ? [] : maps).entries()) {
       const sourcePath = 'source/ASSETS/' + str(map.localPath).replace(/^assets\//, '');
       const id = await addFile(
         sourcePath,
@@ -229,6 +244,49 @@ export async function mapSpfrMedia({
       mapSection.assetRefs = [{ assetId: id, role: 'map-sheet', caption: text(map.publisher) }];
       mediaSections.push(mapSection);
       warnings.push(`MAP_SOURCE_RIGHTS_PERSONAL_REFERENCE_ONLY:${id}`);
+    }
+  }
+  if (files.some((file) => !used.has(file.sourcePath))) {
+    if (allMedia) {
+      const attachments = [];
+      for (const file of files.filter(
+        (file) => !used.has(file.sourcePath) && file.sourcePath.startsWith('source/ASSETS/75_Execution_Maps/'),
+      )) {
+        const id = await addFile(
+          file.sourcePath,
+          {
+            title: file.sourcePath.split('/').at(-1),
+            map: true,
+            license: '원천 실행 지도 · 재배포 권리 별도 확인',
+            redistributionBasis: '고정 원천의 개인용 보존 사본. 공개 배포 허락을 추정하지 않음.',
+          },
+          file.sourcePath,
+          `${file.sourcePath}@${extract.sourceCommit}`,
+        );
+        attachments.push({ assetId: id, role: 'reference' });
+      }
+      if (attachments.length) {
+        add(
+          'guide',
+          'source-execution-maps',
+          {
+            documentKind: 'preparation',
+            ownerRef: { tripId, targetKind: 'trip', entityId: tripId },
+            title: '원천 실행 지도 · HTML/GeoJSON/KML',
+            language: 'ko',
+            sections: [
+              section(
+                'about',
+                '원천 파일 보존',
+                '원본 실행 지도를 파일로 보관했습니다. 아래 파일을 내려받아 별도 도구에서 확인할 수 있습니다. HTML의 외부 지도 통신과 앱 내부 지도 조작은 이번 이행과 별도입니다.',
+              ),
+            ],
+            factBindings: [],
+            assetRefs: attachments,
+          },
+          'source/ASSETS/75_Execution_Maps/',
+        );
+      }
     }
   }
   if (files.some((file) => !used.has(file.sourcePath))) {

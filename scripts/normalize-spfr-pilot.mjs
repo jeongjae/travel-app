@@ -14,6 +14,7 @@ const { values } = parseArgs({
     'output-dir': { type: 'string' },
     audit: { type: 'string' },
     'lineage-id': { type: 'string' },
+    'trip-name': { type: 'string' },
   },
 });
 if (['extract', 'media-dir', 'days', 'trip-id', 'output-dir'].some((name) => !values[name])) {
@@ -42,7 +43,12 @@ if (mediaManifest.sourceCommit !== extract.sourceCommit || mediaManifest.allByte
   throw new Error('미디어와 추출 원천 커밋·검증 상태가 다릅니다.');
 }
 const files = [];
-for (const record of mediaManifest.files) {
+const selectedPaths = audit ? new Set(audit.media.map((item) => item.sourcePath)) : undefined;
+const selectedFiles = mediaManifest.files.filter((record) => !selectedPaths || selectedPaths.has(record.sourcePath));
+if (selectedPaths && selectedFiles.length !== selectedPaths.size) {
+  throw new Error('배치 감사의 필수 미디어가 공통 첨부 폴더에 없습니다.');
+}
+for (const record of selectedFiles) {
   const source = contained(mediaRoot, await realpath(contained(mediaRoot, resolve(mediaRoot, record.sourcePath))));
   const bytes = new Uint8Array(await readFile(source));
   if (bytes.length !== record.byteLength || (await digestBytes(bytes)) !== record.sha256) {
@@ -60,10 +66,20 @@ const normalized = await normalizeSpfrPilot(extract, {
   tripId: values['trip-id'],
   createdAt: new Date().toISOString(),
   media: files,
+  fullSourceScope: audit?.scope.includeCommonContent === true,
   ...(audit?.scope.includeRegionCatalog
     ? { additionalPlaceIds: audit.scope.places, bodylessPlaceIds: audit.scope.bodylessPlaces }
     : {}),
 });
+if (values['trip-name']) {
+  normalized.dataset.header.name = values['trip-name'];
+  // Keep the import baseline aligned with the visible header.
+  const tripMapping = normalized.mappings.find((mapping) => mapping.targetKind === 'trip');
+  if (tripMapping && tripMapping.baselineValue && typeof tripMapping.baselineValue === 'object') {
+    tripMapping.baselineValue.name = values['trip-name'];
+  }
+  normalized.report.datasetDigest = await digestBytes(new TextEncoder().encode(JSON.stringify(normalized.dataset)));
+}
 for (const [name, value] of Object.entries(normalized)) {
   if (name === 'generatedAssets') {
     continue;

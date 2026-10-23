@@ -39,6 +39,7 @@ export function mapSpfrWorkbook(
   plan: PlanVersion,
   regions: string[],
   addBooking: (id: string, payload: Extract<ContentRevision, { kind: 'booking' }>['payload'], locator: string) => void,
+  fullSourceScope = false,
 ) {
   const dates = new Set(plan.days.map((day) => day.date));
   const bySheet = new Map<string, Cell[]>();
@@ -100,6 +101,7 @@ export function mapSpfrWorkbook(
         (chapter.startsWith('Part ') || regions.includes(chapter.replace(/^\d+ /, '').split(/[ ·]/)[0].toLowerCase()));
       const global = ['Lists', 'Dashboard', 'Phase8 Lock Status'].includes(sheet);
       const inScope =
+        fullSourceScope ||
         rowNumber <= headerRow ||
         global ||
         (['Master Itinerary', 'Field Shots'].includes(sheet) && dates.has(dayValue(value('A')))) ||
@@ -138,8 +140,12 @@ export function mapSpfrWorkbook(
           deferredCells++;
         }
       }
-      // Only explicit pilot dates become new booking entities. Other regional reservations remain visible reference rows.
-      if (sheet === 'Reservations' && rowNumber > headerRow && dates.has(dayValue(value('E')))) {
+      // A region-scoped reservation without an ISO date is still a source booking, never an invented date.
+      if (
+        sheet === 'Reservations' &&
+        rowNumber > headerRow &&
+        (fullSourceScope || dates.has(dayValue(value('E'))) || region('C'))
+      ) {
         const sourceId = sourceText(value('A'));
         if (!/^[A-Za-z0-9._:-]+$/.test(sourceId)) {
           throw new Error('명시적인 XLSX 예약 ID가 필요합니다.');
@@ -152,7 +158,11 @@ export function mapSpfrWorkbook(
             ...(region('C') ? { regionId: sourceText(value('C')).trim().toLowerCase() } : {}),
             activityIds: [],
             time: {
-              start: { precision: 'text', date: dayValue(value('E')), rawText: sourceText(value('F')) || '시각 미상' },
+              start: {
+                precision: 'text',
+                ...(/^\d{4}-\d{2}-\d{2}$/.test(dayValue(value('E'))) ? { date: dayValue(value('E')) } : {}),
+                rawText: [dayValue(value('E')), sourceText(value('F'))].filter(Boolean).join(' · ') || '시각 미상',
+              },
             },
             status: sourceText(value('H')) || 'unknown',
             sourceStatusRaw: sourceText(value('H')),

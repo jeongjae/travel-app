@@ -108,7 +108,21 @@ export async function normalizeSpfrCandidate(
   const stays = objects(itinerary.stays).filter((s) =>
     dates.some((d) => string(s.checkin) <= d && d < string(s.checkout)),
   );
-  const regionIds = [...new Set(stays.map((s) => string(s.key)))],
+  const contextRegions = cards.flatMap((card) =>
+    objects(card.stops).flatMap((stop) => {
+      const slug = optionalString(stop.place_ref);
+      if (!slug) {
+        return [];
+      }
+      const body = extract.entries.find((value) => value.sourceKey === `source/CURRENT/30_Places/${slug}.md`);
+      const match =
+        typeof body?.rawValue === 'string' ? /^region:\s*["']?([a-z][a-z0-9-]*)/m.exec(body.rawValue) : null;
+      const fact = object(json('data/place-facts.json').places)[slug];
+      const factRegion = fact ? optionalString(object(fact).region) : undefined;
+      return [...(match ? [match[1]] : []), ...(factRegion ? [factRegion] : [])];
+    }),
+  );
+  const regionIds = [...new Set([...stays.map((s) => string(s.key)), ...contextRegions])],
     regions = objects(json('source/CURRENT/10_Core/regions.json').regions);
   for (const regionId of regionIds) {
     const r = regions.find((r) => r.slug === regionId);
@@ -168,9 +182,6 @@ export async function normalizeSpfrCandidate(
     const localRegions = stays
       .filter((s) => string(s.checkin) <= date && date < string(s.checkout))
       .map((s) => string(s.key));
-    if (!localRegions.length) {
-      throw new Error('명시적인 숙박 지역이 없습니다.');
-    }
     plan.days.push({
       tripId,
       planVersionId,

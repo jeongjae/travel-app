@@ -26,10 +26,11 @@ def media_type(path, data):
     return mimetypes.guess_type(path)[0] or 'application/octet-stream'
 
 
-def fetch_media(audit, tree, commit, output):
+def fetch_media(audit, tree, commit, output, reuse_roots=()):
     if audit.get('sourceCommit') != commit:
         raise ValueError('audit source commit mismatch')
     output = Path(output).resolve()
+    reuse_roots = [Path(root).resolve(strict=True) for root in reuse_roots]
     private_root = Path('local-data').resolve(strict=True)
     if not output.is_relative_to(private_root) or output == private_root:
         raise ValueError('media output must be inside local-data')
@@ -41,6 +42,12 @@ def fetch_media(audit, tree, commit, output):
         if not 0 < blobs[path]['size'] <= MAX_FILE_BYTES:
             raise ValueError('media size exceeds per-file limit: ' + path)
     output.mkdir(parents=True, exist_ok=True)
+    # Resolve existing parents before parallel writes (Windows can canonicalize
+    # a partly-created directory differently while another worker creates it).
+    for parent in sorted({(output / path).parent for path in selected}):
+        parent.mkdir(parents=True, exist_ok=True)
+        if not parent.resolve(strict=True).is_relative_to(output):
+            raise ValueError('media directory escapes output')
 
     def verify(path, data):
         blob = blobs[path]
@@ -58,14 +65,23 @@ def fetch_media(audit, tree, commit, output):
     def download(path):
         target = output / path
         if not target.resolve().is_relative_to(output):
-            raise ValueError('media path escapes output')
+            raise ValueError('media path escapes output: ' + path)
         reused = target.is_file()
         if reused:
             data = target.read_bytes()
         else:
-            url = 'https://raw.githubusercontent.com/jeongjae/SP-FR-guidebook/' + commit + '/' + quote(path)
-            with urlopen(url, timeout=45) as response:
-                data = response.read(MAX_FILE_BYTES + 1)
+            data = None
+            for root in reuse_roots:
+                candidate = root / path
+                if candidate.is_file() and candidate.resolve().is_relative_to(root):
+                    candidate_data = candidate.read_bytes()
+                    verify(path, candidate_data)
+                    data = candidate_data
+                    break
+            if data is None:
+                url = 'https://raw.githubusercontent.com/jeongjae/SP-FR-guidebook/' + commit + '/' + quote(path)
+                with urlopen(url, timeout=45) as response:
+                    data = response.read(MAX_FILE_BYTES + 1)
         digest = verify(path, data)
         if not reused:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -93,12 +109,14 @@ def main():
     parser = argparse.ArgumentParser()
     for flag in ['audit', 'tree', 'commit', 'output-dir']:
         parser.add_argument('--' + flag, required=True)
+    parser.add_argument('--reuse-root', action='append', default=[])
     args = parser.parse_args()
     result = fetch_media(
         PREFLIGHT['load_json'](args.audit),
         PREFLIGHT['load_json'](args.tree),
         args.commit,
         args.output_dir,
+        args.reuse_root,
     )
     report = Path(args.output_dir) / 'media-files.json'
     report.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

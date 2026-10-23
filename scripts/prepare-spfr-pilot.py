@@ -38,7 +38,7 @@ def leaves(value, pointer=''):
         yield pointer, value
 
 
-def prepare(root, tree, commit, days, include_region_catalog=False):
+def prepare(root, tree, commit, days, include_region_catalog=False, include_common_content=False):
     root = Path(root).resolve(strict=True)
     if not days or len(days) != len(set(days)) or any(type(n) is not int or n < 1 for n in days):
         raise ValueError('unique positive pilot days required')
@@ -55,14 +55,26 @@ def prepare(root, tree, commit, days, include_region_catalog=False):
     itinerary = read(JSON_SOURCES[0])
     dates = {c['date'] for c in cards}
     selected_stays = [s for s in itinerary['stays'] if any(s['checkin'] <= d < s['checkout'] for d in dates)]
-    regions = sorted({s['key'] for s in selected_stays})
-    if any(not any(s['checkin'] <= d < s['checkout'] for s in selected_stays) for d in dates):
-        raise ValueError('selected day has no explicit itinerary region')
     planned_places = {s['place_ref'] for c in cards for s in c['stops'] if s.get('place_ref')}
+    facts = read('data/place-facts.json')
+    region_set = {s['key'] for s in selected_stays}
+    for slug in planned_places:
+        body = root / f'source/CURRENT/30_Places/{slug}.md'
+        front_region = re.search(r'^region:\s*[\"\']?([a-z][a-z0-9-]*)', body.read_text(encoding='utf-8'), re.M) if body.is_file() else None
+        region = facts.get('places', {}).get(slug, {}).get('region')
+        if front_region:
+            region_set.add(front_region[1])
+        if region:
+            region_set.add(region)
+    # A travel/return day may legitimately have no overnight region. Never invent a stay.
+    regions = sorted(region_set)
     places = set(planned_places)
     if include_region_catalog:
-        facts = read('data/place-facts.json')
         places.update(slug for slug, value in facts['places'].items() if value.get('region') in regions)
+        for body in sorted((root / 'source/CURRENT/30_Places').glob('*.md')):
+            match = re.search(r'^region:\s*[\"\']?([a-z][a-z0-9-]*)', body.read_text(encoding='utf-8'), re.M)
+            if match and match[1] in regions:
+                places.add(body.stem)
         registry_region = None
         for line in (root / 'source/ASSETS/91_Place_Registry_v1.0.md').read_text(encoding='utf-8').splitlines():
             heading = re.match(r'^##\s+([a-z][a-z0-9-]*)\s*\(', line)
@@ -82,12 +94,24 @@ def prepare(root, tree, commit, days, include_region_catalog=False):
     paths += [f'source/CURRENT/20_Regions/{r}.md' for r in regions]
     paths += [f'source/CURRENT/30_Places/{p}.md' for p in places if p not in bodyless_places]
     paths += [BOOK, 'build/model.py', 'build/render.py', 'source/ASSETS/91_Place_Registry_v1.0.md']
+    if include_common_content:
+        paths += sorted(path for path in tree_paths if (
+            path.startswith('source/CURRENT/10_Core/') or path.startswith('source/CURRENT/20_Regional_Chapters/')
+        ) and path.endswith('.md'))
     # Validate every selected path against the untruncated tree before extraction.
     checked = PREFLIGHT['inventory'](tree, commit, paths, root)
     before = {r['sourceKey']: r['sha256'] for r in checked['records'] if r['selected']}
     spec = [{'path': p, 'kind': 'json' if p.endswith('.json') else 'xlsx' if p == BOOK else 'python' if p.endswith('.py') else 'markdown',
              **({'constants': ['PARIS_MUSEUM_BOOKINGS']} if p == 'build/render.py' else {})} for p in paths]
+    if include_common_content:
+        render_spec = next(item for item in spec if item['path'] == 'build/render.py')
+        render_spec['constants'] += ['DAY_FRENCH_MAP', 'PLACE_CATEGORY_FRENCH_MAP', 'FRENCH_CATEGORY_LABEL']
     extraction = EXTRACTOR['extract'](root, spec, 'jeongjae/SP-FR-guidebook', commit)
+    code_prose_inventory = []
+    if include_common_content:
+        prose_reader = runpy.run_path(str(SCRIPTS / 'spfr-common-prose.py'))
+        prose, code_prose_inventory = prose_reader['common_prose']((root / 'build/render.py').read_text(encoding='utf-8'), 'build/render.py')
+        extraction['entries'].extend(prose)
     if any(before[f['path']] != f['sha256'] for f in extraction['manifest']):
         raise ValueError('source changed between pinned audit and extraction')
     by_key = {e['sourceKey']: e for e in extraction['entries']}
@@ -122,7 +146,7 @@ def prepare(root, tree, commit, days, include_region_catalog=False):
     images = read('data/images/image-manifest.json')
     for image in images['images']:
         uses = {f'daily/day-{n:02d}.html' for n in days}
-        if image.get('placeId') not in places and not uses.intersection(image.get('usage', [])) and not (image.get('region') in regions and image.get('regionHero')):
+        if not include_common_content and image.get('placeId') not in places and not uses.intersection(image.get('usage', [])) and not (image.get('region') in regions and image.get('regionHero')):
             continue
         for role, variants in image.get('variants', {}).items():
             for variant in variants:
@@ -134,6 +158,10 @@ def prepare(root, tree, commit, days, include_region_catalog=False):
             media.append({'sourcePath': 'source/ASSETS/' + item['localPath'].removeprefix('assets/'),
                           'license': item.get('license'), 'redistributionBasis': item.get('redistributionBasis'),
                           'rightsSource': item.get('sourceUrl'), 'rightsReview': 'pending'})
+    if include_common_content:
+        for item in tree['tree']:
+            if item['type'] == 'blob' and item['path'].startswith('source/ASSETS/75_Execution_Maps/'):
+                media.append({'sourcePath': item['path'], 'byteLength': item['size'], 'rightsReview': 'pending'})
     tree_files = {e['path']: e for e in tree['tree'] if e['type'] == 'blob'}
     for item in media:
         PREFLIGHT['safe_path'](item['sourcePath'])
@@ -156,7 +184,8 @@ def prepare(root, tree, commit, days, include_region_catalog=False):
     report = {'format': 'travel-app-spfr-pilot-audit', 'version': 1, 'sourceCommit': commit,
               'scope': {'days': days, 'dates': sorted(dates), 'regions': regions, 'places': places,
                         'plannedPlaces': sorted(planned_places), 'bodylessPlaces': bodyless_places,
-                        'includeRegionCatalog': include_region_catalog},
+                        'includeRegionCatalog': include_region_catalog, 'includeCommonContent': include_common_content},
+              'codeProseInventory': code_prose_inventory,
               'counts': {'filesVerified': len(paths), 'sourceEntries': len(extraction['entries']), 'sourceUnresolved': len(extraction['unresolved']),
                          'days': len(cards), 'stops': sum(len(c['stops']) for c in cards), 'legs': sum(len(c['legs']) for c in cards),
                          'places': len(places), 'codeBookingsInWindow': len(code_records), 'scopedLeafFields': len(fields),
@@ -175,12 +204,13 @@ def main():
         p.add_argument('--' + flag, required=True)
     p.add_argument('--days', required=True, nargs='+', type=int)
     p.add_argument('--include-region-catalog', action='store_true')
+    p.add_argument('--include-common-content', action='store_true')
     args = p.parse_args()
     out = Path(args.output_dir).resolve()
     if out.is_relative_to(Path(args.root).resolve()):
         raise ValueError('output must be outside source root')
     extraction, report, spec = prepare(args.root, PREFLIGHT['load_json'](args.tree), args.commit, args.days,
-                                       args.include_region_catalog)
+                                       args.include_region_catalog, args.include_common_content)
     out.mkdir(parents=True, exist_ok=True)
     for filename, value in [('extract.json', extraction), ('audit.json', report), ('selection-spec.json', spec)]:
         (out / filename).write_text(json.dumps(value, ensure_ascii=False, allow_nan=False, indent=2) + '\n', encoding='utf-8')

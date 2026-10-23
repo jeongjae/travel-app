@@ -165,7 +165,7 @@ export const LIMITS = {
   manifestBytes: 4 * 1024 ** 2,
   assetBytes: 64 * 1024 ** 2,
   recordBytes: 512 * 1024,
-  provenanceBytes: 4 * 1024 ** 2,
+  provenanceBytes: 16 * 1024 ** 2,
   records: 100_000,
   commandRows: 10_000,
   commandBytes: 32 * 1024 ** 2,

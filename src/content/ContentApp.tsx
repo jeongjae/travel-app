@@ -43,6 +43,8 @@ function isReadingGuide(content: ContentRevision) {
     content.kind === 'guide' &&
     content.payload.documentKind !== 'place-guide' &&
     (content.payload.documentKind !== 'preparation' ||
+      content.entityId.startsWith('source-common-prose-') ||
+      content.entityId.startsWith('source-document-') ||
       content.payload.sections.some((section) => section.assetRefs.length > 0))
   );
 }
