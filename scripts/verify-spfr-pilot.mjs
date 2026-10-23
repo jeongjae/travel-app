@@ -102,7 +102,18 @@ page.on('request', (request) => {
   }
 });
 const url = 'http://127.0.0.1:4173/?workspace=content&review=phase1-verification';
-const button = (name) => page.getByRole('button', { name, exact: true });
+async function clickButton(name) {
+  const labels = { '장소·지역': '가이드', '준비·회화': '준비', 일정: '오늘' };
+  const locator = page.getByRole('button', { name: labels[name] ?? name, exact: true, includeHidden: true });
+  await locator.waitFor({ state: 'attached' });
+  if (['예약·할 일', '실제 기록', '변경안'].includes(name) && !(await locator.isVisible())) {
+    await page.locator('.journey-extras > summary').click();
+  }
+  if ((await locator.count()) && !(await locator.isVisible()) && (await page.locator('.source-inspection').count())) {
+    await page.locator('.source-inspection > summary').click();
+  }
+  await locator.click();
+}
 const screenshot = async (name) => page.screenshot({ path: resolve(output, name), fullPage: false });
 async function inspectFiles(targetPage, databaseName) {
   return targetPage.evaluate(async (name) => {
@@ -177,7 +188,7 @@ async function decodeImages(targetPage) {
 try {
   await page.goto(url);
   await page.getByLabel('여행 패키지 선택').setInputFiles(packagePath);
-  await button('여행에 추가').click();
+  await clickButton('여행에 추가');
   await expect(page.getByRole('heading', { level: 1, name: dataset.header.name, exact: true })).toBeVisible();
   const initial = await inspectFiles(page, 'travel-app-review-phase1-verification');
   const expected = datasetRows(dataset);
@@ -198,8 +209,8 @@ try {
   }
   assert.equal(initial.assets.length, packaged.assets.size);
   for (const day of plan.days) {
-    await page.getByLabel('날짜').first().selectOption(day.dayId);
-    await expect(page.getByRole('heading', { level: 2, name: day.title, exact: true })).toBeVisible();
+    await page.getByLabel('날짜', { exact: true }).selectOption(day.dayId);
+    await expect(page.locator('.day-summary')).toHaveText(day.title);
     for (const item of plan.items.filter((item) => item.dayId === day.dayId)) {
       await expect(page.getByRole('heading', { name: item.title, exact: true })).toBeVisible();
       if (item.summary) {
@@ -212,8 +223,8 @@ try {
   }
   const places = dataset.contents.filter((content) => content.kind === 'place');
   for (const place of places) {
-    await button('장소·지역').click();
-    await button(place.payload.name).click();
+    await clickButton('장소·지역');
+    await clickButton(place.payload.name);
     const guide = dataset.contents.find(
       (content) => content.kind === 'guide' && content.entityId === place.payload.guideId,
     );
@@ -239,35 +250,34 @@ try {
     }
   }
   for (const region of dataset.contents.filter((content) => content.kind === 'region')) {
-    await button('장소·지역').click();
-    await button(region.payload.name).click();
+    await clickButton('장소·지역');
+    await clickButton(region.payload.name);
     const original = extract.entries.find(
       (entry) => entry.sourceKey === `source/CURRENT/20_Regions/${region.entityId}.md`,
     ).rawValue;
-    const visible = await page.locator('.guide-detail').innerText();
     for (const [title] of original.matchAll(/<[^>\r\n]+>/g)) {
-      assert.ok(visible.includes(title), '지역 본문의 꺾쇠 전시명이 HTML로 사라지지 않음');
+      await expect(page.locator('.guide-detail')).toContainText(title);
     }
     for (const id of region.payload.guideIds.slice(1)) {
       const linked = dataset.contents.find((content) => content.kind === 'guide' && content.entityId === id);
-      await button(linked.payload.title).click();
+      await clickButton(linked.payload.title);
       await expect(page.getByRole('heading', { level: 2, name: linked.payload.title, exact: true })).toBeVisible();
-      await button('장소·지역').click();
-      await button(region.payload.name).click();
+      await clickButton('장소·지역');
+      await clickButton(region.payload.name);
     }
   }
-  await button('준비·회화').click();
-  await button('운영 통합문서 · 12시트 대조').click();
+  await clickButton('준비·회화');
+  await clickButton('운영 통합문서 · 12시트 대조');
   const workbook = dataset.contents.find(
     (content) => content.kind === 'guide' && content.entityId === 'source-workbook',
   );
   for (const section of workbook.payload.sections) {
     await expect(page.getByRole('heading', { level: 3, name: section.title, exact: true })).toBeVisible();
   }
-  await button('준비·회화').click();
-  await button('프랑스어 발음·표지·메뉴').click();
+  await clickButton('준비·회화');
+  await clickButton('프랑스어 발음·표지·메뉴');
   await expect(page.getByRole('heading', { level: 3, name: '발음·표지판', exact: true })).toBeVisible();
-  await button('예약·할 일').click();
+  await clickButton('예약·할 일');
   const bookings = dataset.contents.filter((content) => content.kind === 'booking');
   for (const booking of bookings) {
     const titles = page.getByRole('heading', { name: booking.payload.title, exact: true });
@@ -276,27 +286,27 @@ try {
   }
   await page.evaluate(() => scrollTo(0, 0));
   await screenshot('bookings.png');
-  await button('준비·회화').click();
+  await clickButton('준비·회화');
   await expect(page.getByText(sourcePhrases[0].fr, { exact: true }).first()).toBeVisible();
-  await button('사진·관광 지도 · 오프라인 자료').click();
+  await clickButton('사진·관광 지도 · 오프라인 자료');
   await decodeImages(page);
   await page.evaluate(() => scrollTo(0, 0));
   await screenshot('gallery.png');
   const firstPlace = places[0];
-  await button('장소·지역').click();
-  await button(firstPlace.payload.name).click();
+  await clickButton('장소·지역');
+  await clickButton(firstPlace.payload.name);
   const firstGuide = dataset.contents.find(
     (content) => content.kind === 'guide' && content.entityId === firstPlace.payload.guideId,
   );
   const practical = firstGuide.payload.sections.find((section) => section.key === 'practical');
-  await button(`${practical.title} 편집`).click();
+  await clickButton(`${practical.title} 편집`);
   const marker = '검증 사본에서 편집·복원을 확인한 문장';
   await page.getByLabel('본문 Markdown').fill(practical.bodyMd + '\n\n' + marker);
-  await button('본문 저장').click();
+  await clickButton('본문 저장');
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await page.reload();
-  await button('장소·지역').click();
-  await button(firstPlace.payload.name).click();
+  await clickButton('장소·지역');
+  await clickButton(firstPlace.payload.name);
   await expect(page.getByText(marker, { exact: true })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
@@ -304,20 +314,20 @@ try {
   await page.waitForTimeout(500);
   await context.setOffline(true);
   await page.reload();
-  await button('일정').click();
-  await button('예정 외 활동 기록').click();
+  await clickButton('일정');
+  await clickButton('예정 외 활동 기록');
   const recordTitle = '검증용 현장 기록 · 실제 방문 아님';
   await page.getByLabel('활동 이름').fill(recordTitle);
   await page.getByLabel('기록 메모').fill('오프라인 저장·재실행·전체 복원 검증용');
-  await button('실제 기록 저장').click();
+  await clickButton('실제 기록 저장');
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await page.reload();
-  await button('실제 기록').click();
+  await clickButton('실제 기록');
   await expect(page.getByRole('heading', { name: recordTitle, exact: true })).toBeVisible();
   await screenshot('offline-record.png');
-  await button('저장소·백업').click();
+  await clickButton('저장소·백업');
   await expect(page.getByText('오프라인 준비됨', { exact: false })).toHaveCount(initial.assets.length);
-  await button('전체 백업 만들기').click();
+  await clickButton('전체 백업 만들기');
   await expect(page.getByText('전체 백업 생성 완료', { exact: false })).toBeVisible();
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('link', { name: '검증한 전체 백업 파일 저장', exact: true }).click();
@@ -325,7 +335,7 @@ try {
   await (await downloadEvent).saveAs(backupPath);
   const backup = await readBackup(new Blob([await readFile(backupPath)]));
   assert.equal(backup.manifest.tripIds.length, 1);
-  await button('닫기').click();
+  await clickButton('닫기');
   const beforeRestore = await inspectFiles(page, 'travel-app-review-phase1-verification');
   const restore = await browser.newContext({ viewport: { width: 1504, height: 1040 }, serviceWorkers: 'allow' });
   const target = await restore.newPage();
@@ -355,7 +365,7 @@ try {
     );
   assert.deepEqual(cleanRows(restored.rows), cleanRows(beforeRestore.rows));
   assert.deepEqual(restored.assets.map((asset) => asset.hash).sort(), initial.assets.map((asset) => asset.hash).sort());
-  await target.getByRole('button', { name: '장소·지역', exact: true }).click();
+  await target.getByRole('button', { name: '가이드', exact: true }).click();
   await target.getByRole('button', { name: firstPlace.payload.name, exact: true }).click();
   await expect(target.getByText(marker, { exact: true })).toBeVisible();
   await decodeImages(target);

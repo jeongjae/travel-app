@@ -214,6 +214,27 @@ export function GuideDetail({
   }
   return (
     <article className="guide-detail">
+      {owner.kind === 'place' || owner.kind === 'region'
+        ? owner.payload.assetRefs
+            .filter(
+              (asset) =>
+                guide?.kind !== 'guide' ||
+                !guide.payload.sections.some((section) => section.bodyMd.includes(`asset://${asset.assetId}`)),
+            )
+            .slice(0, 1)
+            .map((asset) => (
+              <figure className="guide-hero" key={asset.assetId}>
+                <AssetImage
+                  repo={repo}
+                  tripId={header.tripId}
+                  assetId={asset.assetId}
+                  context={context}
+                  alt={asset.caption ?? owner.payload.name}
+                />
+                {asset.caption ? <figcaption>{asset.caption}</figcaption> : null}
+              </figure>
+            ))
+        : null}
       <h2>
         {owner.kind === 'place' || owner.kind === 'region'
           ? owner.payload.name
@@ -221,9 +242,7 @@ export function GuideDetail({
             ? owner.payload.title
             : owner.entityId}
       </h2>
-      <p className="muted">
-        {context ? '당시 고정 내용' : '현재 내용'} · {owner.revisionId}
-      </p>
+      <p className="muted">{context ? '당시 고정 내용' : '현재 내용'}</p>
       {owner.kind === 'place' ? (
         <>
           <p>{owner.payload.summary}</p>
@@ -270,12 +289,30 @@ export function GuideDetail({
       ) : null}
       {guide?.kind === 'guide' ? (
         <>
+          <nav className="guide-toc" aria-label="본문 목차">
+            {guide.payload.sections
+              .toSorted((a, b) => a.order - b.order)
+              .map((section) => (
+                <button
+                  key={section.key}
+                  onClick={() => {
+                    const heading = document.getElementById(`guide-section-${guide.entityId}-${section.key}`);
+                    heading?.focus({ preventScroll: true });
+                    heading?.scrollIntoView({ block: 'start' });
+                  }}
+                >
+                  {section.title}
+                </button>
+              ))}
+          </nav>
           {guide.payload.sections
             .toSorted((a, b) => a.order - b.order)
             .map((s) => (
               <section key={s.key}>
                 <div className="section-heading">
-                  <h3>{s.title}</h3>
+                  <h3 id={`guide-section-${guide.entityId}-${s.key}`} tabIndex={-1}>
+                    {s.title}
+                  </h3>
                   {!context && guide.payload.documentKind === 'place-guide' ? (
                     <button onClick={() => setEditor({ guide, section: s, expected: header.domainRevision })}>
                       {s.title} 편집
@@ -303,6 +340,7 @@ export function GuideDetail({
           ) : null}
           <details>
             <summary>본문 출처·저장 정보</summary>
+            <p>콘텐츠 revision: {owner.revisionId}</p>
             {guide.sourceRefs.map((s, n) => (
               <p key={n}>
                 {s.sourcePath} · {s.locator}

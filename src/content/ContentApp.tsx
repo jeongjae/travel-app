@@ -7,22 +7,52 @@ import type { Review } from '../transfer/reimport';
 import type { ContentRevision, FieldRecord, PlanVersion, RevisionRef, TimeSpec, TripDataset } from '../contracts/v2';
 import { GuideDetail } from './Guide';
 import { DayDetails } from './DayDetails';
+import {
+  clockLabel,
+  DayLead,
+  DayStrip,
+  GuideCard,
+  JourneyIcon,
+  journeyTabs,
+  MapLink,
+  ScheduleOverview,
+} from './Journey';
 import { reviewWorkspace, workspaceUrl } from '../storage/workspace-name';
 import { ActualEditor, ActualTimeline, TimeEditor, type RecordEditor } from './Field';
 import { ProposalPanel, ReimportReview } from './Workflows';
 import { command, errorText, ErrorText, Modal, timeLabel } from './ui';
 import './content.css';
+import './journey.css';
 const repo = new ContentRepository(repository.db);
 const Recovery = lazy(() => import('./Recovery'));
 type Target = { kind: ContentRevision['kind']; id: string };
-const tabs = ['일정', '장소·지역', '예약·할 일', '준비·회화', '실제 기록', '변경안', '가져오기 기록'] as const;
+const tabs = [
+  '일정',
+  '전체 일정',
+  '장소·지역',
+  '지도',
+  '예약·할 일',
+  '준비·회화',
+  '실제 기록',
+  '변경안',
+  '가져오기 기록',
+] as const;
+type Tab = (typeof tabs)[number];
+function isReadingGuide(content: ContentRevision) {
+  return (
+    content.kind === 'guide' &&
+    content.payload.documentKind !== 'place-guide' &&
+    (content.payload.documentKind !== 'preparation' ||
+      content.payload.sections.some((section) => section.assetRefs.length > 0))
+  );
+}
 export function ContentApp() {
   const [recovery, setRecovery] = useState(false);
   const [ready, setReady] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [selected, setSelected] = useState(''),
-    [tab, setTab] = useState<(typeof tabs)[number]>('일정'),
+    [tab, setTab] = useState<Tab>('일정'),
     [target, setTarget] = useState<Target | null>(null),
     [recordContext, setRecordContext] = useState<RevisionRef[] | undefined>(),
     [planId, setPlanId] = useState(''),
@@ -32,6 +62,7 @@ export function ContentApp() {
     [busy, setBusy] = useState(false),
     [sample, setSample] = useState(false),
     [newTrip, setNewTrip] = useState(false);
+  const [backTrail, setBackTrail] = useState<{ tab: Tab; target: Target | null; context?: RevisionRef[] }[]>([]);
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof readPackage>> | null>(null),
     [review, setReview] = useState<Review | null>(null),
     [legacy, setLegacy] = useState<Awaited<ReturnType<ContentRepository['prepareLegacy']>> | null>(null),
@@ -115,6 +146,19 @@ export function ContentApp() {
   const activeDay = plan?.days.find((d) => d.dayId === dayId) ?? plan?.days[0],
     historical = Boolean(planId),
     context = recordContext ?? (historical ? plan?.contextRefs : undefined);
+  const dayItems =
+    plan?.items.filter((item) => item.dayId === activeDay?.dayId).toSorted((a, b) => a.order - b.order) ?? [];
+  function openTab(next: Tab) {
+    setTab(next);
+    setTarget(null);
+    setRecordContext(undefined);
+    setBackTrail([]);
+    window.scrollTo(0, 0);
+  }
+  function openDay(id: string) {
+    openTab('일정');
+    setDayId(id);
+  }
   async function action(fn: () => Promise<unknown>, message = '저장했습니다.') {
     setError('');
     setBusy(true);
@@ -135,10 +179,21 @@ export function ContentApp() {
     setDayId('');
     setSearch('');
     setTab('일정');
+    setBackTrail([]);
   }
   function navigate(kind: ContentRevision['kind'], id: string) {
+    setBackTrail((trail) => [...trail, { tab, target, context: recordContext }]);
     setTarget({ kind, id });
     setTab('장소·지역');
+    window.scrollTo(0, 0);
+  }
+  function goBack() {
+    const previous = backTrail.at(-1);
+    setBackTrail((trail) => trail.slice(0, -1));
+    setTab(previous?.tab ?? '장소·지역');
+    setTarget(previous?.target ?? null);
+    setRecordContext(previous?.context);
+    window.scrollTo(0, 0);
   }
   async function load(blob: Blob) {
     await action(async () => {
@@ -216,17 +271,29 @@ export function ContentApp() {
     );
   }
   return (
-    <div className="content-app app-layout">
-      <aside className="sidebar">
-        <a className="brand" href={workspaceUrl('content', location.search)}>
+    <div className="content-app journey-layout">
+      <header className="journey-topbar">
+        <a className="brand" aria-label="여행 가이드 열기" href={workspaceUrl('content', location.search)}>
           travel-app
         </a>
-        <h2>여행 가이드</h2>
+        {header ? (
+          <h1 className="journey-location">{header.name}</h1>
+        ) : (
+          <span className="journey-location">여행 가이드</span>
+        )}
         <nav className="sidebar-tools" aria-label="저장소 도구">
           <button disabled={!ready} onClick={() => setRecovery(true)}>
             저장소·백업
           </button>
         </nav>
+      </header>
+      <details className="journey-library" open={!header}>
+        <summary>여행 선택·가져오기</summary>
+        {header ? (
+          <p className="muted">
+            {header.startDate} — {header.endDate} · 이 브라우저에 저장됨
+          </p>
+        ) : null}
         <nav className="trip-list" aria-label="여행 선택">
           {headers.map((h) => (
             <button
@@ -262,7 +329,7 @@ export function ContentApp() {
           />
         </label>
         <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
-      </aside>
+      </details>
       <main className="main" id="content-main">
         {reviewWorkspace(location.search) ? (
           <p className="notice">검증용 저장소 · 평소 사용하는 여행 저장소와 분리되어 있습니다.</p>
@@ -298,60 +365,57 @@ export function ContentApp() {
           </section>
         ) : (
           <>
-            <header className="trip-header">
-              <div>
-                <h1>{header.name}</h1>
-                <p>
-                  {header.startDate} — {header.endDate}
-                </p>
-              </div>
-              <p className="save-state">이 브라우저에 저장됨 · revision {header.domainRevision}</p>
-            </header>
-            <nav className="tabs" aria-label="여행 가이드 화면">
-              {tabs.map((t) => (
-                <button
-                  className={tab === t ? 'active' : ''}
-                  key={t}
-                  onClick={() => {
-                    setTab(t);
-                    setTarget(null);
-                    setRecordContext(undefined);
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
-            </nav>
-            <div className="version-controls">
-              <label>
-                계획 버전
-                <select
-                  value={planId}
-                  onChange={(e) => {
-                    setPlanId(e.target.value);
-                    setTarget(null);
-                    setRecordContext(undefined);
-                    setDayId('');
-                  }}
-                >
-                  <option value="">현재 계획</option>
-                  {history
-                    .toSorted((a, b) => b.number - a.number)
-                    .map((p) => (
-                      <option key={p.planVersionId} value={p.planVersionId}>
-                        계획 {p.number} · {p.reason}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              {historical ? <p className="notice">과거 계획 · 당시 콘텐츠를 고정해 조회합니다.</p> : null}
-            </div>
+            <details className="journey-extras">
+              <summary>예약·기록·계획 도구</summary>
+              <nav className="journey-tools" aria-label="여행 도구">
+                {(['예약·할 일', '실제 기록', '변경안'] as const).map((t) => (
+                  <button aria-pressed={tab === t} key={t} onClick={() => openTab(t)}>
+                    {t}
+                  </button>
+                ))}
+              </nav>
+              <details className="journey-settings">
+                <summary>계획 버전·이행 점검</summary>
+                <div className="version-controls">
+                  <label>
+                    계획 버전
+                    <select
+                      value={planId}
+                      onChange={(e) => {
+                        setPlanId(e.target.value);
+                        setTarget(null);
+                        setRecordContext(undefined);
+                        setDayId('');
+                        setBackTrail([]);
+                      }}
+                    >
+                      <option value="">현재 계획</option>
+                      {history
+                        .toSorted((a, b) => b.number - a.number)
+                        .map((p) => (
+                          <option key={p.planVersionId} value={p.planVersionId}>
+                            계획 {p.number} · {p.reason}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <button onClick={() => openTab('가져오기 기록')}>가져오기 기록</button>
+                  <span className="muted">revision {header.domainRevision}</span>
+                </div>
+              </details>
+            </details>
+            {historical ? <p className="notice">과거 계획 · 당시 콘텐츠를 고정해 조회합니다.</p> : null}
+            {tab === '전체 일정' && plan ? <ScheduleOverview plan={plan} onSelect={openDay} /> : null}
             {tab === '일정' && plan ? (
-              <section>
+              <section className="day-page">
+                <DayStrip plan={plan} dayId={activeDay?.dayId} onSelect={openDay} />
+                {activeDay ? (
+                  <DayLead day={activeDay} items={dayItems} catalog={catalog} onNavigate={navigate} />
+                ) : null}
                 <div className="day-toolbar">
                   <label>
                     날짜
-                    <select value={activeDay?.dayId ?? ''} onChange={(e) => setDayId(e.target.value)}>
+                    <select aria-label="날짜" value={activeDay?.dayId ?? ''} onChange={(e) => setDayId(e.target.value)}>
                       {plan.days.map((d) => (
                         <option key={d.dayId} value={d.dayId}>
                           {d.date} · {d.title}
@@ -366,16 +430,12 @@ export function ContentApp() {
                     </button>
                   </div>
                 </div>
-                <h2>{activeDay?.title}</h2>
-                {activeDay ? <DayDetails repo={repo} day={activeDay} context={context} onNavigate={navigate} /> : null}
-                {plan.items
-                  .filter((i) => i.dayId === activeDay?.dayId)
-                  .toSorted((a, b) => a.order - b.order)
-                  .map((i) => (
-                    <article className="content-row" key={i.activityId}>
-                      <p className="muted">
-                        {timeLabel(i.time.start)}
-                        {i.time.end ? ` ~ ${timeLabel(i.time.end)}` : ''}
+                <div className="day-timeline">
+                  {dayItems.map((i) => (
+                    <article className="content-row timeline-stop" key={i.activityId}>
+                      <p className="timeline-time" title={timeLabel(i.time.start)}>
+                        {clockLabel(i.time.start)}
+                        {i.time.end ? ` ~ ${clockLabel(i.time.end)}` : ''}
                       </p>
                       <h3>{i.title}</h3>
                       <p>{i.summary}</p>
@@ -394,6 +454,11 @@ export function ContentApp() {
                         </a>
                       ) : null}
                       <div className="button-row">
+                        <MapLink
+                          target={catalog.find(
+                            (content) => content.kind === 'map-target' && content.entityId === i.mapTargetId,
+                          )}
+                        />
                         {i.placeLinks.map((l) => (
                           <button key={`${l.placeId}-${l.relation}`} onClick={() => navigate('place', l.placeId)}>
                             장소 안내 ·{' '}
@@ -449,34 +514,51 @@ export function ContentApp() {
                           메모
                         </button>
                       </div>
+                      {plan.legs
+                        .filter((leg) => leg.dayId === activeDay?.dayId && leg.fromActivityId === i.activityId)
+                        .map((leg) => (
+                          <div className="timeline-leg" key={leg.legId}>
+                            <p>
+                              {i.title} → {plan.items.find((item) => item.activityId === leg.toActivityId)?.title}
+                            </p>
+                            <p className="muted">
+                              {[leg.mode, leg.durationText, leg.distanceText, leg.lineText].filter(Boolean).join(' · ')}
+                            </p>
+                            <MapLink
+                              target={catalog.find(
+                                (content) => content.kind === 'map-target' && content.entityId === leg.mapTargetId,
+                              )}
+                            />
+                          </div>
+                        ))}
                     </article>
                   ))}
-                {plan.legs
-                  .filter((l) => l.dayId === activeDay?.dayId)
-                  .map((l) => (
-                    <p key={l.legId}>
-                      이동: {plan.items.find((i) => i.activityId === l.fromActivityId)?.title} →{' '}
-                      {plan.items.find((i) => i.activityId === l.toActivityId)?.title} · {l.mode} · {l.durationText} ·{' '}
-                      {l.distanceText} · {l.lineText}
+                </div>
+                {activeDay ? <DayDetails repo={repo} day={activeDay} context={context} onNavigate={navigate} /> : null}
+                {plan.stays
+                  .filter(
+                    (stay) =>
+                      !activeDay ||
+                      (stay.time.start.date &&
+                        stay.time.start.date <= activeDay.date &&
+                        (!stay.time.end?.date || activeDay.date < stay.time.end.date)),
+                  )
+                  .map((s) => (
+                    <p key={s.stayId}>
+                      숙박: {s.baseText} · {timeLabel(s.time.start)}
                     </p>
                   ))}
-                {plan.stays.map((s) => (
-                  <p key={s.stayId}>
-                    숙박: {s.baseText} · {timeLabel(s.time.start)}
-                  </p>
-                ))}
               </section>
             ) : null}
             {tab === '장소·지역' ? (
               target ? (
                 <>
-                  <button
-                    onClick={() => {
-                      setTarget(null);
-                      setRecordContext(undefined);
-                    }}
-                  >
-                    목록으로
+                  <button onClick={goBack}>
+                    {backTrail.at(-1)?.tab === '일정'
+                      ? '일정으로 돌아가기'
+                      : backTrail.at(-1)?.target
+                        ? '이전 안내로'
+                        : '목록으로'}
                   </button>
                   <GuideDetail
                     key={`${header.tripId}-${target.kind}-${target.id}`}
@@ -490,80 +572,89 @@ export function ContentApp() {
                 </>
               ) : (
                 <section>
-                  <h2>장소·지역</h2>
+                  <h2>가이드</h2>
                   <label>
                     이름·지역 검색
                     <input value={search} onChange={(e) => setSearch(e.target.value)} />
                   </label>
-                  {catalog
-                    .filter(
-                      (c): c is Extract<ContentRevision, { kind: 'place' | 'region' }> =>
-                        c.kind === 'place' || c.kind === 'region',
-                    )
-                    .filter((c) =>
-                      `${c.payload.name} ${
-                        c.kind === 'place'
-                          ? c.payload.regionIds
-                              .map((id) => {
-                                const r = catalog.find((r) => r.kind === 'region' && r.entityId === id);
-                                return r?.kind === 'region' ? r.payload.name : '';
-                              })
-                              .join(' ')
-                          : ''
-                      }`.includes(search),
-                    )
-                    .map((c) => (
-                      <article className="content-row" key={`${c.kind}-${c.entityId}`}>
-                        <h3>
-                          <button onClick={() => navigate(c.kind, c.entityId)}>{c.payload.name}</button>
-                        </h3>
-                        {c.kind === 'place' ? <p>{c.payload.summary}</p> : <p>{c.payload.tagline}</p>}
-                      </article>
-                    ))}
+                  <div className="journey-grid">
+                    {catalog
+                      .filter(
+                        (c): c is Extract<ContentRevision, { kind: 'place' | 'region' }> =>
+                          c.kind === 'place' || c.kind === 'region',
+                      )
+                      .toSorted((a, b) => Number(b.kind === 'region') - Number(a.kind === 'region'))
+                      .filter((c) =>
+                        `${c.payload.name} ${
+                          c.kind === 'place'
+                            ? c.payload.regionIds
+                                .map((id) => {
+                                  const r = catalog.find((r) => r.kind === 'region' && r.entityId === id);
+                                  return r?.kind === 'region' ? r.payload.name : '';
+                                })
+                                .join(' ')
+                            : ''
+                        }`.includes(search),
+                      )
+                      .map((c) => (
+                        <GuideCard
+                          key={`${c.kind}-${c.entityId}`}
+                          repo={repo}
+                          content={c}
+                          context={context}
+                          onOpen={() => navigate(c.kind, c.entityId)}
+                        />
+                      ))}
+                  </div>
                 </section>
               )
             ) : null}
-            {tab === '예약·할 일' ? (
+            {tab === '예약·할 일' || tab === '지도' ? (
               <section>
-                <h2>예약·할 일</h2>
-                {catalog
-                  .filter((c): c is Extract<ContentRevision, { kind: 'booking' }> => c.kind === 'booking')
-                  .map((b) => (
-                    <Booking
-                      key={b.entityId}
-                      repo={repo}
-                      header={header}
-                      booking={b}
-                      onSaved={() => setNotice('예약 상태를 저장했습니다.')}
-                    />
-                  ))}
-                <h3>실행 작업</h3>
-                {catalog
-                  .filter((c): c is Extract<ContentRevision, { kind: 'task' }> => c.kind === 'task')
-                  .map((task) => {
-                    const state = records
-                      .filter(
-                        (r): r is Extract<FieldRecord, { kind: 'task-state' }> =>
-                          r.kind === 'task-state' &&
-                          r.payload.taskRef.entityId === task.entityId &&
-                          r.payload.taskRef.revisionId === task.revisionId,
-                      )
-                      .toSorted((a, b) => b.commitSeq - a.commitSeq)[0];
-                    return (
-                      <article className="content-row" key={task.entityId}>
-                        <h4>{task.payload.label}</h4>
-                        <p>{task.payload.detail}</p>
-                        <button
-                          disabled={busy}
-                          aria-pressed={state?.payload.completed ?? false}
-                          onClick={() => void toggleTask(task)}
-                        >
-                          {state?.payload.completed ? '완료 취소' : '작업 완료'}
-                        </button>
-                      </article>
-                    );
-                  })}
-                <h3>지도·동선 링크</h3>
+                {tab === '예약·할 일' ? (
+                  <>
+                    <h2>예약·할 일</h2>
+                    {catalog
+                      .filter((c): c is Extract<ContentRevision, { kind: 'booking' }> => c.kind === 'booking')
+                      .map((b) => (
+                        <Booking
+                          key={b.entityId}
+                          repo={repo}
+                          header={header}
+                          booking={b}
+                          onSaved={() => setNotice('예약 상태를 저장했습니다.')}
+                        />
+                      ))}
+                    <h3>실행 작업</h3>
+                    {catalog
+                      .filter((c): c is Extract<ContentRevision, { kind: 'task' }> => c.kind === 'task')
+                      .map((task) => {
+                        const state = records
+                          .filter(
+                            (r): r is Extract<FieldRecord, { kind: 'task-state' }> =>
+                              r.kind === 'task-state' &&
+                              r.payload.taskRef.entityId === task.entityId &&
+                              r.payload.taskRef.revisionId === task.revisionId,
+                          )
+                          .toSorted((a, b) => b.commitSeq - a.commitSeq)[0];
+                        return (
+                          <article className="content-row" key={task.entityId}>
+                            <h4>{task.payload.label}</h4>
+                            <p>{task.payload.detail}</p>
+                            <button
+                              disabled={busy}
+                              aria-pressed={state?.payload.completed ?? false}
+                              onClick={() => void toggleTask(task)}
+                            >
+                              {state?.payload.completed ? '완료 취소' : '작업 완료'}
+                            </button>
+                          </article>
+                        );
+                      })}
+                  </>
+                ) : null}
+                <h2>{tab === '지도' ? '지도·동선' : '지도·동선 링크'}</h2>
+                <p className="muted">장소·이동 경로를 외부 지도에서 엽니다. 지도 연결에는 인터넷이 필요합니다.</p>
                 {catalog
                   .filter((c): c is Extract<ContentRevision, { kind: 'map-target' }> => c.kind === 'map-target')
                   .map((m) => (
@@ -595,6 +686,13 @@ export function ContentApp() {
             {tab === '준비·회화' ? (
               <section>
                 <h2>준비·회화</h2>
+                <nav className="button-row preparation-links" aria-label="여행 자료">
+                  {guides.filter(isReadingGuide).map((content) => (
+                    <button key={content.entityId} onClick={() => navigate('guide', content.entityId)}>
+                      {content.kind === 'guide' ? content.payload.title : content.entityId}
+                    </button>
+                  ))}
+                </nav>
                 {catalog
                   .filter((c): c is Extract<ContentRevision, { kind: 'phrase-book' }> => c.kind === 'phrase-book')
                   .map((c) => (
@@ -612,13 +710,16 @@ export function ContentApp() {
                       ))}
                     </section>
                   ))}
-                {guides
-                  .filter((c) => c.kind === 'guide' && c.payload.documentKind !== 'place-guide')
-                  .map((c) => (
-                    <button key={c.entityId} onClick={() => navigate('guide', c.entityId)}>
-                      {c.kind === 'guide' ? c.payload.title : c.entityId}
-                    </button>
-                  ))}
+                <details className="source-inspection">
+                  <summary>자료·원천 대조</summary>
+                  {guides
+                    .filter((c) => c.kind === 'guide' && c.payload.documentKind !== 'place-guide' && !isReadingGuide(c))
+                    .map((c) => (
+                      <button key={c.entityId} onClick={() => navigate('guide', c.entityId)}>
+                        {c.kind === 'guide' ? c.payload.title : c.entityId}
+                      </button>
+                    ))}
+                </details>
               </section>
             ) : null}
             {tab === '실제 기록' ? (
@@ -680,6 +781,20 @@ export function ContentApp() {
           </>
         )}
       </main>
+      {header ? (
+        <nav className="journey-bottomnav" aria-label="주요 메뉴">
+          {journeyTabs.map((item) => (
+            <button
+              key={item.tab}
+              aria-current={tab === item.tab ? 'page' : undefined}
+              onClick={() => openTab(item.tab)}
+            >
+              <JourneyIcon name={item.icon} />
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      ) : null}
       {recovery ? (
         <Suspense fallback={<p role="status">저장소 도구를 여는 중입니다.</p>}>
           <Recovery repo={repo} tripId={tripId} onClose={() => setRecovery(false)} />

@@ -1,0 +1,446 @@
+/* SP-FR shell.py / style.css의 탐색 계층과 읽기 토큰을 공통 DB 화면에 적용한다. */
+.content-app {
+  --canvas: #faf6ef;
+  --surface: #fff;
+  --text: #221e19;
+  --muted: #5f5648;
+  --green: #0f5878;
+  --soft: #e3eef3;
+  --line: #e0d7c7;
+  --brand: #000091;
+  background: var(--canvas);
+  color: var(--text);
+  font-family:
+    'Malgun Gothic',
+    '맑은 고딕',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Apple SD Gothic Neo',
+    system-ui,
+    sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+}
+.journey-layout {
+  min-height: 100dvh;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+.content-app button,
+.content-app input,
+.content-app select,
+.content-app textarea {
+  font-family: inherit;
+  font-size: 15px;
+}
+.content-app button {
+  border-color: #c9bca6;
+  border-radius: 12px;
+}
+.content-app a {
+  color: var(--green);
+}
+.journey-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 4px max(16px, calc((100vw - 1088px) / 2));
+  background: var(--brand);
+  color: #fff;
+}
+.journey-topbar .brand {
+  color: #fff;
+  font-size: 16px;
+  white-space: nowrap;
+}
+.journey-location {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  text-align: center;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.content-app .sidebar-tools {
+  margin: 0;
+}
+.journey-topbar button {
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+}
+.journey-topbar button:hover:not(:disabled) {
+  background: #2424a4;
+}
+.journey-library {
+  padding: 0 max(16px, calc((100vw - 1088px) / 2));
+  border-bottom: 1px solid var(--line);
+  background: #f2ece1;
+  font-size: 13px;
+}
+.content-app summary {
+  min-height: 44px;
+  align-content: center;
+  cursor: pointer;
+  color: var(--green);
+}
+.content-app .trip-list {
+  flex-direction: row;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.content-app .trip-item {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 300px;
+}
+.content-app .sidebar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+}
+.content-app .file-picker {
+  margin: 12px 0;
+}
+.content-app .main {
+  max-width: 1088px;
+  padding: 12px 16px 32px;
+}
+.content-app .main > .notice {
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.content-app .trip-header {
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.content-app .trip-header h1 {
+  font-size: 15px;
+  letter-spacing: 0;
+  margin: 0;
+}
+.content-app .trip-header p {
+  font-size: 12px;
+}
+.content-app .save-state {
+  padding: 0;
+  white-space: normal;
+}
+.journey-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.journey-tools button {
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.journey-tools button[aria-pressed='true'] {
+  background: var(--soft);
+}
+.journey-settings {
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.journey-extras {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.content-app .day-toolbar select {
+  max-width: 100%;
+}
+.content-app .version-controls {
+  margin: 8px 0;
+}
+.day-page,
+.guide-detail {
+  max-width: 672px;
+  margin-inline: auto;
+}
+.day-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  border-block: 1px solid var(--line);
+  padding: 8px 0;
+  margin-bottom: 20px;
+}
+.day-strip button {
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+.day-strip small {
+  font-size: 12px;
+  color: inherit;
+}
+.day-strip button[aria-current='date'] {
+  background: #23395b;
+  color: #fff;
+}
+.content-app .day-toolbar {
+  margin: 24px 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.content-app .day-toolbar .button-row {
+  flex-wrap: wrap;
+}
+.content-app .day-toolbar label {
+  font-size: 13px;
+}
+.day-intro {
+  margin: 24px 0 32px;
+}
+.day-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.day-intro h2 {
+  font-size: 32px;
+  line-height: 1.15;
+  margin: 0 0 8px;
+  letter-spacing: -0.6px;
+}
+.day-summary {
+  color: var(--green);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+.next-action {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-left: 4px solid #23395b;
+  border-radius: 12px;
+  background: var(--surface);
+  margin: 0 0 32px;
+}
+.journey-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.06em;
+}
+.action-time {
+  font-size: 32px;
+  font-weight: 750;
+  line-height: 1.2;
+  margin: 12px 0 4px;
+}
+.next-action .action-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+}
+.next-action > p:not(.action-time, .action-title) {
+  font-size: 15px;
+  color: #4a4239;
+}
+.journey-map-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 14px;
+  border: 1px solid #c9bca6;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 700;
+  background: var(--surface);
+}
+.day-bookings {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.editorial-heading {
+  margin: 32px 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.day-timeline {
+  border-left: 2px solid var(--line);
+  margin-left: 8px;
+}
+.timeline-stop {
+  position: relative;
+  padding: 8px 0 24px 24px;
+  border: 0;
+}
+.timeline-stop::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.timeline-time {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--green);
+}
+.timeline-leg {
+  border-left: 3px solid #c9bca6;
+  margin-top: 24px;
+  padding: 12px 16px;
+  background: #f2ece1;
+  font-size: 15px;
+}
+.journey-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 24px;
+  margin: 24px 0;
+}
+.journey-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  padding: 24px;
+}
+.journey-card h3 button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  font-size: 24px;
+}
+.journey-card p {
+  color: #4a4239;
+  font-size: 15px;
+}
+.guide-card {
+  padding: 0;
+}
+.guide-card-body {
+  padding: 20px;
+}
+.guide-card > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+.guide-hero {
+  margin: 24px 0;
+}
+.guide-hero img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.guide-hero figcaption {
+  font-size: 12px;
+  color: var(--muted);
+}
+.guide-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-block: 1px solid var(--line);
+  padding: 8px 0;
+}
+.guide-toc button {
+  border: 0;
+  background: transparent;
+}
+.guide-detail h3 {
+  scroll-margin-top: 80px;
+}
+.journey-bottomnav {
+  position: fixed;
+  z-index: 30;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid var(--line);
+  background: #faf6ef;
+  padding: 4px 8px calc(4px + env(safe-area-inset-bottom));
+}
+.journey-bottomnav button {
+  flex: 1;
+  max-width: 160px;
+  min-width: 0;
+  min-height: 56px;
+  flex-direction: column;
+  gap: 0;
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.journey-bottomnav button[aria-current='page'] {
+  color: var(--green);
+  box-shadow: inset 0 3px var(--green);
+}
+.content-app .muted {
+  font-size: 15px;
+}
+body:has(.journey-bottomnav) .update-bar {
+  bottom: calc(82px + env(safe-area-inset-bottom));
+}
+@media (max-width: 700px) {
+  .journey-topbar {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+  .content-app .trip-header {
+    flex-direction: row;
+  }
+  .content-app .trip-header .save-state {
+    display: none;
+  }
+  .content-app .main > .notice {
+    font-size: 12px;
+  }
+  .content-app .day-toolbar label {
+    width: auto;
+    flex: 1 1 100%;
+  }
+  .next-action {
+    padding: 20px 16px;
+  }
+  .journey-card {
+    padding: 20px;
+  }
+  .guide-card {
+    padding: 0;
+  }
+}

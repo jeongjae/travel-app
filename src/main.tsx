@@ -44,10 +44,12 @@ function AppShell() {
   }, []);
   return (
     <>
-      <nav className="workspace-nav" aria-label="저장소 화면">
-        <a href={workspaceUrl('content', location.search)}>여행 가이드 열기</a>
-        <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
-      </nav>
+      {new URLSearchParams(location.search).get('workspace') !== 'content' ? (
+        <nav className="workspace-nav" aria-label="저장소 화면">
+          <a href={workspaceUrl('content', location.search)}>여행 가이드 열기</a>
+          <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
+        </nav>
+      ) : null}
       {new URLSearchParams(location.search).get('workspace') === 'content' ? (
         <React.Suspense fallback={<main className="main">가이드를 여는 중입니다.</main>}>
           <ContentApp />
