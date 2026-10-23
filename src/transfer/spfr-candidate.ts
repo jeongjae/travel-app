@@ -12,6 +12,7 @@ import {
   type TimeSpec,
 } from '../contracts/v2/index.ts';
 import { currentMappings } from './normalize.ts';
+import { spfrRegistryRows } from './spfr-registry.ts';
 
 const object = (v: unknown) => z.record(z.string(), z.unknown()).parse(v);
 const objects = (v: unknown) => z.array(z.record(z.string(), z.unknown())).parse(v);
@@ -26,7 +27,13 @@ const plain = (v: unknown): unknown => JSON.parse(JSON.stringify(v));
 /** A validated candidate only. The report intentionally prevents packaging incomplete source coverage. */
 export async function normalizeSpfrCandidate(
   raw: unknown,
-  options: { days: number[]; tripId: string; createdAt: string },
+  options: {
+    days: number[];
+    tripId: string;
+    createdAt: string;
+    additionalPlaceIds?: string[];
+    bodylessPlaceIds?: string[];
+  },
 ) {
   const extract = sourceExtractSchema.parse(raw),
     contents: ContentRevision[] = [],
@@ -210,7 +217,7 @@ export async function normalizeSpfrCandidate(
         placeLinks: placeId ? [{ placeId, relation: 'visit' }] : [],
         bookingIds: [],
         taskRefs: [],
-        executionMarkers: objects(stop.executionStatuses).map((s) => ({
+        executionMarkers: objects(stop.executionStatuses === undefined ? [] : stop.executionStatuses).map((s) => ({
           type: string(s.type),
           label: string(s.label),
           detail: typeof s.detail === 'string' ? s.detail : '',
@@ -241,15 +248,35 @@ export async function normalizeSpfrCandidate(
   }
   const facts = object(json('data/place-facts.json').places),
     maps = object(json('data/map-queries.json').places);
+  const plannedPlaces = new Set(places.keys());
+  const registryPath = 'source/ASSETS/91_Place_Registry_v1.0.md';
+  const registry = options.additionalPlaceIds?.length
+    ? spfrRegistryRows(string(entry(registryPath).rawValue))
+    : new Map();
+  for (const slug of options.additionalPlaceIds ?? []) {
+    if (places.has(slug)) {
+      continue;
+    }
+    const fact = facts[slug] ? object(facts[slug]) : undefined;
+    const row = registry.get(slug);
+    const region = optionalString(fact?.region) ?? row?.regionId;
+    if (!region || !regionIds.includes(region) || (row && row.regionId !== region)) {
+      throw new Error(`추가 장소의 명시 지역이 다릅니다: ${slug}`);
+    }
+    places.set(slug, { name: optionalString(fact?.displayName) ?? row?.name ?? slug });
+  }
   for (const [slug, stop] of places) {
-    const path = `source/CURRENT/30_Places/${slug}.md`,
-      rawMd = string(entry(path).rawValue),
-      front = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(rawMd);
-    if (!front) {
+    const bodyPath = `source/CURRENT/30_Places/${slug}.md`;
+    const bodyEntry = extract.entries.find((value) => value.sourceKey === bodyPath && value.status === 'extracted');
+    const rawMd = bodyEntry ? string(bodyEntry.rawValue) : '';
+    const front = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(rawMd);
+    const bodyless = !bodyEntry && !plannedPlaces.has(slug) && options.bodylessPlaceIds?.includes(slug);
+    if (!front && !bodyless) {
       throw new Error('명시적 장소 frontmatter가 필요합니다.');
     }
+    const path = bodyless ? (facts[slug] ? 'data/place-facts.json' : registryPath) : bodyPath;
     const values = new Map<string, string>();
-    for (const line of front[1].split(/\r?\n/)) {
+    for (const line of front?.[1].split(/\r?\n/) ?? []) {
       const m = /^([a-z_]+):\s*(.*)$/.exec(line);
       if (!m) {
         blocking.push(`FRONTMATTER_UNSUPPORTED:${slug}`);
@@ -260,6 +287,14 @@ export async function normalizeSpfrCandidate(
       }
       const v = m[2];
       values.set(m[1], v.startsWith('"') ? string(JSON.parse(v)) : v);
+    }
+    if (bodyless) {
+      const fact = facts[slug] ? object(facts[slug]) : undefined;
+      const row = registry.get(slug);
+      values.set('slug', slug);
+      values.set('region', optionalString(fact?.region) ?? row?.regionId ?? '');
+      values.set('name', string(stop.name));
+      values.set('kind', row?.kind ?? 'unspecified');
     }
     if (values.get('slug') !== slug || !regionIds.includes(values.get('region') ?? '')) {
       throw new Error('장소 ID/지역이 다릅니다.');
@@ -351,8 +386,29 @@ export async function normalizeSpfrCandidate(
         factIds.push(factId);
       }
     }
-    const body = rawMd.slice(front[0].length),
+    const body = front ? rawMd.slice(front[0].length) : '',
       sections: Extract<ContentRevision, { kind: 'guide' }>['payload']['sections'] = [];
+    if (bodyless) {
+      sections.push({
+        key: 'why_go',
+        title: '왜 가는가',
+        order: 0,
+        bodyMd: `원천에 이 장소의 독립 본문 파일이 없습니다. [지역 가이드](travel://region/${values.get('region')})와 확인 상태가 표시된 구조화 자료를 함께 확인하세요.`,
+        factRefs: [],
+        assetRefs: [],
+        linkRefs: [{ tripId, targetKind: 'region', entityId: values.get('region')! }],
+      });
+      sections.push({ key: 'deep', title: '더 깊이', order: 1, bodyMd: '', factRefs: [], assetRefs: [], linkRefs: [] });
+      sections.push({
+        key: 'practical',
+        title: '실용',
+        order: 2,
+        bodyMd: '',
+        factRefs: [],
+        assetRefs: [],
+        linkRefs: [],
+      });
+    }
     const pieces = body.split(/^## /m);
     if (pieces[0].trim()) {
       blocking.push(`GUIDE_PREAMBLE_PENDING:${slug}`);
@@ -360,7 +416,10 @@ export async function normalizeSpfrCandidate(
     for (const [i, piece] of pieces.slice(1).entries()) {
       const split = piece.indexOf('\n'),
         title = (split < 0 ? piece : piece.slice(0, split)).trim(),
-        bodyMd = split < 0 ? '' : piece.slice(split + 1);
+        bodyMd = (split < 0 ? '' : piece.slice(split + 1))
+          .replace(/\{\{badge:[^|}]*\|([^}]*)\}\}/g, '($1)')
+          .replace(/\{\{badge:([^}]*)\}\}/g, '($1)')
+          .replace(/\{\{grade:[^}]*\}\}/g, '');
       const key = /왜 가는가/.test(title)
         ? 'why_go'
         : /더 깊이/.test(title)
@@ -368,10 +427,21 @@ export async function normalizeSpfrCandidate(
           : /실용/.test(title)
             ? 'practical'
             : await stable('section', title);
-      if (/<\/?[A-Za-z]|!\[|travel:\/\/|asset:\/\//.test(bodyMd)) {
+      // The reader renders angle-bracket prose as literal text; images and app URIs still need explicit bindings.
+      if (/!\[|travel:\/\/|asset:\/\//.test(bodyMd)) {
         blocking.push(`GUIDE_BINDINGS_PENDING:${slug}:${key}`);
       }
       sections.push({ key, title, order: i, bodyMd, factRefs: [], assetRefs: [], linkRefs: [] });
+    }
+    // A missing source section remains empty; do not create narrative to satisfy the storage contract.
+    for (const [key, title] of [
+      ['why_go', '왜 가는가'],
+      ['deep', '더 깊이'],
+      ['practical', '실용'],
+    ]) {
+      if (!sections.some((section) => section.key === key)) {
+        sections.push({ key, title, order: sections.length, bodyMd: '', factRefs: [], assetRefs: [], linkRefs: [] });
+      }
     }
     // Keep narrative and structured source facts separately; never silently replace conflicting prose.
     if (factIds.length) {
@@ -451,6 +521,33 @@ export async function normalizeSpfrCandidate(
       target: `booking/${id}`,
       note: 'day→ISO 날짜 대응. M/D/요일·일정·구매/예약 원문은 그대로 보존하며 새 사용자 확인을 발명하지 않음.',
     });
+  }
+  for (const content of contents) {
+    if (content.kind !== 'guide') {
+      continue;
+    }
+    for (const section of content.payload.sections) {
+      for (const [, token] of section.bodyMd.matchAll(/\{\{fact:([^{}]+)\}\}/g)) {
+        let binding = content.payload.factBindings.find((value) => value.token === token);
+        if (!binding) {
+          const split = token.lastIndexOf('.');
+          const fact = contents.find(
+            (value) =>
+              value.kind === 'fact' &&
+              value.payload.targetRef.entityId === token.slice(0, split) &&
+              value.payload.key === token.slice(split + 1),
+          );
+          if (!fact) {
+            throw new Error(`원천 Fact 토큰의 대상이 없습니다: ${token}`);
+          }
+          binding = { token, ref: ref('fact', fact.entityId) };
+          content.payload.factBindings.push(binding);
+        }
+        if (!section.factRefs.includes(binding.ref.entityId)) {
+          section.factRefs.push(binding.ref.entityId);
+        }
+      }
+    }
   }
   plan.contextRefs = contents.map((c) => ref(c.kind, c.entityId));
   const dataset = validateTripDataset(

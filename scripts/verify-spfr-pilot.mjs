@@ -12,10 +12,14 @@ const { values } = parseArgs({
     package: { type: 'string' },
     extract: { type: 'string' },
     'output-dir': { type: 'string' },
+    review: { type: 'string', default: 'phase1-verification' },
   },
 });
 if (!values.package || !values.extract || !values['output-dir']) {
   throw new Error('--package --extract --output-dir가 필요합니다.');
+}
+if (!/^[a-z0-9-]{1,31}$/.test(values.review)) {
+  throw new Error('검증 저장소 이름은 영문 소문자·숫자·하이픈 1~31자로 지정하세요.');
 }
 const root = await realpath('local-data');
 const inside = (path) => {
@@ -33,7 +37,7 @@ const packaged = await readPackage(new Blob([await readFile(packagePath)]));
 const dataset = packaged.dataset;
 const plan = dataset.plans[0];
 const json = (path) => extract.entries.find((entry) => entry.sourceKey === path).rawValue;
-const cards = plan.days.map((day) => json(`data/daily-cards/${day.dayId}.json`));
+const cards = plan.days.map((day) => json(`data/daily-cards/day-${day.dayId.slice(4).padStart(2, '0')}.json`));
 // Independent source-to-domain comparisons; no normalizer helpers are used here.
 for (const [index, day] of plan.days.entries()) {
   const card = cards[index];
@@ -62,7 +66,11 @@ for (const [index, day] of plan.days.entries()) {
     assert.equal(item.officialUrl ?? '', stop.officialUrl ?? '');
     assert.deepEqual(
       item.executionMarkers,
-      stop.executionStatuses.map((status) => ({ type: status.type, label: status.label, detail: status.detail ?? '' })),
+      (stop.executionStatuses === undefined ? [] : stop.executionStatuses).map((status) => ({
+        type: status.type,
+        label: status.label,
+        detail: status.detail ?? '',
+      })),
     );
   }
 }
@@ -101,7 +109,7 @@ page.on('request', (request) => {
     foreignRequests.push(request.url());
   }
 });
-const url = 'http://127.0.0.1:4173/?workspace=content&review=phase1-verification';
+const url = `http://127.0.0.1:4173/?workspace=content&review=${values.review}`;
 async function clickButton(name) {
   const labels = { '장소·지역': '가이드', '준비·회화': '준비', 일정: '오늘' };
   const locator = page.getByRole('button', { name: labels[name] ?? name, exact: true, includeHidden: true });
@@ -190,7 +198,7 @@ try {
   await page.getByLabel('여행 패키지 선택').setInputFiles(packagePath);
   await clickButton('여행에 추가');
   await expect(page.getByRole('heading', { level: 1, name: dataset.header.name, exact: true })).toBeVisible();
-  const initial = await inspectFiles(page, 'travel-app-review-phase1-verification');
+  const initial = await inspectFiles(page, `travel-app-review-${values.review}`);
   const expected = datasetRows(dataset);
   for (const [collection, rows] of Object.entries(initial.rows)) {
     const clean = (rows) =>
@@ -245,7 +253,7 @@ try {
         content.payload.appReviewStatus === 'needs-review',
     );
     if (uncertain) {
-      await expect(page.getByText('외부 근거 누락.', { exact: false })).toBeVisible();
+      await expect(page.getByText('외부 근거 누락.', { exact: false }).first()).toBeVisible();
       await screenshot('fact-needs-review.png');
     }
   }
@@ -336,12 +344,12 @@ try {
   const backup = await readBackup(new Blob([await readFile(backupPath)]));
   assert.equal(backup.manifest.tripIds.length, 1);
   await clickButton('닫기');
-  const beforeRestore = await inspectFiles(page, 'travel-app-review-phase1-verification');
+  const beforeRestore = await inspectFiles(page, `travel-app-review-${values.review}`);
   const restore = await browser.newContext({ viewport: { width: 1504, height: 1040 }, serviceWorkers: 'allow' });
   const target = await restore.newPage();
   target.setDefaultTimeout(45000);
   target.on('pageerror', (error) => errors.push(error.message));
-  await target.goto('http://127.0.0.1:4173/?workspace=content&review=phase1-restored');
+  await target.goto(`http://127.0.0.1:4173/?workspace=content&review=${values.review}-restored`);
   await target.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
@@ -355,7 +363,7 @@ try {
   await expect(target.getByText('전체 복원 완료.', { exact: false })).toBeVisible();
   await target.getByRole('button', { name: '닫기', exact: true }).click();
   await target.reload();
-  const restored = await inspectFiles(target, 'travel-app-review-phase1-restored');
+  const restored = await inspectFiles(target, `travel-app-review-${values.review}-restored`);
   const cleanRows = (rows) =>
     Object.fromEntries(
       Object.entries(rows).map(([name, entries]) => [

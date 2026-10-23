@@ -45,7 +45,7 @@ export async function mapSpfrMedia({
   const manifest = obj(extract.entries.find((entry) => entry.sourceKey === path)!.rawValue);
   const places = contents.filter((content) => content.kind === 'place').map((content) => content.entityId);
   const regions = contents.filter((content) => content.kind === 'region').map((content) => content.entityId);
-  const uses = new Set(plan.days.map((day) => `daily/${day.dayId}.html`));
+  const uses = new Set(plan.days.map((day) => `daily/day-${day.dayId.slice(4).padStart(2, '0')}.html`));
   const byPath = new Map(files.map((file) => [file.sourcePath, file]));
   if (byPath.size !== files.length) {
     throw new Error('첨부 경로 중복');
@@ -186,7 +186,7 @@ export async function mapSpfrMedia({
       }
     }
     for (const day of plan.days) {
-      if (arrUsage(image.usage).includes(`daily/${day.dayId}.html`)) {
+      if (arrUsage(image.usage).includes(`daily/day-${day.dayId.slice(4).padStart(2, '0')}.html`)) {
         day.assetRefs.push({ assetId: id, role: 'hero', caption });
       }
     }

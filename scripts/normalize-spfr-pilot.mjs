@@ -12,9 +12,11 @@ const { values } = parseArgs({
     days: { type: 'string' },
     'trip-id': { type: 'string' },
     'output-dir': { type: 'string' },
+    audit: { type: 'string' },
+    'lineage-id': { type: 'string' },
   },
 });
-if (Object.values(values).length !== 5 || Object.values(values).some((value) => !value)) {
+if (['extract', 'media-dir', 'days', 'trip-id', 'output-dir'].some((name) => !values[name])) {
   throw new Error('--extract --media-dir --days --trip-id --output-dir를 지정하세요.');
 }
 const privateRoot = await realpath('local-data');
@@ -28,6 +30,13 @@ const contained = (root, path) => {
 const mediaRoot = contained(privateRoot, await realpath(values['media-dir']));
 const extractFile = contained(privateRoot, await realpath(values.extract));
 const extract = parseStrictJson(await readFile(extractFile, 'utf8'), 32 * 1024 ** 2);
+const days = values.days.split(',').map(Number);
+const audit = values.audit
+  ? parseStrictJson(await readFile(contained(privateRoot, await realpath(values.audit)), 'utf8'), 32 * 1024 ** 2)
+  : undefined;
+if (audit && (audit.sourceCommit !== extract.sourceCommit || canonicalJson(audit.scope.days) !== canonicalJson(days))) {
+  throw new Error('배치 범위·원천 감사가 추출 입력과 다릅니다.');
+}
 const mediaManifest = parseStrictJson(await readFile(resolve(mediaRoot, 'media-files.json'), 'utf8'));
 if (mediaManifest.sourceCommit !== extract.sourceCommit || mediaManifest.allBytesVerified !== true) {
   throw new Error('미디어와 추출 원천 커밋·검증 상태가 다릅니다.');
@@ -47,10 +56,13 @@ contained(privateRoot, await realpath(resolve(output, '..')));
 await mkdir(output);
 contained(privateRoot, await realpath(output));
 const normalized = await normalizeSpfrPilot(extract, {
-  days: values.days.split(',').map(Number),
+  days,
   tripId: values['trip-id'],
   createdAt: new Date().toISOString(),
   media: files,
+  ...(audit?.scope.includeRegionCatalog
+    ? { additionalPlaceIds: audit.scope.places, bodylessPlaceIds: audit.scope.bodylessPlaces }
+    : {}),
 });
 for (const [name, value] of Object.entries(normalized)) {
   if (name === 'generatedAssets') {
@@ -70,7 +82,7 @@ if (!normalized.report.packageReady) {
     {
       sourceRepository: extract.sourceRepository,
       sourceCommit: extract.sourceCommit,
-      lineageId: 'spfr-pilot-28-30',
+      lineageId: values['lineage-id'] ?? 'spfr-pilot-28-30',
       adapterVersion: 'spfr-pilot-v2',
       normalizationVersion: '2',
     },
@@ -83,7 +95,7 @@ if (!normalized.report.packageReady) {
   const restored = await readPackage(new Blob([await readFile(resolve(output, 'pilot.zip'))]));
   if (
     canonicalJson(restored.dataset) !== canonicalJson(normalized.dataset) ||
-    restored.assets.size !== files.length + normalized.generatedAssets.size
+    restored.assets.size !== new Set([...files.map((file) => file.sha256), ...normalized.generatedAssets.keys()]).size
   ) {
     throw new Error('디스크 ZIP 재검증 결과가 변환 결과와 다릅니다.');
   }

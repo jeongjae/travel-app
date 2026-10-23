@@ -4,9 +4,18 @@ import { parseArgs } from 'node:util';
 import { chromium, expect } from '@playwright/test';
 import { readPackage } from '../src/transfer/package.ts';
 
-const { values } = parseArgs({ options: { package: { type: 'string' }, 'output-dir': { type: 'string' } } });
+const { values } = parseArgs({
+  options: {
+    package: { type: 'string' },
+    'output-dir': { type: 'string' },
+    review: { type: 'string', default: 'phase-1' },
+  },
+});
 if (!values.package || !values['output-dir']) {
   throw new Error('--package --output-dir가 필요합니다.');
+}
+if (!/^[a-z0-9-]{1,40}$/.test(values.review)) {
+  throw new Error('검증 저장소 이름이 잘못되었습니다.');
 }
 const root = await realpath('local-data');
 function inside(path) {
@@ -32,7 +41,7 @@ const context = await chromium.launchPersistentContext(profile, {
 });
 const page = context.pages()[0] ?? (await context.newPage());
 page.setDefaultTimeout(45000);
-const url = 'http://127.0.0.1:4173/?workspace=content&review=phase-1';
+const url = `http://127.0.0.1:4173/?workspace=content&review=${values.review}`;
 try {
   await page.goto(url);
   await expect(
@@ -54,7 +63,7 @@ try {
     status: 'ready-for-user',
     url,
     profile,
-    database: 'travel-app-review-phase-1',
+    database: `travel-app-review-${values.review}`,
     packagePath,
     packageDigest: packaged.provenance.packageDigest,
     userConfirmation: '확인 대기',

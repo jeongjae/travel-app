@@ -7,6 +7,25 @@ import { normalizeSpfrCandidate } from '../src/transfer/spfr-candidate';
 import { canonicalJson, sourceExtractSchema } from '../src/contracts/v2';
 import { buildPackage, readPackage } from '../src/transfer/package';
 const python = resolve(process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python');
+it('기기 MIME 등록과 파일 확장자에 의존하지 않고 검증 이미지 바이트의 형식을 식별한다', () => {
+  const result = execFileSync(
+    python,
+    [
+      '-c',
+      [
+        'import runpy',
+        "mime = runpy.run_path('scripts/fetch-spfr-media.py')['media_type']",
+        "assert mime('a.bin', b'RIFF0000WEBP0000') == 'image/webp'",
+        "assert mime('a.bin', b'\\x89PNG\\r\\n\\x1a\\n000') == 'image/png'",
+        "assert mime('a.bin', b'\\xff\\xd8\\xff000') == 'image/jpeg'",
+        "assert mime('a.bin', b'unknown') == 'application/octet-stream'",
+        "print('verified')",
+      ].join('\n'),
+    ],
+    { encoding: 'utf8' },
+  );
+  expect(result.trim()).toBe('verified');
+});
 async function fixture() {
   await mkdir('.cache/spfr-tests', { recursive: true });
   const dir = await mkdtemp(resolve('.cache/spfr-tests/source-')),

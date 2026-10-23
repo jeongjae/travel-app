@@ -15,6 +15,17 @@ PREFLIGHT = runpy.run_path(str(Path(__file__).with_name('source-preflight.py')))
 MAX_FILE_BYTES = 32 * 1024 * 1024
 
 
+def media_type(path, data):
+    # Windows may not register WebP in mimetypes. Use verified bytes, not a filename-only guess.
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'image/webp'
+    if data.startswith(b'\x89PNG\r\n\x1a\n'):
+        return 'image/png'
+    if data.startswith(b'\xff\xd8\xff'):
+        return 'image/jpeg'
+    return mimetypes.guess_type(path)[0] or 'application/octet-stream'
+
+
 def fetch_media(audit, tree, commit, output):
     if audit.get('sourceCommit') != commit:
         raise ValueError('audit source commit mismatch')
@@ -69,7 +80,7 @@ def fetch_media(audit, tree, commit, output):
             'sha256': digest,
             'gitBlobSha1': blobs[path]['sha'],
             'byteLength': len(data),
-            'mimeType': mimetypes.guess_type(path)[0] or 'application/octet-stream',
+            'mimeType': media_type(path, data),
             'reused': reused,
         }
 

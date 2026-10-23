@@ -27,10 +27,17 @@ import { mapSpfrMedia, type PilotMediaFile } from './spfr-media.ts';
 const cloneJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 const escaped = (value: string) => value.replaceAll('~', '~0').replaceAll('/', '~1');
 
-/** Final 3-day adapter. The preliminary candidate stays unchanged as historical extraction evidence. */
+/** Complete scoped adapter. A regional batch is isolated from previously reviewed packages. */
 export async function normalizeSpfrPilot(
   raw: unknown,
-  options: { days: number[]; tripId: string; createdAt: string; media: PilotMediaFile[] },
+  options: {
+    days: number[];
+    tripId: string;
+    createdAt: string;
+    media: PilotMediaFile[];
+    additionalPlaceIds?: string[];
+    bodylessPlaceIds?: string[];
+  },
 ) {
   const extract = sourceExtractSchema.parse(raw);
   const base = await normalizeSpfrCandidate(extract, options);
@@ -132,14 +139,14 @@ export async function normalizeSpfrPilot(
       prefix,
       'deferred',
       'Phase 2',
-      '이번 3일·명시 지역 밖의 원천. 삭제·전체 이행 범위 제외가 아니며 다음 배치에서 재처리',
+      '선택 일자·명시 지역 밖의 원천. 삭제·전체 이행 범위 제외가 아니며 다음 배치에서 재처리',
     );
   const selectedRegions = contents.filter((content) => content.kind === 'region').map((content) => content.entityId);
   const selectedPlaces = contents.filter((content) => content.kind === 'place').map((content) => content.entityId);
   const dates = plan.days.map((day) => day.date);
   const itineraryPath = 'source/CURRENT/10_Core/itinerary.json';
   const itinerary = json(itineraryPath);
-  show(itineraryPath, '/trip', itinerary.trip, '전체 여행의 원천 날짜·박수 (이번 표본은 3일)');
+  show(itineraryPath, '/trip', itinerary.trip, `전체 여행의 원천 날짜·박수 (이번 배치는 ${options.days.length}일)`);
   const trip = obj(itinerary.trip);
   dataset.header.sourceMetadata = {
     days: z.number().int().parse(trip.days),
@@ -296,7 +303,10 @@ export async function normalizeSpfrPilot(
           group === 'places'
             ? selectedPlaces.includes(key)
             : group === 'hotels'
-              ? plan.days.some((day) => obj(json(`data/daily-cards/day-${day.dayId.slice(4)}.json`).hotel).name === key)
+              ? plan.days.some(
+                  (day) =>
+                    obj(json(`data/daily-cards/day-${day.dayId.slice(4).padStart(2, '0')}.json`).hotel).name === key,
+                )
               : options.days.some((day) => key.startsWith(`day-${day}:`));
         if (selected) {
           show(mapPath, `/${group}/${escaped(key)}`, target, `${group} · ${key}`);
@@ -631,7 +641,7 @@ export async function normalizeSpfrPilot(
   if (correspondenceGuide.kind === 'guide') {
     correspondenceGuide.payload.assetRefs.push({ assetId: correspondence.entityId, role: 'reference' });
   }
-  plan.reason = '고정 원천의 실제 3일 표본 · 원천 상태와 미확인 사실을 보존';
+  plan.reason = `고정 원천의 실제 ${options.days.length}일 배치 · 원천 상태와 미확인 사실을 보존`;
   plan.contextRefs = contents.map((content) => ({
     ...ref(content.kind, content.entityId),
     ...(content.kind === 'asset' ? { hash: content.payload.hash } : {}),

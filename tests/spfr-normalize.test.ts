@@ -4,6 +4,7 @@ import { normalizeSpfrPilot } from '../src/transfer/spfr-pilot';
 import { buildPackage, readPackage } from '../src/transfer/package';
 import { reviewWorkspace, workspaceUrl } from '../src/storage/workspace-name';
 import { spfrPilotFixture } from './fixtures/spfr-pilot';
+import { spfrRegistryRows } from '../src/transfer/spfr-registry';
 
 it('전체 원천 대응·명시 XLSX 날짜·오프라인 첨부·회화·미확인 근거를 분리하고 ZIP을 왕복한다', async () => {
   const fixture = await spfrPilotFixture();
@@ -98,4 +99,79 @@ it('검증 URL은 기존 DB 이름을 직접 선택할 수 없고 화면 전환�
   expect(reviewWorkspace('?review=../travel-app')).toBeUndefined();
   expect(reviewWorkspace('?review=')).toBeUndefined();
   expect(workspaceUrl('legacy', '?review=phase-1')).toBe('?workspace=legacy&review=phase-1');
+});
+
+it('비일정 장소와 독립 본문 부재를 명시하고 다른 장소 Fact를 연결하되 방문을 만들지 않는다', async () => {
+  const fixture = await spfrPilotFixture();
+  const facts = fixture.extract.entries.find((entry) => entry.sourceKey === 'data/place-facts.json')!.rawValue as {
+    places: Record<string, unknown>;
+  };
+  facts.places['fiction-only'] = {
+    region: 'fiction',
+    displayName: '가상 비일정 장소',
+    facts: { hours: { value: '가상 오후', confidence: 'unknown' } },
+  };
+  const registry = fixture.extract.entries.find((entry) => entry.sourceKey.endsWith('91_Place_Registry_v1.0.md'))!;
+  registry.rawValue += '\n## fiction (01)\n| `fiction-extra` | 가상 추가 안내 | spot | 선택 | — | — | — | — |\n';
+  const path = 'source/CURRENT/30_Places/fiction-extra.md';
+  const rawValue =
+    '---\nslug: fiction-extra\nname: "가상 추가 안내"\nregion: fiction\nkind: spot\n---\n\n## 더 깊이\n<Fictional Exhibition> · {{fact:fiction-only.hours}} · {{badge:source|원천 재확인}}\n';
+  fixture.extract.entries.push({
+    sourceKey: path,
+    locator: path,
+    sourceKind: 'markdown',
+    status: 'extracted',
+    rawValue,
+  });
+  const options = {
+    ...fixture.options,
+    additionalPlaceIds: ['fiction-extra', 'fiction-only'],
+    bodylessPlaceIds: ['fiction-only'],
+  };
+  const result = await normalizeSpfrPilot(fixture.extract, options);
+  expect(result.report.packageReady).toBe(true);
+  expect(result.dataset.contents.filter((content) => content.kind === 'place')).toHaveLength(3);
+  expect(result.dataset.plans[0].items).toHaveLength(1);
+  expect(result.dataset.records).toEqual([]);
+  const guide = result.dataset.contents.find(
+    (content) => content.kind === 'guide' && content.entityId === 'guide-fiction-extra',
+  );
+  if (guide?.kind !== 'guide') {
+    throw new Error('추가 본문 누락');
+  }
+  const deep = guide.payload.sections.find((section) => section.key === 'deep')!;
+  expect(deep.bodyMd).toContain('<Fictional Exhibition>');
+  expect(deep.bodyMd).toContain('(원천 재확인)');
+  expect(deep.factRefs).toHaveLength(1);
+  expect(guide.payload.factBindings.find((binding) => binding.token === 'fiction-only.hours')?.ref.entityId).toBe(
+    deep.factRefs[0],
+  );
+  expect(guide.payload.sections.find((section) => section.key === 'why_go')?.bodyMd).toBe('');
+  const bodyless = result.dataset.contents.find(
+    (content) => content.kind === 'guide' && content.entityId === 'guide-fiction-only',
+  );
+  expect(bodyless?.kind === 'guide' && bodyless.payload.sections[0].bodyMd).toContain('독립 본문 파일이 없습니다');
+  await expect(normalizeSpfrPilot(fixture.extract, { ...options, bodylessPlaceIds: [] })).rejects.toThrow(
+    'frontmatter',
+  );
+  facts.places['fiction-only'] = { region: 'other', displayName: '가상 다른 지역', facts: {} };
+  await expect(normalizeSpfrPilot(fixture.extract, options)).rejects.toThrow('명시 지역');
+});
+
+it('원천 실행 상태 필드가 없으면 빈 목록으로 보존하고 잘못된 null은 거부한다', async () => {
+  const fixture = await spfrPilotFixture();
+  const day = fixture.extract.entries.find((entry) => entry.sourceKey === 'data/daily-cards/day-28.json')!.rawValue as {
+    stops: Record<string, unknown>[];
+  };
+  delete day.stops[0].executionStatuses;
+  const result = await normalizeSpfrPilot(fixture.extract, fixture.options);
+  expect(result.dataset.plans[0].items[0].executionMarkers).toEqual([]);
+  day.stops[0].executionStatuses = null;
+  await expect(normalizeSpfrPilot(fixture.extract, fixture.options)).rejects.toThrow();
+});
+
+it('명부의 명시 지역과 ID를 사용하고 중복 ID는 거부한다', () => {
+  const markdown = '## fiction (01)\n| `fiction-place` | 가상 이름 | spot | 선택 | — | — | — | — |\n';
+  expect(spfrRegistryRows(markdown).get('fiction-place')?.regionId).toBe('fiction');
+  expect(() => spfrRegistryRows(markdown + markdown)).toThrow('중복 장소');
 });

@@ -38,7 +38,7 @@ def leaves(value, pointer=''):
         yield pointer, value
 
 
-def prepare(root, tree, commit, days):
+def prepare(root, tree, commit, days, include_region_catalog=False):
     root = Path(root).resolve(strict=True)
     if not days or len(days) != len(set(days)) or any(type(n) is not int or n < 1 for n in days):
         raise ValueError('unique positive pilot days required')
@@ -58,10 +58,29 @@ def prepare(root, tree, commit, days):
     regions = sorted({s['key'] for s in selected_stays})
     if any(not any(s['checkin'] <= d < s['checkout'] for s in selected_stays) for d in dates):
         raise ValueError('selected day has no explicit itinerary region')
-    places = sorted({s['place_ref'] for c in cards for s in c['stops'] if s.get('place_ref')})
+    planned_places = {s['place_ref'] for c in cards for s in c['stops'] if s.get('place_ref')}
+    places = set(planned_places)
+    if include_region_catalog:
+        facts = read('data/place-facts.json')
+        places.update(slug for slug, value in facts['places'].items() if value.get('region') in regions)
+        registry_region = None
+        for line in (root / 'source/ASSETS/91_Place_Registry_v1.0.md').read_text(encoding='utf-8').splitlines():
+            heading = re.match(r'^##\s+([a-z][a-z0-9-]*)\s*\(', line)
+            if heading:
+                registry_region = heading[1]
+            match = re.match(r'^\|\s*`([a-z0-9-]+)`\s*\|(.*)$', line)
+            if match and registry_region in regions:
+                cells = [cell.strip() for cell in match[2].split('|')]
+                if cells[1] != 'node':
+                    places.add(match[1])
+    places = sorted(places)
+    tree_paths = {item['path'] for item in tree['tree'] if item['type'] == 'blob'}
+    bodyless_places = [slug for slug in places if f'source/CURRENT/30_Places/{slug}.md' not in tree_paths]
+    if planned_places.intersection(bodyless_places) or (bodyless_places and not include_region_catalog):
+        raise ValueError('planned place has no pinned standalone body')
     paths = JSON_SOURCES + [f'data/daily-cards/day-{n:02d}.json' for n in days]
     paths += [f'source/CURRENT/20_Regions/{r}.md' for r in regions]
-    paths += [f'source/CURRENT/30_Places/{p}.md' for p in places]
+    paths += [f'source/CURRENT/30_Places/{p}.md' for p in places if p not in bodyless_places]
     paths += [BOOK, 'build/model.py', 'build/render.py', 'source/ASSETS/91_Place_Registry_v1.0.md']
     # Validate every selected path against the untruncated tree before extraction.
     checked = PREFLIGHT['inventory'](tree, commit, paths, root)
@@ -135,7 +154,9 @@ def prepare(root, tree, commit, days):
     if media:
         blocking.append({'code': 'MEDIA_RIGHTS_REVIEW_PENDING', 'message': 'source license/basis is preserved; no fresh rights approval is inferred'})
     report = {'format': 'travel-app-spfr-pilot-audit', 'version': 1, 'sourceCommit': commit,
-              'scope': {'days': days, 'dates': sorted(dates), 'regions': regions, 'places': places},
+              'scope': {'days': days, 'dates': sorted(dates), 'regions': regions, 'places': places,
+                        'plannedPlaces': sorted(planned_places), 'bodylessPlaces': bodyless_places,
+                        'includeRegionCatalog': include_region_catalog},
               'counts': {'filesVerified': len(paths), 'sourceEntries': len(extraction['entries']), 'sourceUnresolved': len(extraction['unresolved']),
                          'days': len(cards), 'stops': sum(len(c['stops']) for c in cards), 'legs': sum(len(c['legs']) for c in cards),
                          'places': len(places), 'codeBookingsInWindow': len(code_records), 'scopedLeafFields': len(fields),
@@ -153,11 +174,13 @@ def main():
     for flag in ['root', 'tree', 'commit', 'output-dir']:
         p.add_argument('--' + flag, required=True)
     p.add_argument('--days', required=True, nargs='+', type=int)
+    p.add_argument('--include-region-catalog', action='store_true')
     args = p.parse_args()
     out = Path(args.output_dir).resolve()
     if out.is_relative_to(Path(args.root).resolve()):
         raise ValueError('output must be outside source root')
-    extraction, report, spec = prepare(args.root, PREFLIGHT['load_json'](args.tree), args.commit, args.days)
+    extraction, report, spec = prepare(args.root, PREFLIGHT['load_json'](args.tree), args.commit, args.days,
+                                       args.include_region_catalog)
     out.mkdir(parents=True, exist_ok=True)
     for filename, value in [('extract.json', extraction), ('audit.json', report), ('selection-spec.json', spec)]:
         (out / filename).write_text(json.dumps(value, ensure_ascii=False, allow_nan=False, indent=2) + '\n', encoding='utf-8')
