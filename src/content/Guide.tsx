@@ -5,8 +5,9 @@ import remarkGfm from 'remark-gfm';
 import type { ContentRepository } from '../repository';
 import type { ContentRevision, RevisionRef, TripDataset } from '../contracts/v2';
 import { command, ErrorText, Modal, errorText } from './ui';
+import { literalHtml } from './markdown';
 
-function AssetImage({
+export function AssetImage({
   repo,
   tripId,
   assetId,
@@ -78,7 +79,7 @@ export function GuideMarkdown({
   return (
     <div>
       <Markdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, literalHtml]}
         skipHtml
         urlTransform={(url) =>
           url.startsWith('travel://') || url.startsWith('asset://') ? url : defaultUrlTransform(url)
@@ -184,6 +185,30 @@ export function GuideDetail({
     section: Extract<ContentRevision, { kind: 'guide' }>['payload']['sections'][number];
     expected: number;
   } | null>(null);
+  const linkedGuides = useLiveQuery(
+    async () => {
+      const candidates =
+        owner?.kind === 'region'
+          ? await Promise.all(
+              owner.payload.guideIds
+                .slice(1)
+                .map((id) =>
+                  repo.content(
+                    header.tripId,
+                    'guide',
+                    id,
+                    context?.find((ref) => ref.targetKind === 'guide' && ref.entityId === id)?.revisionId,
+                  ),
+                ),
+            )
+          : [];
+      return candidates.filter(
+        (content): content is Extract<ContentRevision, { kind: 'guide' }> => content?.kind === 'guide',
+      );
+    },
+    [repo, header.tripId, owner?.entityId, owner?.revisionId, context],
+    [],
+  );
   if (!owner) {
     return <p>자료를 찾는 중입니다.</p>;
   }
@@ -213,6 +238,13 @@ export function GuideDetail({
         <>
           <p>{owner.payload.introduction}</p>
           <p>{owner.payload.rainPlan}</p>
+          <div className="button-row">
+            {linkedGuides.map((content) => (
+              <button key={content.entityId} onClick={() => onNavigate('guide', content.entityId)}>
+                {content.payload.title}
+              </button>
+            ))}
+          </div>
         </>
       ) : null}
       {owner.kind === 'fact' ? (
@@ -375,7 +407,13 @@ function AssetLink({
         const url = URL.createObjectURL(data.blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = data.content.payload.title + (data.content.payload.mimeType === 'application/pdf' ? '.pdf' : '');
+        const extension =
+          data.content.payload.mimeType === 'application/pdf'
+            ? '.pdf'
+            : data.content.payload.mimeType === 'application/json'
+              ? '.json'
+              : '';
+        a.download = data.content.payload.title + extension;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }}

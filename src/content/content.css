@@ -52,6 +52,26 @@
   border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
+.day-details {
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.day-details figure {
+  margin: 20px 0;
+  max-width: 860px;
+}
+.day-details img {
+  display: block;
+  max-height: 330px;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.day-details figcaption {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+}
 .content-row h3 {
   font-size: 19px;
   margin: 6px 0;

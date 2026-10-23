@@ -38,6 +38,132 @@ async function guide(page: Page, name = '가상 장소 1') {
   await page.getByRole('button', { name, exact: true }).click();
   await expect(page.getByRole('heading', { name: '실용', exact: true })).toBeVisible();
 }
+
+test('검증용 저장소의 하루 보충·이미지를 표시하고 기본 여행을 보존한다', async ({ page }) => {
+  await seed(page);
+  await page.goto('/?workspace=content&review=fiction-review');
+  await expect(page.getByRole('heading', { name: '어느 여행을 열까요?' })).toBeVisible();
+  const dataset = await pilotTrip(true);
+  const plan = dataset.plans[0];
+  plan.days[0].highlights = ['가상 하루 핵심'];
+  plan.days[0].food = ['가상 하루 식사'];
+  plan.days[0].assetRefs = [{ assetId: 'asset-image', role: 'hero', caption: '가상 하루 사진' }];
+  const original = dataset.contents.find((content) => content.kind === 'guide')!;
+  if (original.kind !== 'guide') {
+    throw new Error();
+  }
+  const supplemental = {
+    ...original,
+    entityId: 'day-supplement',
+    payload: {
+      documentKind: 'preparation' as const,
+      ownerRef: {
+        tripId: dataset.header.tripId,
+        targetKind: 'day' as const,
+        entityId: plan.days[0].dayId,
+        planVersionId: plan.planVersionId,
+      },
+      title: '가상 하루 보충 안내',
+      sections: [
+        {
+          key: 'stay',
+          title: '숙소 보충',
+          order: 0,
+          bodyMd: '가상 숙소와 원천 상태\n\n<Fictional Exhibition> · <https://example.com/reference> · `<code>`',
+          factRefs: [],
+          assetRefs: [],
+          linkRefs: [],
+        },
+      ],
+      factBindings: [],
+      assetRefs: [],
+    },
+  };
+  dataset.contents.push(supplemental);
+  dataset.heads.push({
+    tripId: dataset.header.tripId,
+    targetKind: 'guide',
+    entityId: supplemental.entityId,
+    revisionId: supplemental.revisionId,
+    status: 'active',
+  });
+  plan.contextRefs.push({
+    tripId: dataset.header.tripId,
+    targetKind: 'guide',
+    entityId: supplemental.entityId,
+    revisionId: supplemental.revisionId,
+  });
+  const bytes = new Map<string, Uint8Array>();
+  for (const value of Object.values(fixtureAssets)) {
+    bytes.set(await digestBytes(value), value);
+  }
+  const packaged = await buildPackage(dataset, bytes, {
+    sourceRepository: 'fiction/review',
+    sourceCommit: 'synthetic',
+    lineageId: 'fiction-review',
+    adapterVersion: '1',
+    normalizationVersion: '1',
+  });
+  await page.getByLabel('여행 패키지 선택').setInputFiles({
+    name: 'fiction-review.zip',
+    mimeType: 'application/zip',
+    buffer: Buffer.from(await packaged.blob.arrayBuffer()),
+  });
+  await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
+  await expect(page.getByText('오늘의 핵심', { exact: true })).toBeVisible();
+  await expect(page.getByText('가상 하루 식사', { exact: false })).toBeVisible();
+  await expect(page.getByRole('img', { name: '가상 하루 사진', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '가상 하루 보충 안내', exact: true }).click();
+  await expect(page.getByText('가상 숙소와 원천 상태', { exact: true })).toBeVisible();
+  await expect(page.getByText('<Fictional Exhibition>', { exact: false })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'https://example.com/reference' })).toHaveAttribute(
+    'href',
+    'https://example.com/reference',
+  );
+  await expect(page.locator('code').getByText('<code>', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: '여행 가이드 열기', exact: true })).toHaveAttribute(
+    'href',
+    '?workspace=content&review=fiction-review',
+  );
+  await page.goto('/?workspace=content');
+  await expect(page.getByRole('heading', { name: '가상 산책 여행 A', exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '여행 선택' }).getByRole('button')).toHaveCount(1);
+});
+
+test('앱 전용 파일과 DB 참조를 분리하고 오프라인 재실행 뒤 이미지를 다시 연다', async ({ page, context }) => {
+  await seed(page);
+  const stored = await page.evaluate(async () => {
+    const rows = await new Promise<{ storage: string; storageKey: string; bytes?: Blob }[]>((resolve, reject) => {
+      const request = indexedDB.open('travel-app');
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const database = request.result;
+        const read = database.transaction('asset_blobs').objectStore('asset_blobs').getAll();
+        read.onsuccess = () => {
+          database.close();
+          resolve(read.result);
+        };
+        read.onerror = () => reject(read.error);
+      };
+    });
+    return rows.map((row) => ({ storage: row.storage, hasKey: Boolean(row.storageKey), hasBytes: Boolean(row.bytes) }));
+  });
+  expect(stored).toHaveLength(2);
+  expect(stored.every((row) => row.storage === 'opfs' && row.hasKey && !row.hasBytes)).toBe(true);
+  await guide(page);
+  await expect(page.getByRole('img', { name: '표본' })).toBeVisible();
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await page.waitForTimeout(400);
+  await context.setOffline(true);
+  await page.reload();
+  await guide(page);
+  await expect(page.getByRole('img', { name: '표본' })).toBeVisible();
+  expect(
+    await page.getByRole('img', { name: '표본' }).evaluate((image) => (image as HTMLImageElement).naturalWidth),
+  ).toBeGreaterThan(0);
+});
 test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미리보기·복원·재시작', async ({ page, browser }) => {
   await seed(page);
   await seed(page, true);
@@ -90,7 +216,7 @@ test('오프라인 첨부 축출 안내→현장 기록 유지→불완전 백�
   await expect(page.getByText('오프라인 준비됨', { exact: false })).toHaveCount(2);
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.evaluate(async () => {
-    await new Promise<void>((resolve, reject) => {
+    const storageKey = await new Promise<string>((resolve, reject) => {
       const r = indexedDB.open('travel-app');
       r.onerror = () => reject(r.error);
       r.onsuccess = () => {
@@ -98,14 +224,23 @@ test('오프라인 첨부 축출 안내→현장 기록 유지→불완전 백�
           tx = db.transaction('asset_blobs', 'readwrite'),
           store = tx.objectStore('asset_blobs'),
           cursor = store.openCursor();
-        cursor.onsuccess = () => cursor.result?.delete();
+        let key = '';
+        cursor.onsuccess = () => {
+          key = cursor.result?.value.storageKey;
+        };
         tx.oncomplete = () => {
           db.close();
-          resolve();
+          resolve(key);
         };
         tx.onerror = () => reject(tx.error);
       };
     });
+    const [databaseName, scope, filename] = storageKey.split('/');
+    const origin = await navigator.storage.getDirectory();
+    const root = await origin.getDirectoryHandle('travel-app-assets-v1');
+    const database = await root.getDirectoryHandle(databaseName);
+    const folder = await database.getDirectoryHandle(scope);
+    await folder.removeEntry(filename);
     await navigator.serviceWorker.ready;
   });
   await page.waitForTimeout(400);

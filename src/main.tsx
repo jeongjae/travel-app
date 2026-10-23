@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
+import { workspaceUrl } from './storage/workspace-name';
 import './styles.css';
 const ContentApp = React.lazy(() => import('./content/ContentApp').then((m) => ({ default: m.ContentApp })));
 
@@ -44,8 +45,8 @@ function AppShell() {
   return (
     <>
       <nav className="workspace-nav" aria-label="저장소 화면">
-        <a href="?workspace=content">여행 가이드 열기</a>
-        <a href="?workspace=legacy">기존 일정 열기</a>
+        <a href={workspaceUrl('content', location.search)}>여행 가이드 열기</a>
+        <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
       </nav>
       {new URLSearchParams(location.search).get('workspace') === 'content' ? (
         <React.Suspense fallback={<main className="main">가이드를 여는 중입니다.</main>}>

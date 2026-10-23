@@ -6,6 +6,8 @@ import { readPackage } from '../transfer/package';
 import type { Review } from '../transfer/reimport';
 import type { ContentRevision, FieldRecord, PlanVersion, RevisionRef, TimeSpec, TripDataset } from '../contracts/v2';
 import { GuideDetail } from './Guide';
+import { DayDetails } from './DayDetails';
+import { reviewWorkspace, workspaceUrl } from '../storage/workspace-name';
 import { ActualEditor, ActualTimeline, TimeEditor, type RecordEditor } from './Field';
 import { ProposalPanel, ReimportReview } from './Workflows';
 import { command, errorText, ErrorText, Modal, timeLabel } from './ui';
@@ -216,7 +218,7 @@ export function ContentApp() {
   return (
     <div className="content-app app-layout">
       <aside className="sidebar">
-        <a className="brand" href="?workspace=content">
+        <a className="brand" href={workspaceUrl('content', location.search)}>
           travel-app
         </a>
         <h2>여행 가이드</h2>
@@ -257,9 +259,12 @@ export function ContentApp() {
         <button disabled={!ready} onClick={() => setRecovery(true)}>
           저장소·백업
         </button>
-        <a href="?workspace=legacy">기존 일정 열기</a>
+        <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
       </aside>
       <main className="main" id="content-main">
+        {reviewWorkspace(location.search) ? (
+          <p className="notice">검증용 저장소 · 평소 사용하는 여행 저장소와 분리되어 있습니다.</p>
+        ) : null}
         <ErrorText error={error} />
         {notice ? (
           <p role="status" className="success">
@@ -360,21 +365,40 @@ export function ContentApp() {
                   </div>
                 </div>
                 <h2>{activeDay?.title}</h2>
+                {activeDay ? <DayDetails repo={repo} day={activeDay} context={context} onNavigate={navigate} /> : null}
                 {plan.items
                   .filter((i) => i.dayId === activeDay?.dayId)
                   .toSorted((a, b) => a.order - b.order)
                   .map((i) => (
                     <article className="content-row" key={i.activityId}>
-                      <p className="muted">{timeLabel(i.time.start)}</p>
+                      <p className="muted">
+                        {timeLabel(i.time.start)}
+                        {i.time.end ? ` ~ ${timeLabel(i.time.end)}` : ''}
+                      </p>
                       <h3>{i.title}</h3>
                       <p>{i.summary}</p>
+                      {i.menuText ? <p>식사·메뉴: {i.menuText}</p> : null}
+                      {i.reservationText ? <p>예약 안내: {i.reservationText}</p> : null}
+                      {i.executionNote ? <p>{i.executionNote}</p> : null}
+                      {i.executionMarkers.map((marker, index) => (
+                        <p key={index} className="muted">
+                          {marker.label} · {marker.detail}
+                        </p>
+                      ))}
+                      {i.optional ? <p className="muted">선택 활동</p> : null}
+                      {i.officialUrl ? (
+                        <a href={i.officialUrl} target="_blank" rel="noreferrer">
+                          공식 안내
+                        </a>
+                      ) : null}
                       <div className="button-row">
                         {i.placeLinks.map((l) => (
                           <button key={`${l.placeId}-${l.relation}`} onClick={() => navigate('place', l.placeId)}>
                             장소 안내 ·{' '}
-                            {catalog.find((c) => c.kind === 'place' && c.entityId === l.placeId)?.kind === 'place'
-                              ? catalog.find((c) => c.kind === 'place' && c.entityId === l.placeId)!.entityId
-                              : l.placeId}
+                            {catalog.find(
+                              (c): c is Extract<ContentRevision, { kind: 'place' }> =>
+                                c.kind === 'place' && c.entityId === l.placeId,
+                            )?.payload.name ?? l.placeId}
                           </button>
                         ))}
                         <button onClick={() => void record('visited', i)}>방문 기록</button>
@@ -430,7 +454,8 @@ export function ContentApp() {
                   .map((l) => (
                     <p key={l.legId}>
                       이동: {plan.items.find((i) => i.activityId === l.fromActivityId)?.title} →{' '}
-                      {plan.items.find((i) => i.activityId === l.toActivityId)?.title} · {l.mode} · {l.durationText}
+                      {plan.items.find((i) => i.activityId === l.toActivityId)?.title} · {l.mode} · {l.durationText} ·{' '}
+                      {l.distanceText} · {l.lineText}
                     </p>
                   ))}
                 {plan.stays.map((s) => (
@@ -822,8 +847,26 @@ function Booking({
     [expected, setExpected] = useState({ domain: header.domainRevision, revision: booking.revisionId }),
     [error, setError] = useState('');
   return (
-    <article className="content-row">
+    <article className="content-row" data-booking-id={booking.entityId}>
       <h3>{booking.payload.title}</h3>
+      <p className="muted">
+        원천:{' '}
+        {booking.sourceRefs
+          .map(
+            (ref) =>
+              (({ python: '코드', xlsx: '통합문서', json: 'JSON' }) as Record<string, string>)[ref.sourceKind] ??
+              ref.sourceKind,
+          )
+          .join(' · ')}
+      </p>
+      <details>
+        <summary>예약 원천 위치</summary>
+        {booking.sourceRefs.map((ref, index) => (
+          <p key={index}>
+            {ref.sourcePath} · {ref.locator}
+          </p>
+        ))}
+      </details>
       <p>
         상태: {booking.payload.status} · 원천 표기: {booking.payload.sourceStatusRaw}
       </p>
@@ -831,9 +874,18 @@ function Booking({
         {timeLabel(booking.payload.time.start)} · 다음 행동: {timeLabel(booking.payload.actionTiming)}
       </p>
       <p>{booking.payload.nextActionText}</p>
+      {booking.payload.stageText ? <p>원천 단계: {booking.payload.stageText}</p> : null}
       <p>{booking.payload.passNote}</p>
       <p>대안: {booking.payload.planB}</p>
       <p>{booking.payload.note}</p>
+      {booking.payload.privateDetails ? (
+        <details>
+          <summary>예약 번호·주소·보충 정보</summary>
+          <p>{booking.payload.privateDetails.confirmationCode}</p>
+          <p>{booking.payload.privateDetails.address}</p>
+          <p>{booking.payload.privateDetails.note}</p>
+        </details>
+      ) : null}
       {booking.payload.officialUrl ? (
         <a href={booking.payload.officialUrl} target="_blank" rel="noreferrer">
           공식 예약 안내

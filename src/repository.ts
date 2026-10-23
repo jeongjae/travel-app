@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { storesV2, type Workspace } from './storage/schema';
+import { reviewWorkspace } from './storage/workspace-name';
 import {
   backupSchema,
   canonical,
@@ -179,5 +180,6 @@ export class TravelRepository {
     return trips;
   }
 }
-export const repository = new TravelRepository();
+const reviewId = typeof location === 'undefined' ? undefined : reviewWorkspace(location.search);
+export const repository = new TravelRepository(new TravelDB(reviewId ? `travel-app-review-${reviewId}` : 'travel-app'));
 export { ContentRepository } from './storage/content-repository';
