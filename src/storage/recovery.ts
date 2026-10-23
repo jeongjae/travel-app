@@ -10,9 +10,17 @@ import {
   type BackupRows,
 } from '../transfer/backup.ts';
 import { type Workspace } from './schema.ts';
+import {
+  prepareAssetRecord,
+  readAssetRecord,
+  discardPreparedFiles,
+  retireAssetFiles,
+  collectRetiredFiles,
+  type AssetRecord,
+} from './asset-files.ts';
 
 type Row = Record<string, unknown> & { spaceId: string; tripId: string; commitSeq?: number };
-type Asset = { spaceId: string; tripId: string; sha256: string; bytes: Blob; byteLength: number; verified: boolean };
+type Asset = AssetRecord;
 type Job = {
   jobId: string;
   spaceId: string;
@@ -132,12 +140,9 @@ export async function createBackup(
         continue;
       }
       const a = await db.table<Asset>('asset_blobs').get([snapshot.spaceId, r.tripId, r.payload.hash]);
-      assert(
-        a?.verified && a.byteLength === r.payload.byteLength && a.bytes.size === r.payload.byteLength,
-        '첨부 바이트가 누락되었습니다. 저장소의 첨부 복구 후 다시 백업하세요.',
-      );
-      const bytes = new Uint8Array(await a.bytes.arrayBuffer());
-      assert((await digestBytes(bytes)) === r.payload.hash, '첨부 해시가 다릅니다. 복구 후 백업하세요.');
+      const blob = await readAssetRecord(db, a, r.payload.hash, r.payload.byteLength);
+      assert(blob, '첨부 바이트가 누락되었거나 해시가 다릅니다. 첨부 복구 후 다시 백업하세요.');
+      const bytes = new Uint8Array(await blob.arrayBuffer());
       assets.set(r.payload.hash, bytes);
     }
     abort(signal);
@@ -203,19 +208,21 @@ export async function prepareRestore(
           .filter((c) => c.kind === 'asset' && c.payload.hash === sha256)
           .map((c) => c.tripId),
       );
-      await db.transaction('rw', [db.table('asset_blobs'), db.table('transfer_jobs')], async () => {
-        assert((await db.table<Job>('transfer_jobs').get(jobId))?.status === 'loading', '복원 작업이 취소되었습니다.');
+      const prepared: AssetRecord[] = [];
+      try {
         for (const tripId of trips) {
-          await db.table('asset_blobs').add({
-            spaceId,
-            tripId,
-            sha256,
-            bytes: new Blob([new Uint8Array(bytes)]),
-            byteLength: bytes.length,
-            verified: true,
-          });
+          prepared.push(await prepareAssetRecord(db, spaceId, tripId, sha256, bytes));
         }
-      });
+        await db.transaction('rw', [db.table('asset_blobs'), db.table('transfer_jobs')], async () => {
+          assert(
+            (await db.table<Job>('transfer_jobs').get(jobId))?.status === 'loading',
+            '복원 작업이 취소되었습니다.',
+          );
+          await db.table('asset_blobs').bulkAdd(prepared);
+        });
+      } finally {
+        await discardPreparedFiles(db, prepared);
+      }
     }
     abort(signal);
     await db.transaction('rw', db.table('transfer_jobs'), async () => {
@@ -257,12 +264,7 @@ export async function activateRestore(db: Dexie, jobId: string, signal?: AbortSi
       continue;
     }
     const a = await db.table<Asset>('asset_blobs').get([job.spaceId, c.tripId, c.payload.hash]);
-    assert(
-      a?.verified &&
-        a.bytes.size === c.payload.byteLength &&
-        (await digestBytes(new Uint8Array(await a.bytes.arrayBuffer()))) === c.payload.hash,
-      '복원 첨부 재검증 실패.',
-    );
+    assert(await readAssetRecord(db, a, c.payload.hash, c.payload.byteLength), '복원 첨부 재검증 실패.');
   }
   abort(signal);
   return db.transaction('rw', allTables(db), async () => {
@@ -316,12 +318,7 @@ export async function assetStatus(db: Dexie, tripId: string) {
     }
     seen.add(c.payload.hash);
     const a = assets.get(c.payload.hash);
-    const ready = Boolean(
-      a?.verified &&
-      a.byteLength === c.payload.byteLength &&
-      a.bytes.size === c.payload.byteLength &&
-      (await digestBytes(new Uint8Array(await a.bytes.arrayBuffer()))) === c.payload.hash,
-    );
+    const ready = Boolean(await readAssetRecord(db, a, c.payload.hash, c.payload.byteLength));
     result.push({ hash: c.payload.hash, title: c.payload.title, byteLength: c.payload.byteLength, ready });
   }
   return result;
@@ -334,39 +331,46 @@ export async function repairAssets(db: Dexie, tripId: string, assets: Map<string
       .equals([m.activeSpaceId, tripId, 'asset'])
       .toArray();
   const rows: Asset[] = [];
-  for (const [sha256, bytes] of assets) {
-    abort(signal);
-    const refs = contents.filter(
-      (c) => c.tripId === tripId && c.kind === 'asset' && (c.payload as { hash: string }).hash === sha256,
-    );
-    if (!refs.length) {
-      continue;
+  try {
+    for (const [sha256, bytes] of assets) {
+      abort(signal);
+      const refs = contents.filter(
+        (c) => c.tripId === tripId && c.kind === 'asset' && (c.payload as { hash: string }).hash === sha256,
+      );
+      if (!refs.length) {
+        continue;
+      }
+      assert(
+        bytes.length <= LIMITS.assetBytes &&
+          refs.every((c) => (c.payload as { byteLength: number }).byteLength === bytes.length) &&
+          (await digestBytes(bytes)) === sha256,
+        '복구 첨부 크기/해시 불일치.',
+      );
+      rows.push(await prepareAssetRecord(db, m.activeSpaceId, tripId, sha256, bytes));
     }
-    assert(
-      bytes.length <= LIMITS.assetBytes &&
-        refs.every((c) => (c.payload as { byteLength: number }).byteLength === bytes.length) &&
-        (await digestBytes(bytes)) === sha256,
-      '복구 첨부 크기/해시 불일치.',
+    assert(rows.length, '현재 여행의 첨부와 일치하는 파일이 없습니다.');
+    abort(signal);
+    await db.transaction(
+      'rw',
+      [db.table('workspace_meta'), db.table('asset_blobs'), db.table('staged_rows')],
+      async () => {
+        assert((await meta(db)).activeSpaceId === m.activeSpaceId, '저장소가 변경되었습니다.');
+        for (const row of rows) {
+          const previous = await db.table<Asset>('asset_blobs').get([row.spaceId, row.tripId, row.sha256]);
+          if (previous) {
+            await retireAssetFiles(db, [previous]);
+          }
+        }
+        await db.table('asset_blobs').bulkPut(rows);
+      },
     );
-    rows.push({
-      spaceId: m.activeSpaceId,
-      tripId,
-      sha256,
-      bytes: new Blob([new Uint8Array(bytes)]),
-      byteLength: bytes.length,
-      verified: true,
-    });
+    return rows.length;
+  } finally {
+    await discardPreparedFiles(db, rows);
   }
-  assert(rows.length, '현재 여행의 첨부와 일치하는 파일이 없습니다.');
-  abort(signal);
-  await db.transaction('rw', [db.table('workspace_meta'), db.table('asset_blobs')], async () => {
-    assert((await meta(db)).activeSpaceId === m.activeSpaceId, '저장소가 변경되었습니다.');
-    await db.table('asset_blobs').bulkPut(rows);
-  });
-  return rows.length;
 }
 export async function discardTransfer(db: Dexie, jobId: string) {
-  return db.transaction('rw', allTables(db), async () => {
+  await db.transaction('rw', allTables(db), async () => {
     const job = await db.table('transfer_jobs').get(jobId);
     if (!job) {
       return;
@@ -375,6 +379,7 @@ export async function discardTransfer(db: Dexie, jobId: string) {
     const m = await meta(db);
     if (job.mode === 'restore') {
       assert(job.spaceId !== m.activeSpaceId, '활성 여행을 정리할 수 없습니다.');
+      await retireAssetFiles(db, (await spaceRows(db, 'asset_blobs', job.spaceId)) as Asset[]);
       for (const n of [...exchangeCollections, 'asset_blobs']) {
         const table = db.table(n);
         const keys = await table
@@ -387,9 +392,10 @@ export async function discardTransfer(db: Dexie, jobId: string) {
     await db.table('staged_rows').where('jobId').equals(jobId).delete();
     await db.table('transfer_jobs').delete(jobId);
   });
+  await collectRetiredFiles(db);
 }
 export async function collectOrphanAssets(db: Dexie) {
-  return db.transaction('rw', allTables(db), async () => {
+  const removed = await db.transaction('rw', allTables(db), async () => {
     const pins = new Set<string>();
     const pin = (space: string, trip: string, hash: string) => pins.add(canonicalJson([space, trip, hash]));
     for (const c of await db.table('content_revisions').toArray()) {
@@ -407,10 +413,13 @@ export async function collectOrphanAssets(db: Dexie) {
     let removed = 0;
     for (const a of await db.table<Asset>('asset_blobs').toArray()) {
       if (!pins.has(canonicalJson([a.spaceId, a.tripId, a.sha256]))) {
+        await retireAssetFiles(db, [a]);
         await db.table('asset_blobs').delete([a.spaceId, a.tripId, a.sha256]);
         removed++;
       }
     }
     return removed;
   });
+  await collectRetiredFiles(db);
+  return removed;
 }

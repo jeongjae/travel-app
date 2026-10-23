@@ -8,6 +8,7 @@ import {
   exchangeCollections,
   id,
   LIMITS,
+  recordByteLimit,
   manifestSchema,
   planDaySchema,
   planItemSchema,
@@ -320,7 +321,7 @@ export async function buildBackup(
   for (const n of exchangeCollections) {
     signal?.throwIfAborted();
     const lines = rows[n].map((r) => canonicalJson(r));
-    if (lines.some((l) => encode(l).length > LIMITS.recordBytes)) {
+    if (lines.some((l) => encode(l).length > recordByteLimit(n))) {
       fail('단일 행 한도');
     }
     files.set(`records/${n}.ndjson`, encode(lines.map((l) => l + '\n').join('')));

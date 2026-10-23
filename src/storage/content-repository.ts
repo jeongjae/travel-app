@@ -31,6 +31,7 @@ import {
   type Review,
 } from '../transfer/reimport';
 import * as recovery from './recovery';
+import { prepareAssetRecord, readAssetRecord, discardPreparedFiles, type AssetRecord } from './asset-files.ts';
 
 const uid = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
@@ -424,14 +425,9 @@ export class ContentRepository {
       return undefined;
     }
     const m = await this.meta();
-    const row = await this.db
-      .table<{ bytes: Blob; verified: boolean }>('asset_blobs')
-      .get([m.activeSpaceId, tripId, c.payload.hash]);
-    return row?.verified &&
-      row.bytes.size === c.payload.byteLength &&
-      (await digestBytes(new Uint8Array(await row.bytes.arrayBuffer()))) === c.payload.hash
-      ? { blob: row.bytes, content: c }
-      : undefined;
+    const row = await this.db.table<AssetRecord>('asset_blobs').get([m.activeSpaceId, tripId, c.payload.hash]);
+    const blob = await readAssetRecord(this.db, row, c.payload.hash, c.payload.byteLength);
+    return blob ? { blob: new Blob([blob], { type: c.payload.mimeType }), content: c } : undefined;
   }
   private async putDataset(t: TripDataset, spaceId: string, before?: TripDataset) {
     const store = async <T>(name: string, rows: T[], mutable = false) => {
@@ -495,6 +491,11 @@ export class ContentRepository {
   async prepareImport(raw: unknown, assets: Map<string, Uint8Array>, provenance: Provenance) {
     const dataset = validateTripDataset(raw),
       meta = await this.meta();
+    must(
+      new TextEncoder().encode(canonicalJson(provenance)).length + 1024 <= LIMITS.provenanceBytes,
+      'LIMIT_EXCEEDED',
+      '패키지 출처·대응 기준의 보관 한도를 초과했습니다.',
+    );
     const mappingKeys = new Set<string>();
     for (const mapping of provenance.mappings) {
       const key = canonicalJson([mapping.sourceKind, mapping.sourceKey]);
@@ -551,37 +552,39 @@ export class ContentRepository {
       '구조 변경 한도 초과.',
     );
     const jobId = uid();
-    await this.db.transaction(
-      'rw',
-      ['transfer_jobs', 'asset_blobs'].map((n) => this.db.table(n)),
-      async () => {
-        for (const [sha256, bytes] of assets) {
-          if (!dataset.contents.some((c) => c.kind === 'asset' && c.payload.hash === sha256)) {
-            continue;
-          }
-          const table = this.db.table('asset_blobs');
-          const pk = [meta.activeSpaceId, dataset.header.tripId, sha256];
-          if (!(await table.get(pk))) {
-            await table.add({
-              spaceId: meta.activeSpaceId,
-              tripId: dataset.header.tripId,
-              sha256,
-              bytes: new Blob([new Uint8Array(bytes)]),
-              byteLength: bytes.length,
-              verified: true,
-            });
-          }
+    const preparedAssets: AssetRecord[] = [];
+    try {
+      for (const [hash, bytes] of assets) {
+        if (dataset.contents.some((content) => content.kind === 'asset' && content.payload.hash === hash)) {
+          preparedAssets.push(
+            await prepareAssetRecord(this.db, meta.activeSpaceId, dataset.header.tripId, hash, bytes),
+          );
         }
-        await this.db.table<Prepared>('transfer_jobs').add({
-          jobId,
-          spaceId: meta.activeSpaceId,
-          tripId: dataset.header.tripId,
-          status: 'ready',
-          dataset,
-          provenance,
-        });
-      },
-    );
+      }
+      await this.db.transaction(
+        'rw',
+        ['workspace_meta', 'transfer_jobs', 'asset_blobs'].map((name) => this.db.table(name)),
+        async () => {
+          must((await this.meta()).activeSpaceId === meta.activeSpaceId, 'CONFLICT', '저장 영역이 변경되었습니다.');
+          for (const record of preparedAssets) {
+            const table = this.db.table('asset_blobs');
+            if (!(await table.get([record.spaceId, record.tripId, record.sha256]))) {
+              await table.add(record);
+            }
+          }
+          await this.db.table<Prepared>('transfer_jobs').add({
+            jobId,
+            spaceId: meta.activeSpaceId,
+            tripId: dataset.header.tripId,
+            status: 'ready',
+            dataset,
+            provenance,
+          });
+        },
+      );
+    } finally {
+      await discardPreparedFiles(this.db, preparedAssets);
+    }
     return jobId;
   }
   private async importRows(spaceId: string, t: TripDataset, prov: Provenance, seq: number, selected?: ImportMapping[]) {

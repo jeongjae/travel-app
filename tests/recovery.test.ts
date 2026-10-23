@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { ContentRepository, TravelDB } from '../src/repository';
-import { canonicalJson, digestBytes } from '../src/contracts/v2';
+import { canonicalJson, digestBytes, LIMITS } from '../src/contracts/v2';
 import { pilotTrip, fixtureAssets } from './fixtures/pilot';
 import { currentMappings } from '../src/transfer/normalize';
 import { readBackup, validateBackup } from '../src/transfer/backup';
@@ -30,7 +30,7 @@ const command = (tripId: string, kind: string, payload: unknown, expectedDomainR
   payload,
   ...(expectedDomainRevision === undefined ? {} : { expectedDomainRevision }),
 });
-async function seed(repo: ContentRepository, short = false) {
+async function seed(repo: ContentRepository, short = false, report: unknown = {}) {
   const t = await pilotTrip(short),
     assets = new Map<string, Uint8Array>();
   for (const b of Object.values(fixtureAssets)) {
@@ -42,7 +42,7 @@ async function seed(repo: ContentRepository, short = false) {
     lineageId: 'synthetic',
     adapterVersion: '1',
     manifest: {},
-    report: {},
+    report,
     mappings: currentMappings(t),
   };
   await repo.prepareImport(t, assets, provenance);
@@ -54,6 +54,24 @@ async function seed(repo: ContentRepository, short = false) {
   );
   return { t, assets };
 }
+it('여러 콘텐츠의 출처 행은 별도 한도 안에서 보존·복원하고 과대 출처는 준비 전에 거부한다', async () => {
+  const { db, repo } = await setup();
+  const report = { padding: 'x'.repeat(600 * 1024) };
+  await seed(repo, false, report);
+  const rows = await db.table('import_packages').toArray();
+  expect(new TextEncoder().encode(canonicalJson(rows[0])).length).toBeGreaterThan(LIMITS.recordBytes);
+  const backup = await repo.createBackup();
+  const read = await readBackup(backup.blob);
+  expect((read.rows.import_packages[0] as { report: unknown }).report).toEqual(report);
+  const destination = await setup();
+  const job = await destination.repo.prepareRestore(backup.blob);
+  await destination.repo.activateRestore(job);
+  expect((await destination.db.table('import_packages').toArray())[0].report).toEqual(report);
+  const rejected = await setup();
+  await expect(seed(rejected.repo, false, { padding: 'x'.repeat(LIMITS.provenanceBytes) })).rejects.toThrow('한도');
+  expect(await rejected.db.table('asset_blobs').count()).toBe(0);
+  expect(await rejected.repo.list()).toEqual([]);
+});
 async function edit(repo: ContentRepository, tripId = 'fixture-a') {
   const g = await repo.content(tripId, 'guide', 'guide-place');
   if (g?.kind !== 'guide') {

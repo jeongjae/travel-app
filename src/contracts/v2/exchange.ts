@@ -165,10 +165,14 @@ export const LIMITS = {
   manifestBytes: 4 * 1024 ** 2,
   assetBytes: 64 * 1024 ** 2,
   recordBytes: 512 * 1024,
+  provenanceBytes: 4 * 1024 ** 2,
   records: 100_000,
   commandRows: 10_000,
   commandBytes: 32 * 1024 ** 2,
 } as const;
+// A package provenance row contains baselines for many entities; content rows keep the smaller budget.
+export const recordByteLimit = (collection: string) =>
+  collection === 'import_packages' ? LIMITS.provenanceBytes : LIMITS.recordBytes;
 export const fileEntrySchema = z
   .strictObject({
     path: text,

@@ -5,6 +5,7 @@ import {
   digestBytes,
   exchangeCollections,
   LIMITS,
+  recordByteLimit,
   manifestSchema,
   parseManifestJson,
   parseStrictJson,
@@ -252,7 +253,7 @@ export async function readArchive(blob: Blob, signal?: AbortSignal) {
         if (lines.length !== f.recordCount) {
           throw new Error('레코드 수 불일치.');
         }
-        rows[f.collection!] = lines.map((line) => parseStrictJson(line, LIMITS.recordBytes));
+        rows[f.collection!] = lines.map((line) => parseStrictJson(line, recordByteLimit(f.collection!)));
       } else if (f.role === 'asset') {
         assets.set(f.sha256, bytes);
       } else {
@@ -313,5 +314,8 @@ export async function readPackage(blob: Blob, signal?: AbortSignal) {
     report: report.report,
     mappings: report.mappings,
   };
+  if (encode(canonicalJson(provenance)).length + 1024 > LIMITS.provenanceBytes) {
+    throw new Error('패키지 출처·대응 기준의 보관 한도를 초과했습니다. 대응표는 파일 자산으로 분리하세요.');
+  }
   return { dataset, assets, manifest, provenance };
 }
