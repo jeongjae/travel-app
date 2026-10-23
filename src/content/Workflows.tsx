@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import type { ContentRepository } from '../repository';
 import type { PlanVersion, Proposal, TripDataset } from '../contracts/v2';
 import type { Review, Choice, Slot } from '../transfer/reimport';
 import { command, errorText, ErrorText, Modal } from './ui';
+const AiPlanner = lazy(() => import('./AiPlanner'));
 export function ProposalPanel({
   repo,
   header,
@@ -47,6 +49,9 @@ export function ProposalPanel({
   }
   return (
     <section>
+      <Suspense fallback={<p>AI 도구를 여는 중입니다.</p>}>
+        <AiPlanner key={header.tripId} repo={repo} header={header} onSaved={onSaved} />
+      </Suspense>
       <div className="section-heading">
         <h2>변경안 검토</h2>
         <button disabled={!plan.items.length} onClick={() => setEditor(true)}>
@@ -68,6 +73,7 @@ export function ProposalPanel({
             <p className="notice">기준이 오래됐습니다. 적용할 수 없습니다. 최신 내용으로 다시 작성하세요.</p>
           ) : null}
           <p>예약 영향: {p.impact.reservationText}</p>
+          <ProposalEvidence repo={repo} proposal={p} />
           <ul>
             {p.operations.map((o, n) => (
               <li key={n}>
@@ -116,6 +122,34 @@ export function ProposalPanel({
         />
       ) : null}
     </section>
+  );
+}
+function ProposalEvidence({ repo, proposal }: { repo: ContentRepository; proposal: Proposal }) {
+  const evidence = useLiveQuery(
+    () =>
+      Promise.all(
+        proposal.evidenceRefs.map((ref) => repo.content(ref.tripId, 'evidence', ref.entityId, ref.revisionId)),
+      ),
+    [repo, proposal.proposalRevisionId],
+    [],
+  );
+  return (
+    <ul aria-label="변경안 조사 근거">
+      {evidence.map((content) =>
+        content?.kind === 'evidence' ? (
+          <li key={content.entityId}>
+            {content.payload.sourceType === 'web' ? (
+              <a href={content.payload.sourceUrlOrRef} target="_blank" rel="noreferrer">
+                {content.payload.label || content.payload.sourceUrlOrRef}
+              </a>
+            ) : (
+              <span>{content.payload.label || content.payload.sourceUrlOrRef}</span>
+            )}
+            {content.payload.claim ? <p>{content.payload.claim}</p> : null}
+          </li>
+        ) : null,
+      )}
+    </ul>
   );
 }
 function MockEditor({

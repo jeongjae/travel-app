@@ -888,19 +888,72 @@ export class ContentRepository {
         refs.push({ kind: 'record', id: row.recordId });
         break;
       }
+      case 'StageAiProposal':
       case 'SaveProposal': {
         const p = c.payload.proposal;
+        if (c.kind === 'StageAiProposal') {
+          must(
+            p.baseDomainRevision === t.header.domainRevision + 1 &&
+              p.basePlanVersionId === t.header.currentPlanVersionId,
+            'CONFLICT',
+            'AI 초안의 기준 계획이 변경되었습니다. 최신 내용으로 다시 요청하세요.',
+          );
+          must(!t.proposals.some((row) => row.proposalId === p.proposalId), 'CONFLICT', '이미 저장한 AI 초안입니다.');
+          must(
+            p.evidenceRefs.length > 0 &&
+              p.evidenceRefs.every((ref) =>
+                c.payload.evidence.some(
+                  (content) => content.entityId === ref.entityId && content.revisionId === ref.revisionId,
+                ),
+              ),
+            'INVALID_INPUT',
+            'AI 초안의 근거가 함께 저장할 출처와 일치하지 않습니다.',
+          );
+          const currentPlan = t.plans.find((plan) => plan.planVersionId === t.header.currentPlanVersionId)!;
+          for (const operation of p.operations) {
+            if (operation.type !== 'upsert-item') {
+              continue;
+            }
+            const original = currentPlan.items.find((item) => item.activityId === operation.item.activityId);
+            // These private fields were deliberately omitted from the API context.
+            if (original?.reservationText !== undefined) {
+              operation.item.reservationText = original.reservationText;
+            }
+            if (original?.executionNote !== undefined) {
+              operation.item.executionNote = original.executionNote;
+            }
+          }
+          for (const raw of c.payload.evidence) {
+            const evidence = contentRevisionSchema.parse({ ...raw, actor: 'ai', recordedAt: now(), commitSeq: seq });
+            must(
+              evidence.kind === 'evidence' &&
+                !evidence.previousRevisionId &&
+                !t.heads.some((head) => head.targetKind === evidence.kind && head.entityId === evidence.entityId),
+              'CONFLICT',
+              'AI 근거 ID가 기존 콘텐츠와 충돌합니다.',
+            );
+            t.contents.push(evidence);
+            t.heads.push({
+              tripId: t.header.tripId,
+              targetKind: evidence.kind,
+              entityId: evidence.entityId,
+              revisionId: evidence.revisionId,
+              status: 'active',
+            });
+            refs.push({ kind: evidence.kind, id: evidence.entityId, revisionId: evidence.revisionId });
+          }
+        }
         const previous = t.proposals
           .filter((r) => r.proposalId === p.proposalId)
           .sort((a, b) => b.proposalRevision - a.proposalRevision)[0];
         must(
-          (previous?.proposalRevision ?? 0) === c.expectedProposalRevision,
+          (previous?.proposalRevision ?? 0) === (c.kind === 'StageAiProposal' ? 0 : c.expectedProposalRevision),
           'CONFLICT',
           '초안 revision이 변경되었습니다.',
         );
         must(!previous || previous.status === 'pending', 'NOT_PENDING', '이미 결정한 초안입니다.');
         must(
-          p.proposalRevision === c.expectedProposalRevision + 1 &&
+          p.proposalRevision === (c.kind === 'StageAiProposal' ? 1 : c.expectedProposalRevision + 1) &&
             p.previousProposalRevisionId === previous?.proposalRevisionId,
           'INVALID_INPUT',
           '초안 연결이 잘못되었습니다.',

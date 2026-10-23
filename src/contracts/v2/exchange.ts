@@ -94,6 +94,19 @@ export const commandSchema = z.discriminatedUnion('kind', [
     { expectedProposalRevision: uint },
   ),
   command(
+    'StageAiProposal',
+    z.strictObject({
+      proposal: proposalInputSchema.refine(
+        (proposal) => proposal.status === 'pending' && proposal.origin === 'ai' && proposal.proposalRevision === 1,
+      ),
+      evidence: z
+        .array(contentInputSchema.refine((content) => content.kind === 'evidence'))
+        .min(1)
+        .max(20),
+    }),
+    update,
+  ),
+  command(
     'DecideProposal',
     z.strictObject({ proposalId: id, decision: z.enum(['apply', 'reject']), confirmedByUser: z.literal(true) }),
     { expectedProposalRevision: positive },
