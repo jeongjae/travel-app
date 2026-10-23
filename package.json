@@ -24,6 +24,7 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
     "check": "pnpm run format:check && pnpm run lint && pnpm run test && pnpm run build",
+    "check:deferred": "node scripts/run-deferred-checks.mjs",
     "test:pilot-env": "node scripts/check-pilot-environment.mjs",
     "check:pilot-bundle": "node scripts/check-pilot-bundle.mjs",
     "check:pilot-node": "node scripts/check-pilot-node.mjs",

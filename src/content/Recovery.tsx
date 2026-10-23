@@ -77,6 +77,24 @@ export default function Recovery({
       <p>
         브라우저가 데이터를 지울 수 있으므로 백업 파일을 별도 위치에 보관하세요. 외부 지도와 AI에는 통신이 필요합니다.
       </p>
+      <details>
+        <summary>기기 이행 준비 상태</summary>
+        <ul>
+          <li>보안 컨텍스트: {window.isSecureContext ? '사용 가능' : 'HTTPS 접속 필요'}</li>
+          <li>브라우저 DB: {typeof indexedDB !== 'undefined' ? '지원' : '지원되지 않음'}</li>
+          <li>
+            앱 전용 파일:{' '}
+            {typeof navigator.storage?.getDirectory === 'function' ? 'OPFS 지원' : '대체 저장 방식 확인 필요'}
+          </li>
+          <li>
+            오프라인 앱 셸: {navigator.serviceWorker?.controller ? '현재 페이지 제어 중' : '설치·새로고침 후 확인 필요'}
+          </li>
+        </ul>
+        <p>
+          기능 지원 표시는 실제 오프라인·백업/복원 검증 결과와 별개입니다. iPhone에서는 사용할 접속 주소와 파일 전달
+          범위를 먼저 정한 뒤 확인합니다.
+        </p>
+      </details>
       <button
         disabled={busy || !navigator.storage?.persist || storage.persistent}
         onClick={() =>
