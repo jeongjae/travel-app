@@ -1,30 +1,29 @@
 # travel-app 현재 상태
 
-2026-10-23 · G0 사용자 확인 완료 · Phase 1 미착수
+2026-10-23 · Phase 1 PC 검증 통과 · **G1 사용자 확인 대기**
 
 ## 현재
 
-- [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md) 순서로 읽는다. [사용자 대기 목록](development-plan.md#사용자-결정실행-대기-항목)은 한 절에서 관리한다.
-- Phase 0: Prettier·ESLint·로컬 기준 커밋·검증 자료 준비. **G0 확인 완료: 사용자 “가독성 충분함”(2026-10-23). Phase 1 미착수.** [실행 보고](phase-0-report.md)·[코드 전후 비교](phase-0-readability.md).
-- 커밋: 기준 `54d7959`, 포맷 `3a23044`, ESLint `6042fa3`. 구조 리팩터링·원격 push·배포는 하지 않았다.
-- P-01~P-06: 가상 표본 구현. P-07: 실제 파리 3일의 31파일 추출·105콘텐츠 후보. `packageReady=false`, 실제 이행 ZIP/사용자 DB 적용 없음. [P-07](p07-report.md)·[잠정 P-08](p08-report.md).
-- 실제 원천 차단: XLSX·첨부·지역/언어/현장 상태·전체 필드·Fact 근거. 46 variants 바이트 미확보.
-- PC 실제 표본 → 전체 이행 → iPhone Chrome → v2 AI. 실기기 시점은 Phase 1 끝에 재판단한다.
-- 이미지 의도는 기기 파일+링크. DB 바이트와 같다는 해석 철회, [방식 재점검](media-storage-review.md) 후 선택. Phase 0에서 저장 구조는 바꾸지 않았다.
+- [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). [사용자 대기 목록](development-plan.md#사용자-결정실행-대기-항목)을 한 절에서 관리한다.
+- G0: 사용자 ‘가독성 충분함’ 확인 완료. I-7 포맷·린트 재발 방지 유지. [Phase 0](phase-0-report.md).
+- Phase 1: 실제 31입력 파일 → 3일/18활동/15이동/10장소, 콘텐츠 245개, `packageReady=true`. 미디어 46+대응표 1파일. [실행 보고](phase-1-report.md)·[P-07](p07-report.md).
+- 실제 ZIP/격리 DB 전체 행·47파일 해시 일치, 편집·오프라인 기록·빈 저장소 전체 복원 통과. 평소 사용자 DB와 기존 원천은 보존했다.
+- 이미지 기준은 ‘앱 화면에서 조회·점검’. 작성자는 OPFS 파일+DB 참조를 선택했다. 큰 대응표는 파일 자산, import_packages만 4 MiB·일반 행 512 KiB 예산이다.
+- [PC 검토 안내](phase-1-pc-review.md)의 최신 Chromium 창을 열어 뒀다. URL `http://127.0.0.1:4173/?workspace=content&review=phase-1`. 다른 브라우저는 ZIP을 직접 선택해야 한다.
+- 사용자 화면 확인 전 Phase 2로 가지 않는다. 43일/9지역 후속 작업표는 `local-data/p07/phase1-28-30/regional-batches.md`. G1 뒤 확대 전 iPhone 1차를 앞당기는 안 추천.
 
 ## 검증·보존
 
-- 2026-10-22 최종 `pnpm run check`: 포맷·린트·110/110·타입/빌드 통과. E2E 30/30(PC 15+모바일 viewport 15), `check:pilot`·frozen/offline 설치 통과.
-- 포맷 63파일 대조, ESLint 61파일 구문 대조·압축 코드 거부 확인. 원천/환경 등 기존 실제 파일 47개 SHA-256 동일, dist 키 누출 없음.
-- `backup/phase0-2026-10-22/`에 비공개 ZIP·manifest·Git bundle. `backup/`은 Git 제외. 같은 디스크의 복구 사본이며 다른 매체 백업은 미완료.
-- 첫 실패 키는 미폐기·같은 날 생성해 구분 어려움. 현재 키를 보존하며 식별 전 삭제하지 않는다. 실제 API 호출 없음.
-- 실제 원천 UI·iPhone Chrome·용량/메모리·원격 CI는 미검증. 10월 22일 브라우저 검증은 별도 context의 가상 표본이다. 10월 23일은 확인 상태 문서만 갱신하고 테스트를 재실행하지 않았다.
+- 2026-10-23 `check` **119/119**·포맷/린트/타입/PWA 빌드, E2E **34/34**(PC 17+모바일 viewport 17), `check:pilot` 통과.
+- 실제 검사 `local-data/p07/phase1-28-30/browser-07/`; ZIP/보고 `final-07/`; 사용자 프로필 `user-review-final/`. 실제 원문·첨부·화면은 Git 제외.
+- 기존 46파일·Phase 0의 환경 포함 47파일 해시 동일. `backup/phase1-2026-10-23/`의 273파일 ZIP·Git bundle(코드 `3c51a66`) 검증. 환경 파일 포함 비공개 사본이며 같은 디스크다. 다른 매체 백업은 미완료.
+- 외부 근거 없는 Fact는 검토 필요. 코드/XLSX 같은 제목 예약은 출처별 대조본으로 보존. 표본 밖 상태/필드는 다음 배치 보류이며 전체 이행 제외가 아니다.
+- 미검증: G1, iPhone Chrome·기기 용량/메모리·파일 앱, 전체 43일, 원격 CI·v2 실제 API·공개 배포. 첫 실패 키는 식별/폐기 미완료, 현재 키 보존·API 호출 없음.
 
 ## 다음 작업·실행
 
-1. G0 가독성 확인은 완료했다. 첫 키 식별·폐기와 다른 매체 백업은 별도 미완료다.
-2. 다음은 Phase 1: 이미지 방식 검토·선택과 실제 3일 차단 해소 → ZIP/검증 DB → **PC 표본 화면 직접 확인(G1)**.
-- 로컬 UI 주소 `http://127.0.0.1:4173/?workspace=content`. 현재 Get-Process에서 node/python 결과 없음; 서버 실행 중으로 가정하지 않는다. 재개 때 포트·브라우저 DB를 다시 확인한다.
-- pnpm 12.14.0 / Node 24.13.1 / Python `.venv`. pnpm 캐시/store는 `.cache/pnpm/`, 이번 Corepack 캐시는 `.cache/corepack/`.
-- `pnpm run format`, `pnpm run lint`; 코드 변경 후 `pnpm run check`, UI/저장 변경 후 빌드·`pnpm run test:e2e`, 변환 변경 후 `pnpm run check:pilot`.
-- 상세는 보고서, 과거는 [handoff 이력](history/handoff-2026-10.md)·[이전 계획](history/development-plan-2026-10.md). 현재 문서는 50줄·2,500자 이내로 교체 갱신한다.
+1. PC 일정·본문·예약·이미지·편집/기록·복원을 사용자가 확인해 G1 완료 또는 수정 요청을 남긴다.
+2. G1 뒤 실기기 시점·접근/파일 전달 범위를 판단하고 지역별 이행을 시작한다. 과거는 [이력](history/handoff-2026-10.md)·[G0 종료 인계](history/handoff-phase0-g0-2026-10-23.md).
+- 4173 기존 Vite preview(PID 20340)를 소유 확인 후 재사용했다. 재개할 때 포트·프로세스를 다시 확인한다. worktree·push·배포 없음.
+- pnpm 12.14.0 / Node 24.13.1 / Python `.venv`. `$env:COREPACK_HOME = Join-Path (Get-Location) '.cache/corepack'` 후 pnpm 실행.
+- 코드 변경 후 `pnpm run check`, UI/저장 변경 후 빌드·`pnpm run test:e2e`, 변환 변경 후 `pnpm run check:pilot`. 브라우저 재실행 명령은 PC 안내 참조.
