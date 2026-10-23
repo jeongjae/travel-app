@@ -26,9 +26,9 @@ const profile = resolve(output, 'browser-profile');
 // This dedicated profile is visible and persistent for the human review. No existing personal browser is controlled.
 const context = await chromium.launchPersistentContext(profile, {
   headless: false,
-  viewport: { width: 1504, height: 1040 },
+  viewport: null,
   serviceWorkers: 'allow',
-  args: ['--window-size=1530,1140'],
+  args: ['--start-maximized'],
 });
 const page = context.pages()[0] ?? (await context.newPage());
 page.setDefaultTimeout(45000);

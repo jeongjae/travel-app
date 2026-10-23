@@ -39,6 +39,28 @@ async function guide(page: Page, name = '가상 장소 1') {
   await expect(page.getByRole('heading', { name: '실용', exact: true })).toBeVisible();
 }
 
+test('작은 첫 화면 상단에서 저장소·백업을 열고 여행으로 돌아온다', async ({ page }, info) => {
+  await page.setViewportSize(
+    info.project.name === 'mobile' ? { width: 390, height: 640 } : { width: 1280, height: 600 },
+  );
+  await seed(page);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '가상 산책 여행 A', exact: true, level: 1 })).toBeVisible();
+  const menu = page
+    .getByRole('navigation', { name: '저장소 도구' })
+    .getByRole('button', { name: '저장소·백업', exact: true });
+  await expect(menu).toBeInViewport({ ratio: 1 });
+  const bounds = await menu.boundingBox();
+  expect(bounds?.y).toBeLessThan(300);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  await menu.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: '저장소·백업', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '전체 백업 만들기', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '가상 산책 여행 A', exact: true, level: 1 })).toBeVisible();
+});
+
 test('검증용 저장소의 하루 보충·이미지를 표시하고 기본 여행을 보존한다', async ({ page }) => {
   await seed(page);
   await page.goto('/?workspace=content&review=fiction-review');

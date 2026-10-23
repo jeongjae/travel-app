@@ -222,6 +222,11 @@ export function ContentApp() {
           travel-app
         </a>
         <h2>여행 가이드</h2>
+        <nav className="sidebar-tools" aria-label="저장소 도구">
+          <button disabled={!ready} onClick={() => setRecovery(true)}>
+            저장소·백업
+          </button>
+        </nav>
         <nav className="trip-list" aria-label="여행 선택">
           {headers.map((h) => (
             <button
@@ -256,9 +261,6 @@ export function ContentApp() {
             }}
           />
         </label>
-        <button disabled={!ready} onClick={() => setRecovery(true)}>
-          저장소·백업
-        </button>
         <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
       </aside>
       <main className="main" id="content-main">
