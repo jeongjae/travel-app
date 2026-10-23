@@ -1,6 +1,8 @@
 # Phase 1 PC 표본 확인 안내
 
-2026-10-23 · **G1 확인 대기(SP-FR UI/UX 보정 후)**
+2026-10-23 · **G1 확인 완료(2026-10-23 사용자 응답)**
+
+사용자가 2026-10-23 아래 실제 표본 확인 질문에 **‘확인 완료’**로 응답해 G1을 닫았다. 아래 내용은 확인한 화면의 재실행·사용 안내다.
 
 SP-FR의 **오늘·전체 일정·가이드·지도·준비** 탐색과 날짜 스트립, 첫/다음 일정·예약·시간표, 가이드 목차·일정 복귀를 반영했다. ‘저장소·백업’은 **상단 오른쪽**에 있다. PC에서도 5개 주요 메뉴는 하단에 고정된다.
 
@@ -36,4 +38,4 @@ $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.cache/ms-playwright'
 node scripts/open-pilot-review.mjs --package local-data/p07/phase1-28-30/final-07/pilot.zip --output-dir local-data/p07/phase1-28-30/user-review-final
 ```
 
-**확인 완료** 또는 **수정할 날짜/화면/내용**을 알려 주면 된다. 문서·자동 검사만으로 G1이나 전체 이행 완료를 처리하지 않는다. [검사·기술 판단](phase-1-report.md), [지역별 후속 작업표](../local-data/p07/phase1-28-30/regional-batches.md)를 함께 볼 수 있다. 실제 자료는 로컬 전용이어서 GitHub에서는 후속 작업표 링크가 열리지 않는다.
+G1은 사용자 ‘확인 완료’ 응답으로 종료했다. 추가 수정 의견은 날짜/화면/내용과 함께 기록한다. 문서·자동 검사만으로 전체 이행 완료를 처리하지 않는다. [검사·기술 판단](phase-1-report.md), [지역별 후속 작업표](../local-data/p07/phase1-28-30/regional-batches.md)를 함께 볼 수 있다. 실제 자료는 로컬 전용이어서 GitHub에서는 후속 작업표 링크가 열리지 않는다.
