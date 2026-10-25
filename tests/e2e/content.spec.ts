@@ -366,6 +366,7 @@ test('가이드 패키지→동일 프로그램 두 여행·본문·Fact·표·�
   await page.screenshot({ path: test.info().outputPath('content-guide.png'), fullPage: true });
 });
 test('오프라인 미상 기록·계획 제거·정정과 모의 변경안 확인 적용', async ({ page, context }) => {
+  await page.route('**/api/ai/v2/status', (route) => route.fulfill({ json: { configured: false } }));
   await seed(page);
   await page.getByRole('button', { name: '건너뜀 기록', exact: true }).first().click();
   await page.getByLabel('기록 메모').fill('가상 비 때문에 건너뜀');
