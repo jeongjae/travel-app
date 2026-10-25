@@ -65,7 +65,7 @@ it('전체 원천 대응·명시 XLSX 날짜·오프라인 첨부·회화·미�
   expect(reread.assets.size).toBe(2);
 });
 
-it('새 미대응 입력·표본 안 현장 상태는 완료를 차단하고 첨부 변조·빈 수식 캐시를 거부한다', async () => {
+it('새 미대응 입력은 차단하고 메모를 원천 시각으로 보존하며 첨부 변조·빈 수식 캐시를 거부한다', async () => {
   const fixture = await spfrPilotFixture();
   const unknown = structuredClone(fixture.extract);
   unknown.entries.push({
@@ -82,9 +82,21 @@ it('새 미대응 입력·표본 안 현장 상태는 완료를 차단하고 첨
   const notes = state.entries.find((entry) => entry.sourceKey === 'data/field-notes.json')!;
   const raw = notes.rawValue as { notes: { entity: { key: string } }[] };
   raw.notes[0].entity.key = 'day-28';
-  const blocked = await normalizeSpfrPilot(state, fixture.options);
-  expect(blocked.report.blocking.some((reason) => reason.startsWith('FIELD_STATE_ADAPTER_REQUIRED:'))).toBe(true);
-  expect(blocked.dataset.records).toEqual([]);
+  const mapped = await normalizeSpfrPilot(state, fixture.options);
+  expect(mapped.report.blocking).toEqual([]);
+  expect(mapped.dataset.records).toHaveLength(1);
+  expect(mapped.dataset.records[0]).toMatchObject({
+    kind: 'note',
+    recordedAt: '2033-04-30T09:00:00Z',
+    payload: { targetRef: { targetKind: 'day', entityId: 'day-28' } },
+  });
+  const unsupported = structuredClone(state);
+  const unsupportedNotes = unsupported.entries.find((entry) => entry.sourceKey === 'data/field-notes.json')!;
+  (unsupportedNotes.rawValue as { unknown: Record<string, unknown> }).unknown = {
+    'day-28': { ts: '2033-04-30T09:00:00Z' },
+  };
+  const blocked = await normalizeSpfrPilot(unsupported, fixture.options);
+  expect(blocked.report.blocking).toContain('FIELD_GROUP_UNSUPPORTED:unknown');
   const tampered = structuredClone(fixture.options);
   tampered.media[0].bytes[0] ^= 1;
   await expect(normalizeSpfrPilot(fixture.extract, tampered)).rejects.toThrow('SHA-256');

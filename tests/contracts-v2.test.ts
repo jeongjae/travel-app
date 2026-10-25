@@ -316,6 +316,8 @@ describe('P-01 명령/교환 입력 경계', () => {
     const recordRow = t.records.find((r) => r.kind === 'actual')!;
     const { commitSeq: _rc, recordedAt: _rr, ...record } = recordRow;
     const { commitSeq: _pc, ...proposal } = t.proposals[0];
+    const evidenceRow = t.contents.find((row) => row.kind === 'evidence')!;
+    const { commitSeq: _ec, recordedAt: _er, actor: _ea, ...evidence } = evidenceRow;
     const { commitSeq: _vc, createdAt: _vca, ...initialPlan } = t.plans[0];
     const c = baseCommand();
     const { kind: _k, payload: _p, expectedDomainRevision: _e, ...env } = c;
@@ -381,6 +383,7 @@ describe('P-01 명령/교환 입력 경계', () => {
         },
       },
       { kind: 'SaveProposal', expectedProposalRevision: 0, payload: { proposal, baseDomainRevision: 0 } },
+      { kind: 'StageAiProposal', ...write, payload: { proposal, evidence: [evidence] } },
       {
         kind: 'DecideProposal',
         expectedProposalRevision: 1,
