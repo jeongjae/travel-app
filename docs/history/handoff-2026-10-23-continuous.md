@@ -4,13 +4,13 @@
 
 ## 현재
 
-- [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). G0·G1·기존 B-01은 사용자 확인 완료다.
-- 사용자 최신 지시: 남은 구현을 연속 진행하고 테스트는 나중에 모은다. 새 코드를 테스트/사용자 확인 완료로 기록하지 않는다. [검증 목록](deferred-verification.md).
-- [이행 보고](phase-2-continuous-report.md): 지역9개·귀국일 사본 및 통합43일 ZIP 생성. 통합267활동·224이동·9지역·227장소/주제·콘텐츠3,831개·기존 메모9/체크17개다.
+- [실행계획](../development-plan.md) → [범위](../product-requirements.md) → [결정](../decisions.md). G0·G1·기존 B-01은 사용자 확인 완료다.
+- 사용자 최신 지시: 남은 구현을 연속 진행하고 테스트는 나중에 모은다. 새 코드를 테스트/사용자 확인 완료로 기록하지 않는다. [검증 목록](../deferred-verification.md).
+- [이행 보고](../phase-2-continuous-report.md): 지역9개·귀국일 사본 및 통합43일 ZIP 생성. 통합267활동·224이동·9지역·227장소/주제·콘텐츠3,831개·기존 메모9/체크17개다.
 - 원천 첨부594경로(81,771,293바이트), 중복 제거·대응표 포함 ZIP blob594개. 통합 ZIP 84,453,758바이트. 선택 추출 leaf35,667개는 표시35,134·메타533·보류/미대응0이다.
 - 최종 통합: `local-data/phase2/continuous-10/full/package/pilot.zip`; 지역 사본: `continuous-08/<배치>/package/`. 실제 자료·키·백업은 Git 제외다.
-- [v2 AI](phase-3-report.md): 전송 미리보기·조사/작성·중단/재시작 복구·근거/초안 원자 저장·기존 확인 적용 연결. `OPENAI_V2_ENABLED` 기본0. 키 변경·유료 호출·기존 API 재시작은 하지 않았다.
-- [iPhone 절차](phase-2-prime-runbook.md)·[운영 복구](phase-4-operations.md)와 기기 준비 표시를 마련했다. 기기 origin/파일 전달·모델/예산/전송·선택 확장은 미결정이다.
+- [v2 AI](../phase-3-report.md): 전송 미리보기·조사/작성·중단/재시작 복구·근거/초안 원자 저장·기존 확인 적용 연결. `OPENAI_V2_ENABLED` 기본0. 키 변경·유료 호출·기존 API 재시작은 하지 않았다.
+- [iPhone 절차](../phase-2-prime-runbook.md)·[운영 복구](../phase-4-operations.md)와 기기 준비 표시를 마련했다. 기기 origin/파일 전달·모델/예산/전송·선택 확장은 미결정이다.
 
 ## 검사·보존
 
