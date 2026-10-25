@@ -23,6 +23,7 @@ import { ProposalPanel, ReimportReview } from './Workflows';
 import { command, errorText, ErrorText, Modal, timeLabel } from './ui';
 import './content.css';
 import './journey.css';
+import { appAssetUrl } from '../hosting';
 const repo = new ContentRepository(repository.db);
 const Recovery = lazy(() => import('./Recovery'));
 type Target = { kind: ContentRevision['kind']; id: string };
@@ -811,7 +812,7 @@ export function ContentApp() {
               disabled={busy}
               onClick={() =>
                 void action(async () => {
-                  const r = await fetch(`/pilot/fixture-${short ? 'b' : 'a'}.zip`);
+                  const r = await fetch(appAssetUrl(`pilot/fixture-${short ? 'b' : 'a'}.zip`));
                   if (!r.ok) {
                     throw new Error('가상 패키지를 읽을 수 없습니다.');
                   }

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { repository } from './repository';
 import { dateRange, uid, type Trip } from './domain';
 import type { AiJob, AiRequest } from './ai-contract';
+import { staticHosting } from './hosting';
 
 const labels = {
   queued: '실행 준비',
@@ -46,6 +47,10 @@ export function AiPlanner({ trip }: { trip: Trip }) {
   const saved = job?.proposal ? trip.proposals.find((p) => p.id === job.proposal!.id) : undefined;
   const active = starting || (!!job && !terminal.has(job.status));
   useEffect(() => {
+    if (staticHosting) {
+      setConfigured(false);
+      return;
+    }
     let cancelled = false;
     void api<{ configured: boolean; model: string }>('/api/ai/status')
       .then((s) => {
@@ -69,7 +74,7 @@ export function AiPlanner({ trip }: { trip: Trip }) {
     };
   }, [nonce]);
   useEffect(() => {
-    if (!jobId || !online) {
+    if (!jobId || !online || staticHosting) {
       return;
     }
     let stopped = false;

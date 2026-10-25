@@ -2,7 +2,13 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const base = process.env.VITE_BASE_PATH || '/';
+if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(base)) {
+  throw new Error('VITE_BASE_PATH는 / 또는 /저장소명/ 형태여야 합니다.');
+}
+
 export default defineConfig({
+  base,
   server: { proxy: { '/api': { target: 'http://127.0.0.1:8787', changeOrigin: true } } },
   preview: { proxy: { '/api': { target: 'http://127.0.0.1:8787', changeOrigin: true } } },
   build: {
@@ -24,6 +30,9 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
+        id: base,
+        start_url: `${base}?workspace=content`,
+        scope: base,
         name: 'travel-app · 여행 계획과 기록',
         short_name: 'travel-app',
         lang: 'ko',

@@ -5,6 +5,7 @@ import { buildAiV2Request } from '../ai-v2-context.ts';
 import type { ContentRepository } from '../repository';
 import type { TripDataset } from '../contracts/v2';
 import { command, ErrorText, errorText } from './ui';
+import { staticHosting } from '../hosting';
 
 const active = new Set(['queued', 'researching', 'planning', 'validating']);
 const labels: Record<string, string> = {
@@ -60,6 +61,10 @@ export default function AiPlanner({
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
   useEffect(() => {
+    if (staticHosting) {
+      setStatus({ configured: false });
+      return;
+    }
     let live = true;
     void api<{ configured: boolean; model?: string }>('/api/ai/v2/status')
       .then((value) => {
@@ -114,7 +119,7 @@ export default function AiPlanner({
         }
       }
     }
-    if (jobId) {
+    if (jobId && !staticHosting) {
       void poll();
     }
     return () => {
@@ -126,6 +131,14 @@ export default function AiPlanner({
     setPreview(null);
     setConsent(false);
   }, [prompt, fromDate, count, includeRecords]);
+  if (staticHosting) {
+    return (
+      <p className="notice">
+        이 웹 버전에서는 AI 서버가 연결되지 않습니다. 저장된 변경안의 검토·적용과 기기 내 일정·기록·백업을 사용할 수
+        있습니다.
+      </p>
+    );
+  }
   return (
     <section className="content-row">
       <h3>AI 조사·변경안</h3>

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
 import { workspaceUrl } from './storage/workspace-name';
+import { staticHosting } from './hosting';
 import './styles.css';
 const ContentApp = React.lazy(() => import('./content/ContentApp').then((m) => ({ default: m.ContentApp })));
 
@@ -35,6 +36,8 @@ class StorageBoundary extends React.Component<{ children: React.ReactNode }, { e
   }
 }
 function AppShell() {
+  const workspace = new URLSearchParams(location.search).get('workspace');
+  const contentWorkspace = workspace === 'content' || (staticHosting && workspace !== 'legacy');
   const [update, setUpdate] = useState(pendingUpdate);
   React.useEffect(() => {
     notifyUpdate = () => setUpdate(true);
@@ -44,13 +47,13 @@ function AppShell() {
   }, []);
   return (
     <>
-      {new URLSearchParams(location.search).get('workspace') !== 'content' ? (
+      {!contentWorkspace ? (
         <nav className="workspace-nav" aria-label="저장소 화면">
           <a href={workspaceUrl('content', location.search)}>여행 가이드 열기</a>
           <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
         </nav>
       ) : null}
-      {new URLSearchParams(location.search).get('workspace') === 'content' ? (
+      {contentWorkspace ? (
         <React.Suspense fallback={<main className="main">가이드를 여는 중입니다.</main>}>
           <ContentApp />
         </React.Suspense>
