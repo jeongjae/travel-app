@@ -2,7 +2,13 @@
 
 Phase 0의 코드 전후 비교와 확인 항목은 [가독성 확인 자료](docs/phase-0-readability.md), 실행·검증·대기 상태는 [Phase 0 보고](docs/phase-0-report.md)에 있습니다. 현재 실행 순서는 [개발 실행계획](docs/development-plan.md)을 따릅니다.
 
-## 최신 구현: P-06 완료, P-07 진행
+## iPhone 웹 접속 · v0.1.0-preview.1
+
+[웹 앱 열기](https://jeongjae.github.io/travel-app/) · [GitHub 사전 릴리스](https://github.com/jeongjae/travel-app/releases/tag/v0.1.0-preview.1)
+
+iPhone Chrome에서 웹 주소를 열어 **가상 여행 둘러보기**를 선택하면 화면을 볼 수 있습니다. 실제 여행 자료는 공개 사이트에 포함하지 않았습니다. 본인이 파일 앱으로 복사한 개인 여행 ZIP을 **여행 선택·가져오기 → 여행 패키지 선택 → 여행에 추가**로 가져오세요. PC와 iPhone 저장소는 자동 동기화되지 않습니다. 공개 정적 버전은 AI 서버가 연결되지 않습니다. [배포·검증 및 파일 전달 안내](docs/web-release-2026-10-25.md)를 따릅니다.
+
+## 현재 구현
 
 공통 가이드 화면은 `/?workspace=content`입니다. 기존 화면은 `/?workspace=legacy`로 보존합니다. 여행 ZIP 패키지 미리보기·두 여행 선택·가이드/Fact/첨부·본문 편집·현장 기록/정정·모의 변경안 확인 적용·B/L/R 재가져오기·전체 ZIP 백업/빈 저장소 복원·첨부 복구를 구현했습니다. [P-06](docs/p06-report.md), [P-07 진행 보고](docs/p07-report.md), [pnpm 전환 검증](docs/pnpm-transition.md), [현재 인계](docs/handoff.md)를 따릅니다.
 
@@ -139,4 +145,4 @@ node scripts/pack-spfr.mjs --source-dir "C:/your-path/SP-FR-guidebook/data/daily
 - [개발계획](docs/development-plan.md)
 - [현재 상태와 다음 작업](docs/handoff.md)
 
-원격 공개 배포와 실제 예약·개인 데이터 커밋은 이 초기 설정에 포함하지 않습니다.
+공개 앱 셸은 2026-10-25 사용자 요청으로 GitHub Pages에 배포했습니다. 실제 예약·개인 자료·키·백업은 Git과 공개 릴리스에서 제외합니다.
