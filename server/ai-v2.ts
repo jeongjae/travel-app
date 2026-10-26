@@ -133,6 +133,9 @@ export function materializeV2Proposal(input: AiV2Request, output: AiV2Output, re
   });
   const seen = new Set<string>();
   const operations = output.operations.map((operation, index) => {
+    if (operation.type === 'add' && operation.activityId !== '') {
+      throw new Error('새 활동 추가에는 기존 활동 ID를 사용할 수 없습니다.');
+    }
     const old = plan.items.find((item) => item.activityId === operation.activityId);
     const day = plan.days.find((day) => day.dayId === operation.dayId);
     if (!day || day.date < input.fromDate || (operation.type !== 'add' && !old)) {
