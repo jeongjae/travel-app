@@ -1,28 +1,30 @@
 # travel-app 현재 상태
 
-2026-10-26 · **세션 인계 준비 / 웹 배포 완료·전체 이행 검증 대기**
+2026-10-26 · **전체43일 PC 검증 / 실기기·사용자 확인 진행**
 
 ## 현재 기준
 
-- [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). 재개 지시문: [새 세션 시작](session-resume-prompt.md). G0·G1·기존 B-01은 사용자 확인 완료.
-- 인계 시작 시 main=`1b95505`, 작업 트리 깨끗함·GitHub main 일치. 이후 변경은 이번 인계 문서뿐이며 최종 문서 커밋은 `git log -1`로 확인한다.
-- [웹 앱](https://jeongjae.github.io/travel-app/)·[v0.1.0-preview.1](https://github.com/jeongjae/travel-app/releases/tag/v0.1.0-preview.1) 공개 완료. 배포·태그 대상=`00a546a`, 최신 main의 문서 커밋과 구분. [배포 보고](web-release-2026-10-25.md).
-- 공개에는 앱·가상 표본만 포함. 실제 여행·예약·키·백업은 Git 제외. PC/iPhone·브라우저별 데이터 자동 동기화 없음. 개인 ZIP은 사용자가 파일 앱에 별도 복사해 가져온다.
-- [통합 이행](phase-2-continuous-report.md): 43일·9지역·227장소/주제·267활동·224이동·콘텐츠3,831개. 선택 leaf35,667개=표시35,134+메타533, 보류/미대응0. 전체 원천 보존 완료 판정은 아님.
-- 개인 ZIP: `local-data/phase2/continuous-10/full/package/pilot.zip`(84,453,758바이트, blob594개). SHA-256: `3e73d4bdd5e9c5a99628816f64e528bd715276da360f7b492784476b3a5b0282`.
-- [v2 AI](phase-3-report.md)는 구현 상태·기본 비활성(`OPENAI_V2_ENABLED=0`). Pages에 AI 서버 없음. 호스팅/인증·모델/예산/전송 미정, 실제 유료 호출 미실행.
+- [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). G0·G1·기존 B-01 사용자 확인 완료. [상세 검증](full-verification-2026-10-26.md).
+- 구현 main=`c5b6c0e`. `4437852` pnpm 실행, `50c5c39` 모의 검사 대기, `c5b6c0e` 실행 체크 출처 경로 수정·가상 회귀를 각각 커밋/push. 최종 문서 HEAD는 `git log -1`로 확인.
+- [웹 앱](https://jeongjae.github.io/travel-app/) Pages는 `c5b6c0e` 자동 배포 성공. 사전 릴리스 `v0.1.0-preview.1` 태그/자산은 `00a546a` 그대로. 실제 자료·키·백업 공개 제외.
+- 수정 개인 ZIP: `local-data/phase2/verified-package-20261026/pilot.zip`, 84,453,766바이트·blob594개.
+- SHA-256: `d183228064312c2a69d27018f5cfc6f5c909e262d621890f101770049274bbe0`.
+- 기존 통합 ZIP·원천·G1/B-01·백업/프로필 보존. [연속 이행](phase-2-continuous-report.md): 43일·9지역·227장소/주제·267활동·224이동·콘텐츠3,831개. 전체 원천 의미 보존 완료 판정은 아님.
 
-## 검증·환경
+## 최근 검증·산출물
 
-- 10/25 `00a546a` 원격 `check`123개·`check:pilot`·E2E38개 통과. 공개 사이트 가상 여행의 PC/모바일 크기·가져오기·백업 메뉴·오프라인 재실행 통과. iPhone 실기기 결과가 아님.
-- 10/26 인계 점검: 공개 HTML/deployment.json HTTP200·배포 커밋 일치, 개인 ZIP 크기/해시·Git 제외 일치. 기능 테스트는 재실행하지 않음. 이번 변경은 문서뿐.
-- 10/26 포트5173·4173·8787 리스너 없음. 이전 PID20340은 실행 중으로 가정하지 말 것. 서버·브라우저 DB/기존 프로필을 새로 시작하거나 초기화하지 않았음.
-- 전체 실데이터 DB 적재·독립 원천 대조·전체 복원·B/L/R·iPhone·v2 실제 API 미검증. [일괄 목록](deferred-verification.md). G2·G2′·G3·G4 미완료, 웹 배포 사용자 확인 대기.
-- 65Fact 외부 근거 부족·이미지2그룹/지도 권리·렌더 잔여 원천 검토가 남음. 원천·G1/B-01·사용자 DB/프로필 보존. [직전 인계](history/handoff-2026-10-25-web-release.md).
+- 10/26 수정 후 `check:deferred`: check124개·E2E38개·pilot 통과. `c5b6c0e` 원격 CI·Pages 모두 success. 과거 성공을 새 수정 증거로 재사용하지 않음.
+- 고정 원천313/첨부594파일·기존 G1/B-01 ZIP·백업177/273entry 해시 일치. 원본→추출 JSON56·Markdown184·XLSX2,539셀 대조, 수정본 Fact760·메모9·체크17개 역조회 통과.
+- 기존 ZIP PC: 도메인 전체 행/첨부594해시·43일/227가이드/54예약 조회·편집/오프라인 기록·전체 백업/빈 공간 복원 통과. 증거 `local-data/phase2/full-verification-20261026-04/`.
+- 수정본 PC 전체 화면·프로세스 재시작·B/L/R·오프라인 운영15컬렉션/15,911행·594파일 복원·여행 전환 통과. 증거 `full-verification-20261026-05/`→`06/`→`07/`. 도구 실패2건과 연속 증거를 구분 기록.
+- 사용자용 별도 Chromium 검토 창: `http://127.0.0.1:4173/?workspace=content&review=full-user-20261026`. 프로필은 `local-data/phase2/user-review-full-20261026/`. 자동 검증 문장 없음·사용자 확인 대기.
+- iPhone 사용자 보고: 15 Plus/iOS27.0.1/Chrome147.0.7727.47, 보안·DB·OPFS 지원/앱 셸 제어 표시. 실제 ZIP 선택·적재·오프라인/종료·복원은 응답 대기. [절차](phase-2-prime-runbook.md).
+- 전체 PC 사용자 확인·추가 경계/원천 의미 대조·실기기·v2 AI는 미완료. Fact65개 근거 부족·이미지/지도 권리 검토·다른 매체 백업 대기. G2/G2′/G3/G4를 완료로 표시하지 않음.
 
 ## 다음 작업·명령
 
-1. 재개 시 git/프로세스·원천/ZIP을 먼저 확인. [실기기 절차](phase-2-prime-runbook.md)로 iPhone Chrome 접속·파일 선택·OPFS·오프라인·종료/복원·사용자 확인을 지원한다.
-2. 별도 검증 저장소에서 전체43일 실제 PC/원천 대조·복원을 준비/진행하고 근거를 남긴다. [운영 복구](phase-4-operations.md). 다른 매체 백업·첫 실패 키 식별/폐기도 대기.
-- pnpm12.14.0 / Node24.13.1 / Python `.venv`. PowerShell: `$env:COREPACK_HOME=Join-Path (Get-Location) '.cache/corepack'`.
-- 로컬 UI: `pnpm run dev:ui`(5173), 빌드 후 `pnpm run preview:ui`(4173). 자동 회귀: `pnpm run check:deferred`; 4173 충돌 시 소유 확인 후 재사용 여부 판단. 유료 API·키 변경은 별도 범위 결정 전 실행 금지.
+1. [일괄 목록](deferred-verification.md)의 미검증을 이어가고 PC 검토 창의 전체 일정/Day1·18·42·43/가이드/사진/백업 사용자 확인을 받는다. iPhone에서는 수정 ZIP만 별도 전달하며 기존 DB를 지우지 않는다.
+2. v2 AI는 기본 비활성·Pages AI 서버 없음. 호스팅/인증·모델/예산/전송 확정 전 활성화·유료 호출·키 변경 금지.
+- pnpm12.14.0/Node24.13.1/Python `.venv`. `COREPACK_HOME=.cache/corepack`, `PLAYWRIGHT_BROWSERS_PATH=.cache/ms-playwright`.
+- UI `pnpm run dev:ui`(5173), 빌드 후 `pnpm run preview:ui`(4173), 회귀 `pnpm run check:deferred`. 현재 4173은 이번 세션 UI preview이며 재개 시 소유 재확인.
+- [직전 인계](history/handoff-2026-10-26-resume.md). 다른 검토의 미추적 `docs/status-review-2026-10-26.md`는 보존·커밋 제외.

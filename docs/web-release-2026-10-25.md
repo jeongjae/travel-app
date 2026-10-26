@@ -2,6 +2,8 @@
 
 2026-10-25 · **공개 HTTPS 배포 완료 · 사용자 확인 대기**
 
+2026-10-26 후속: 출처 경로 수정 `c5b6c0e` push 후 [Pages 자동 배포](https://github.com/jeongjae/travel-app/actions/runs/40255564148)가 성공했다. 기존 사전 릴리스 태그/자산은 그대로 보존한다. 현재 iPhone 전달 대상은 `local-data/phase2/verified-package-20261026/pilot.zip`이며 [실제 PC 검증·기기 진행](full-verification-2026-10-26.md)을 따른다. 아래 10/25 배포 검증과 구버전 파일 안내는 당시 이력이다.
+
 사용자의 GitHub 커밋/릴리스·iPhone 웹 접속 요청에 따라 공개 앱 셸을 GitHub Pages로 배포한다. 실제 여행 자료·예약·키·사용자 백업은 공개 사이트/릴리스 자산에 넣지 않는다.
 
 ## 배포 대상
