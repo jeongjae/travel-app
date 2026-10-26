@@ -187,3 +187,22 @@ it('명부의 명시 지역과 ID를 사용하고 중복 ID는 거부한다', ()
   expect(spfrRegistryRows(markdown).get('fiction-place')?.regionId).toBe('fiction');
   expect(() => spfrRegistryRows(markdown + markdown)).toThrow('중복 장소');
 });
+
+it('실행 체크 이름의 슬래시와 물결표가 있어도 원천 locator로 값을 재조회한다', async () => {
+  const fixture = await spfrPilotFixture();
+  const entry = fixture.extract.entries.find((entry) => entry.sourceKey === 'data/field-notes.json')!;
+  const action = 'check:9/15 ~ 가상 확인';
+  const original = { id: 'fiction-check', author: 'fixture', ts: '2033-05-01T09:00:00Z', checked: true };
+  entry.rawValue = { checkedActions: { 'day-28/walk': { [action]: original } } };
+  const result = await normalizeSpfrPilot(fixture.extract, fixture.options);
+  expect(result.report.blocking).toEqual([]);
+  const record = result.dataset.records.find((record) => record.kind === 'legacy-state')!;
+  const pointer = record.sourceRefs[0].locator.split('#')[1];
+  const resolved = pointer
+    .slice(1)
+    .split('/')
+    .map((key) => key.replaceAll('~1', '/').replaceAll('~0', '~'))
+    .reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], entry.rawValue);
+  expect(resolved).toEqual(original);
+  expect(record.payload).toMatchObject({ sourceKey: action, state: 'checked' });
+});

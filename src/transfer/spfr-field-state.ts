@@ -128,7 +128,7 @@ export async function mapSpfrFieldState(extract: SourceExtract, plan: PlanVersio
             }
             await add(
               path,
-              `${locator}/${action}`,
+              `${locator}/${action.replaceAll('~', '~0').replaceAll('/', '~1')}`,
               actionValue,
               {
                 targetRef: target,
