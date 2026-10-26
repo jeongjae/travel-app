@@ -66,6 +66,7 @@ async function manager(p: AiProvider) {
 }
 async function finished(m: JobManager, id: string) {
   await vi.waitFor(() => expect(['awaiting-decision', 'failed', 'cancelled']).toContain(m.get(id)?.status));
+  await vi.waitFor(() => expect(m.controllers.has(id)).toBe(false));
   return m.get(id)!;
 }
 it('실제 조사 출처로 검증된 초안을 만들되 계획과 실제 기록을 변경하지 않는다', async () => {
