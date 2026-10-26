@@ -164,6 +164,22 @@ dialog th {
 .content-app select {
   max-width: 100%;
 }
+.content-app label:has(> input[type='checkbox']) {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 12px 0;
+}
+.content-app input[type='checkbox'] {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+}
 @media (max-width: 700px) {
   .workspace-nav {
     padding: 10px 20px;
