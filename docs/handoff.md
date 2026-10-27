@@ -1,30 +1,33 @@
 # travel-app 현재 상태
 
-2026-10-26 · **전체43일 PC 검증 / 실기기·사용자 확인 진행**
+2026-10-27 · **활동 메모 재조회 수정 / iPhone 수정본 확인 대기**
 
 ## 현재 기준
 
-- [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). G0·G1·기존 B-01 사용자 확인 완료. [상세 검증](full-verification-2026-10-26.md).
-- 구현 main=`c5b6c0e`. `4437852` pnpm 실행, `50c5c39` 모의 검사 대기, `c5b6c0e` 실행 체크 출처 경로 수정·가상 회귀를 각각 커밋/push. 최종 문서 HEAD는 `git log -1`로 확인.
-- [웹 앱](https://jeongjae.github.io/travel-app/) Pages는 `c5b6c0e` 자동 배포 성공. 사전 릴리스 `v0.1.0-preview.1` 태그/자산은 `00a546a` 그대로. 실제 자료·키·백업 공개 제외.
-- 수정 개인 ZIP: `local-data/phase2/verified-package-20261026/pilot.zip`, 84,453,766바이트·blob594개.
-- SHA-256: `d183228064312c2a69d27018f5cfc6f5c909e262d621890f101770049274bbe0`.
-- 기존 통합 ZIP·원천·G1/B-01·백업/프로필 보존. [연속 이행](phase-2-continuous-report.md): 43일·9지역·227장소/주제·267활동·224이동·콘텐츠3,831개. 전체 원천 의미 보존 완료 판정은 아님.
+- [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). G0·G1·기존 B-01 사용자 확인 완료. G2/G2′/G3/G4 전체 확인은 대기.
+- [메모 수정 보고](note-visibility-fix-2026-10-27.md)·[v2 모의/경계](phase-3-mock-verification-2026-10-26.md). `ea4a928` 검사 대기·`01c2716` 메모 조회 수정 커밋/push 완료. 문서 HEAD는 `git log -1`로 확인.
+- [웹 앱](https://jeongjae.github.io/travel-app/)은 앱·가상 표본만 공개. 실제 여행·예약·키·백업 제외. 사전 릴리스 태그 `v0.1.0-preview.1`/`00a546a` 보존. 메모 수정 `01c2716` Pages 반영 확인.
+- 개인 ZIP `local-data/phase2/verified-package-20261026/pilot.zip`, 84,453,766바이트·blob594개.
+- SHA-256=`d183228064312c2a69d27018f5cfc6f5c909e262d621890f101770049274bbe0`.
+- 원본·기존 통합본·G1/B-01·백업·프로필 보존. 다른 검토의 미추적 `docs/status-review-2026-10-26.md`는 커밋 제외.
 
-## 최근 검증·산출물
+## 검증·사용자 상태
 
-- 10/26 수정 후 `check:deferred`: check124개·E2E38개·pilot 통과. `c5b6c0e` 원격 CI·Pages 모두 success. 과거 성공을 새 수정 증거로 재사용하지 않음.
-- 고정 원천313/첨부594파일·기존 G1/B-01 ZIP·백업177/273entry 해시 일치. 원본→추출 JSON56·Markdown184·XLSX2,539셀 대조, 수정본 Fact760·메모9·체크17개 역조회 통과.
-- 기존 ZIP PC: 도메인 전체 행/첨부594해시·43일/227가이드/54예약 조회·편집/오프라인 기록·전체 백업/빈 공간 복원 통과. 증거 `local-data/phase2/full-verification-20261026-04/`.
-- 수정본 PC 전체 화면·프로세스 재시작·B/L/R·오프라인 운영15컬렉션/15,911행·594파일 복원·여행 전환 통과. 증거 `full-verification-20261026-05/`→`06/`→`07/`. 도구 실패2건과 연속 증거를 구분 기록.
-- 사용자용 별도 Chromium 검토 창: `http://127.0.0.1:4173/?workspace=content&review=full-user-20261026`. 프로필은 `local-data/phase2/user-review-full-20261026/`. 자동 검증 문장 없음·사용자 확인 대기.
-- iPhone 사용자 보고: 15 Plus/iOS27.0.1/Chrome147.0.7727.47, 보안·DB·OPFS 지원/앱 셸 제어 표시. 실제 ZIP 선택·적재·오프라인/종료·복원은 응답 대기. [절차](phase-2-prime-runbook.md).
-- 전체 PC 사용자 확인·추가 경계/원천 의미 대조·실기기·v2 AI는 미완료. Fact65개 근거 부족·이미지/지도 권리 검토·다른 매체 백업 대기. G2/G2′/G3/G4를 완료로 표시하지 않음.
+- [앞선 실데이터 PC](full-verification-2026-10-26.md): 43일·첨부594해시·편집/오프라인·B/L/R·전체 복원 통과. 새 메모 UI 검사와 구분한다.
+- 기존 PC 검토 프로필 `local-data/phase2/user-review-full-20261026/` 보존. 전체 PC 사용자 확인 대기. 창·서버 동작을 가정하지 않는다.
+- iPhone 15 Plus/iOS27.0.1/Chrome147.0.7727.47: ZIP 가져오기·일정/사진 조회 사용자 확인. 10/27 ‘오늘 활동 옆 메모를 다시 열면 안 보인다’ **수정 요청**. 오프라인/종료/복원 통과로 표시하지 않는다.
+- 가상 여행에서 수정 전 메모가 DB1건으로 저장됐지만 같은 창에서 보이지 않는 오류를 재현했다. 사용자 iPhone DB 잔존 여부를 직접 확인한 것은 아니다.
+- 같은 활동 카드/메모 창에 저장 이력을 표시하고 새 입력과 구분했다. 기존 records 구독·AddNote 트랜잭션/revision을 재사용. 저장 형식 변경·원문 수정·데이터 삭제 없음. 기존 메모 확인에 ZIP 재가져오기 불필요.
+- 대상 단위3개·PC/모바일 E2E6개 통과: 재조회/추가·계획 변경/대상·여행 격리·오프라인 새 페이지·빈 공간 백업 복원. 실제 iPhone 재확인 대기.
+- 수정 후 `check:deferred`: check152개·E2E48개·pilot 통과. 로그 `.cache/verification/2026-10-27T01-58-31-206Z/`.
+- 전일 `8c9ba6c`: 로컬149/42/pilot·Pages 성공, 원격 E2E41/42. 복원 대기 보완 후 `01c2716` 원격 CI 성공.
+- v2 모의23개/E2E4개·512KiB/16MiB 경계2개는 앞선 로컬 통과. 실제 키 로드/변경·OpenAI 호출·v2 활성화·AI 서버 공개는 없음.
 
 ## 다음 작업·명령
 
-1. [일괄 목록](deferred-verification.md)의 미검증을 이어가고 PC 검토 창의 전체 일정/Day1·18·42·43/가이드/사진/백업 사용자 확인을 받는다. iPhone에서는 수정 ZIP만 별도 전달하며 기존 DB를 지우지 않는다.
-2. v2 AI는 기본 비활성·Pages AI 서버 없음. 호스팅/인증·모델/예산/전송 확정 전 활성화·유료 호출·키 변경 금지.
+1. iPhone 온라인에서 같은 주소 새로고침 → ‘저장 후 새 버전 열기’ → 기존 활동의 저장 메모 재조회. 데이터 삭제·ZIP 재가져오기·기존 문장 재입력 없이 먼저 확인한다.
+2. 사용자 확인 후 비행기 모드/Wi-Fi 차단·메모·Chrome 종료/재실행·첨부 백업/빈 공간 복원 재검증. [실기기 절차](phase-2-prime-runbook.md).
+3. [남은 목록](deferred-verification.md)의 원천 잔여/의미·지역 ZIP·Fact65개/권리·다른 매체 백업은 미완료. 실제 AI는 호스팅/인증·모델/예산/전송 확정 전 실행 금지.
 - pnpm12.14.0/Node24.13.1/Python `.venv`. `COREPACK_HOME=.cache/corepack`, `PLAYWRIGHT_BROWSERS_PATH=.cache/ms-playwright`.
-- UI `pnpm run dev:ui`(5173), 빌드 후 `pnpm run preview:ui`(4173), 회귀 `pnpm run check:deferred`. 현재 4173은 이번 세션 UI preview이며 재개 시 소유 재확인.
-- [직전 인계](history/handoff-2026-10-26-resume.md). 다른 검토의 미추적 `docs/status-review-2026-10-26.md`는 보존·커밋 제외.
+- UI `pnpm run dev:ui`(5173), 빌드 후 `pnpm run preview:ui`(4173). 회귀 `pnpm run check:deferred`. 포트 소유 확인 후 preview 재사용.
+- [이전 PC 인계](history/handoff-2026-10-26-full-pc.md). 자동 검사·기기 보고·사용자 확인을 분리한다.
