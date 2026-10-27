@@ -1,11 +1,12 @@
 # travel-app 현재 상태
 
-2026-10-27 · **T-01 독립 검사 통과 / 화면 산출물·지역 의미 보완 요청**
+2026-10-27 · **T-01-R1 구현·자체 검사 완료 / Codex 재검토 대기**
 
 ## 현재 기준
 
 - [실행계획 개정안](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
-- [T-01 결과](claude-task-01-result.md) `a268c9e`: Claude 단위168·E2E52·pilot 통과. [Codex 검증](claude-task-01-review.md): 신규 단위16·E2E4 통과, 귀국/이동일 화면·regionIds 계약 보완 요청. 사용자 확인 대기.
+- [T-01 결과](claude-task-01-result.md)(R1 절 포함): 귀국/이동일 화면·패키지 생성 명령 추가, 자체 검사 통과(단위169·E2E6). Codex 검토 대기·사용자 확인 검토 준비.
+- [regionIds 분석](claude-task-01-r1-regionids.md): 의미 미확정, 하루 필드 복수 지역은 판단 대기(후보 A/B).
 - Codex는 계획·지시/독립 검증, Claude는 구현·자체 검사, 사용자는 제품 결정·실제 산출물 확인을 맡는다.
 - G0·G1·기존 B-01 확인 완료 유지. G2/G2′/G3/G4 전체 확인은 대기. 개정안 세부 해법은 검토안이다.
 - [웹 앱](https://jeongjae.github.io/travel-app/)은 앱·가상 표본만 공개. 개인 여행·예약·키·백업 제외. 메모 수정 `01c2716` Pages 반영 확인.
@@ -28,7 +29,7 @@
 
 ## 다음 작업·명령
 
-1. [Sonnet T-01-R1](claude-task-01-r1.md)의 두 보완만 수행한 뒤 Codex가 재검토한다. T-02 미착수.
+1. Codex가 R1을 재검토하고 regionIds 의미(A/B)를 판정한다. 그 뒤 T-02.
 2. 병행: iPhone 백업 크기 확인 후 `?workspace=content&review=iphone-restore-20261027`의 빈 공간에서 전체 백업 복원.
 3. 기존 데이터는 삭제하지 않는다. 빈 공간이 아니면 중단한다. 일정·사진·메모·오프라인/종료 후 유지를 확인한다.
 4. [잔여 목록](deferred-verification.md)의 원천/의미·지역 ZIP·Fact65개/권리·다른 매체 백업과 전체 PC 확인을 마감한다.

@@ -81,3 +81,62 @@ push 대상 origin/main, 원격 CI는 push 후 미확인. 강제 push·태그·w
 ## 판정
 
 구현 완료 · 자동 검사 통과 · 실제 환경 미검증 · Codex 검토 대기 · 사용자 확인 검토 준비. G2/G2′/G3 전체 통과로 확대하지 않는다.
+
+---
+
+# R1 보완 (2026-10-27, 기준 `73d75f9`) · Codex 검토 대기 · 사용자 확인 검토 준비
+
+위 T-01 결과는 보존한다. [Codex 검증](claude-task-01-review.md)의 두 보완만 수행했다. 제품 코드·의존성·workflow·공개 샘플 변경 없음.
+
+## R1 요약·증거 색인
+
+- R1-1 화면: 귀국일·이동일 가상 패키지 생성 명령과 PC·모바일 화면 12장을 만들었다. E2E 1개×PC/모바일 통과.
+- R1-2 의미: `regionIds` 근거표·판단 후보 A/B는 [분석](claude-task-01-r1-regionids.md). **하루 `regionIds`의 복수 지역 보존은 미검증·판단 대기**이며 현 값은 관찰 블록과 `it.todo`로 분리했다.
+- 검사: `pnpm run check` exit 0(단위 169 통과·1 skipped·1 todo, 포맷·린트·타입·빌드), 패키지 생성 exit 0, E2E 6개(guide-facts 2+return-move-days 1, PC·모바일) exit 0. 로그 `.cache/t01-r1-logs/`.
+- 전체 `check:deferred`는 반복하지 않았다. 앱·제품 코드·공개 샘플이 그대로이고 변경은 tests·문서이며, 영향 검사(`check` 전체 + 변경·추가 E2E)로 충분하다고 판단했다.
+- 미검증: 실제 원천·iPhone·실제 API. 이 화면 증거는 가상 fixture이며 실제 SP-FR 이동일 표기와 대조하지 않았다.
+
+## R1-1 직접 확인 절차
+
+**생성(새 의존성 없음, 출력은 Git 제외 `.cache/`)**
+
+```powershell
+$env:COREPACK_HOME = Join-Path (Get-Location) '.cache/corepack'
+$env:T01_REVIEW_OUT = '.cache/t01-review'
+pnpm exec vitest run tests/t01-review-packages.test.ts
+```
+
+`.cache/t01-review/`에 `fiction-return-unknown.zip`, `fiction-return-explicit.zip`, `fact-isolation-v1.zip`, `fact-isolation-v2-update.zip`, `manifest.json`이 생긴다(크기·SHA-256·tripId·fixture 함수명 기록. zip 해시는 생성할 때마다 달라질 수 있어 manifest를 기준으로 본다). 환경변수가 없으면 이 테스트는 건너뛴다.
+
+**같은 입력 식별**: 패키지는 `tests/fixtures/review-packages.ts`가 단위 테스트와 같은 fixture 함수(`spfrReturnTripFixture('unknown'|'explicit')`, `factIsolationTrip()`, `factIsolationUpdatedTrip()`)로 만든다. 단위 테스트와 다른 점은 여행 이름뿐이다(한 프로필에 두 변형을 나란히 열기 위함, 이름 변경 후 이행 대응표 재생성). Fact 화면은 T-01의 기존 증거를 재사용한다.
+
+**열기(빈 가상 전용 저장소)**: 사용자 검토 프로필·기존 저장소는 열지 않는다.
+1. `pnpm run build` 후 4173 포트 소유를 확인하고 `pnpm run preview:ui`.
+2. **InPrivate/시크릿 창**에서 `http://127.0.0.1:4173/?workspace=content&review=t01-human-review`를 연다. `review=` 이름이 별도 저장소를 만들 뿐 URL이 데이터를 공유하지는 않는다. 가져오기는 그 브라우저 프로필 안에만 저장되며 창을 닫으면 사라진다. 같은 프로필의 4173 사이트 데이터를 지우면 다른 저장소도 지워지므로 지우지 않는다.
+3. 「여행 선택·가져오기」→ 「여행 패키지 선택」에서 `fiction-return-unknown.zip`, 「여행에 추가」, 같은 방식으로 `fiction-return-explicit.zip`.
+
+**확인 동작과 기대 문구**(화면에 표시되는 값만; `regionIds`·`overnightRegionId`는 화면에 표시되지 않는다)
+
+| 화면 | 동작 | 기대 |
+|---|---|---|
+| 전체 일정 | 「귀국일 장소 지역 미상」 여행 → 전체 일정 | 카드 4개: `가상 지역`·`가상 지역`·`가상 지역 → 다른 지역`·`가상 귀국` |
+| 이동일 5/3 | 카드 `가상 지역 → 다른 지역` | `TRANSFER DAY`, `09:00 ~ 10:00 가상 출발`, `12:30 가상 도착`, 구간 `가상 출발 → 가상 도착 · train · 약 2시간 · 미상 · 가상 노선`, 버튼 `장소 안내 · 가상 장소`/`가상 다른 장소`, 하단 `숙박: 가상 다른 숙소` |
+| 귀국일 5/4(지역 미상) | 카드 `가상 귀국` | `08:00 가상 공항`, `11:00 가상 선물 가게`, **`숙박:` 줄 없음**, `장소 안내` 버튼 없음 |
+| 귀국일 5/4(지역 명시) | 「귀국일 장소 지역 명시」 여행 → `가상 귀국` | 위와 같고 `가상 선물 가게`에만 `장소 안내 · 가상 다른 장소`, `숙박:` 줄 없음 |
+| 장소→지역 | 가이드 → 검색 `다른 지역` / `가상 지역` | `다른 지역`: `가상 다른 장소`만(지역 카드 제외), `가상 지역`: `가상 장소`만 |
+
+스크린샷(PC 1504×1040·모바일 390×844 각 6장): `.cache/t01-review/screens/{desktop,mobile}-{1-overview-4days,2-move-day-0503,3-return-day-0504-unknown,4-return-day-0504-explicit,5-guide-search-other-region,6-guide-search-fiction-region}.png`. 재현: `pnpm run test:e2e tests/e2e/return-move-days.spec.ts`(자동 임시 프로필은 테스트 종료 때 폐기, 스크린샷·패키지는 `.cache/`에 남음, 콘솔 오류·가로 넘침 0건 단언).
+
+## R1 커밋
+
+| 커밋 | 내용 |
+|---|---|
+| 도구·화면 | `tests/fixtures/review-packages.ts`, `tests/t01-review-packages.test.ts`, `tests/e2e/return-move-days.spec.ts`, `tests/fixtures/guide-fact-isolation.ts`(`factIsolationUpdatedTrip` 추가)·`tests/e2e/guide-facts.spec.ts`(그 함수를 쓰도록 이동) |
+| 의미 분리 | `tests/spfr-return-day.test.ts`·`tests/spfr-move-day.test.ts`: `regionIds` 단언을 관찰 블록으로 이동, `it.todo` 추가. 삭제로 완료를 주장하지 않음 |
+| 문서 | `docs/claude-task-01-r1-regionids.md`, 본 R1 절, handoff |
+
+시도·수정: 이름만 바꾼 패키지를 앱이 `INVALID_INPUT: 기준 B가 대상 콘텐츠와 다릅니다`로 거부했다(제 빌더가 이행 대응표를 갱신하지 않은 결함). 이름 변경 후 `currentMappings`를 다시 만들도록 고쳐 통과했다.
+
+## R1 판정
+
+구현·자체 검사 완료. `regionIds` 의미는 **미해결**(Codex 판정 대기, 후보 A 잠정 추천). Codex 검토 대기, 사용자 확인 검토 준비. G2/G2′/G3 종료·제품 코드 수정 승인을 뜻하지 않는다.
