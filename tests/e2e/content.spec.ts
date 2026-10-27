@@ -264,6 +264,7 @@ test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미�
     await expect(restored.getByText('전체 복원 완료.', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '닫기', exact: true }).click();
     await restored.reload();
+    await expect(restored.getByRole('heading', { level: 1, name: '가상 산책 여행 A', exact: true })).toBeVisible();
     await expand(restored, '.journey-library');
     await expect(restored.getByRole('navigation', { name: '여행 선택' }).getByRole('button')).toHaveCount(2);
     await guide(restored);
