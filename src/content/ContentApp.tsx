@@ -19,6 +19,7 @@ import {
 } from './Journey';
 import { reviewWorkspace, workspaceUrl } from '../storage/workspace-name';
 import { ActualEditor, ActualTimeline, TimeEditor, type RecordEditor } from './Field';
+import { notesForTarget, SavedNotes } from './Notes';
 import { ProposalPanel, ReimportReview } from './Workflows';
 import { command, errorText, ErrorText, Modal, timeLabel } from './ui';
 import './content.css';
@@ -517,6 +518,13 @@ export function ContentApp() {
                           메모
                         </button>
                       </div>
+                      <SavedNotes
+                        notes={notesForTarget(records, {
+                          tripId: header.tripId,
+                          targetKind: 'activity',
+                          entityId: i.activityId,
+                        })}
+                      />
                       {plan.legs
                         .filter((leg) => leg.dayId === activeDay?.dayId && leg.fromActivityId === i.activityId)
                         .map((leg) => (
@@ -941,6 +949,7 @@ export function ContentApp() {
         <NoteEditor
           repo={repo}
           target={noteTarget}
+          records={records}
           onClose={() => setNoteTarget(null)}
           onSaved={() => {
             setNoteTarget(null);
@@ -1148,10 +1157,12 @@ function PlanEditor({
 function NoteEditor({
   repo,
   target,
+  records,
   onClose,
   onSaved,
 }: {
   repo: ContentRepository;
+  records: FieldRecord[];
   target: {
     header: TripDataset['header'];
     label: string;
@@ -1166,12 +1177,25 @@ function NoteEditor({
   onSaved: () => void;
 }) {
   const [body, setBody] = useState(''),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
   return (
     <Modal title={`${target.label} 메모`} onClose={onClose}>
+      <SavedNotes notes={notesForTarget(records, target.ref)} emptyText="아직 저장된 메모가 없습니다." />
+      <h3>새 메모 추가</h3>
+      <p className="muted">입력칸은 새 메모를 추가하는 곳입니다. 이전 메모는 위 목록에 보존됩니다.</p>
       <form
+        aria-busy={busy}
         onSubmit={async (e) => {
           e.preventDefault();
+          if (busy) {
+            return;
+          }
+          if (!body.trim()) {
+            setError('메모 내용을 입력해 주세요.');
+            return;
+          }
+          setBusy(true);
           try {
             await repo.execute(
               command(
@@ -1196,6 +1220,8 @@ function NoteEditor({
             onSaved();
           } catch (err) {
             setError(errorText(err));
+          } finally {
+            setBusy(false);
           }
         }}
       >
@@ -1204,7 +1230,7 @@ function NoteEditor({
           <textarea required value={body} onChange={(e) => setBody(e.target.value)} />
         </label>
         <ErrorText error={error} />
-        <button>메모 저장</button>
+        <button disabled={busy}>메모 저장</button>
       </form>
     </Modal>
   );

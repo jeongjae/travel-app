@@ -85,6 +85,21 @@
 .content-row p {
   margin: 8px 0;
 }
+.saved-notes {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--canvas);
+}
+.saved-note + .saved-note {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.saved-note-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .content-row .button-row {
   display: flex;
   flex-wrap: wrap;
