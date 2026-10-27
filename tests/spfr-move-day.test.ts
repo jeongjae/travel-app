@@ -69,7 +69,7 @@ async function newRepository() {
 }
 
 describe('T-01b · 하루 안의 복수 지역 이동', () => {
-  it('이동일의 도시 표기·일차·날짜가 원천 그대로이고 숙박 지역은 도착 지역 하나다', async () => {
+  it('이동일의 도시 표기·일차·날짜가 원천 그대로이고 숙박 지역(overnightRegionId)은 도착 지역이다', async () => {
     const { plan } = await normalizeMoveTrip();
     const moveDay = plan.days.find((day) => day.dayId === moveDayId)!;
     expect(moveDay).toMatchObject({
@@ -80,7 +80,6 @@ describe('T-01b · 하루 안의 복수 지역 이동', () => {
     });
     // 출발 지역 "fiction"의 숙박은 이 날 아침 끝나므로 숙박 지역은 도착 지역뿐이다.
     expect(moveDay.overnightRegionId).toBe('other');
-    expect(moveDay.regionIds).toEqual(['other']);
   });
 
   it('도시 표기와 활동의 장소가 숙박 지역 하나로 축소되지 않고 두 지역을 모두 가리킨다', async () => {
@@ -127,17 +126,6 @@ describe('T-01b · 하루 안의 복수 지역 이동', () => {
     expect(plan.items.find((item) => item.activityId === 'day-29-stroll')?.dayId).toBe('day-29');
   });
 
-  it('이동일 앞뒤 날짜의 지역은 이동일의 지역과 섞이지 않는다', async () => {
-    const { plan } = await normalizeMoveTrip();
-    const regionsByDay = Object.fromEntries(plan.days.map((day) => [day.dayId, day.regionIds]));
-    expect(regionsByDay).toEqual({
-      'day-28': ['fiction'],
-      'day-29': ['fiction'],
-      'day-30': ['other'],
-      'day-31': [],
-    });
-  });
-
   it('패키지 왕복 뒤 repository 조회에서도 이동일 의미와 연결이 같고 다른 여행에 섞이지 않는다', async () => {
     const { fixture, result, plan } = await normalizeMoveTrip();
     const imported = await packageOf(result, fixture.options.media, 'fiction-return');
@@ -174,4 +162,23 @@ describe('T-01b · 하루 안의 복수 지역 이동', () => {
     expect(await repository.content(soloTripId, 'place', 'other-spot')).toBeUndefined();
     expect(await repository.content(soloTripId, 'region', 'other')).toBeUndefined();
   });
+});
+
+// 아래 블록은 계약 검증이 아니라 현 구현의 day.regionIds 값을 기록한 관찰이다.
+// regionIds의 의미(숙박 전용인지, 활동 장소 지역을 포함하는지)는 문서·코드·소비자 어디에서도 확정되지 않았다.
+// 근거와 판단 후보: docs/claude-task-01-r1-regionids.md. 의미가 정해지면 이 기대값은 계약 검증으로 승격하거나 바뀔 수 있다.
+describe('[현 동작 관찰 · 계약 미확정] 이동일 day.regionIds', () => {
+  it('현재 day.regionIds는 그날을 덮는 숙박의 지역만 담고 이동일에는 도착 지역뿐이다', async () => {
+    const { plan } = await normalizeMoveTrip();
+    const regionsByDay = Object.fromEntries(plan.days.map((day) => [day.dayId, day.regionIds]));
+    expect(regionsByDay).toEqual({
+      'day-28': ['fiction'],
+      'day-29': ['fiction'],
+      'day-30': ['other'],
+      'day-31': [],
+    });
+  });
+
+  // 원 지시서 T-01b의 "하루의 복수 지역 참조가 하루 지역 필드에서 보존되는지"는 의미 판단 전이라 검증하지 않았다.
+  it.todo('[판단 대기] 이동일 day.regionIds에 출발 지역(fiction)을 포함해야 하는가 — Codex 계약 판정 후');
 });
