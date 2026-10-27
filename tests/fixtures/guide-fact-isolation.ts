@@ -103,3 +103,19 @@ export async function factIsolationTrip(): Promise<TripDataset> {
   }
   return trip;
 }
+
+/** The "source v2" of the same trip: only Fact A's value, state and confidence differ from factIsolationTrip(). */
+export async function factIsolationUpdatedTrip(): Promise<TripDataset> {
+  const trip = await factIsolationTrip();
+  const fact = trip.contents.find(
+    (content) => content.kind === 'fact' && content.entityId === factIsolation.guideA.factId,
+  );
+  if (fact?.kind !== 'fact') {
+    throw new Error('A Fact fixture가 없습니다.');
+  }
+  fact.payload.valueText = factIsolation.valueAUpdated;
+  fact.payload.appReviewStatus = 'needs-review';
+  fact.payload.sourceConfidence = 'fixture-reviewed-a2';
+  fact.payload.verifiedAt = { precision: 'date', date: '2026-03-03' };
+  return trip;
+}

@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { buildPackage } from '../../src/transfer/package';
 import { digestBytes, type TripDataset } from '../../src/contracts/v2';
 import { fixtureAssets, pilotTrip } from '../fixtures/pilot';
-import { factIsolation, factIsolationTrip } from '../fixtures/guide-fact-isolation';
+import { factIsolation, factIsolationTrip, factIsolationUpdatedTrip } from '../fixtures/guide-fact-isolation';
 
 // 가상 전용 검토 공간. 기존 사용자 DB(travel-app)와 다른 이름이며 테스트마다 빈 브라우저 컨텍스트에서 시작한다.
 const reviewUrl = '/?workspace=content&review=fiction-fact-isolation';
@@ -96,18 +96,7 @@ async function shoot(page: Page, name: string) {
 }
 
 async function updatedFactPackage() {
-  const dataset = await factIsolationTrip();
-  const fact = dataset.contents.find(
-    (content) => content.kind === 'fact' && content.entityId === factIsolation.guideA.factId,
-  );
-  if (fact?.kind !== 'fact') {
-    throw new Error('A Fact fixture가 없습니다.');
-  }
-  fact.payload.valueText = factIsolation.valueAUpdated;
-  fact.payload.appReviewStatus = 'needs-review';
-  fact.payload.sourceConfidence = 'fixture-reviewed-a2';
-  fact.payload.verifiedAt = { precision: 'date', date: '2026-03-03' };
-  return packageFile(dataset, 'fiction-fact-isolation', 'synthetic-v2');
+  return packageFile(await factIsolationUpdatedTrip(), 'fiction-fact-isolation', 'synthetic-v2');
 }
 
 test('같은 r1·같은 토큰의 두 가이드가 처음부터 각자의 Fact 값과 확인 상태를 보여준다', async ({ page }) => {
