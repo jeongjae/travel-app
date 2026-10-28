@@ -1,15 +1,14 @@
 # travel-app 현재 상태
 
-2026-10-28 · **T-02 main 필수 검사·배포 확인 / T-03 전달 준비**
+2026-10-28 · **T-02 main 배포 확인 / T-03 Codex 검토 대기**
 
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
 - [T-01 결과](claude-task-01-result.md) `1e56c71`·[Codex 검증](claude-task-01-review.md): R1 화면/의미 분석 제출은 통과.
-- 하루 regionIds 의미(REG-01)는 현 값 유지·확정 보류. 관찰/todo를 유지하고 T-03 원천 대조에서 처리한다.
+- REG-01: 원천 하루 모델 확인, 권고 C(`≤checkout`). 미적용·판정 대기, [T-03 결과](claude-task-03-result.md) §3.
 - [T-02 검증](claude-task-02-review.md): 승인 후 main `ac09ca0` 반영. 필수3검사→공개 빌드→Pages 배포·main CI success.
-- [Sonnet T-03](claude-task-03-source-audit.md): 원천 잔여·REG-01·지역 ZIP 독립 대조. 미전달·구현 미착수.
-- Codex는 계획/독립 검증, Sonnet은 상세 조사·구현·전체 검사. 짧은 요약·위험 diff 중심으로 검토한다.
+- T-03 브랜치 `codex/t03-source-audit`: 13개 ZIP 실패0, 렌더러·미선택 원천 분류, 지역 ZIP은 최종본보다 오래됨.
 - G0·G1·기존 B-01 확인 완료. G2/G2′/G3/G4·전체 PC·T-01 사용자 확인은 대기.
 - [웹 앱](https://jeongjae.github.io/travel-app/): HTTP200·deployment.json=`ac09ca0` 일치, 앱/가상 표본만 공개. 실패 주입 런타임은 미검증.
 - 개인 ZIP `local-data/phase2/verified-package-20261026/pilot.zip`: 84,453,766바이트·blob594개.
@@ -30,7 +29,7 @@
 
 ## 다음 작업·명령
 
-1. T-03 지시서를 Sonnet에 전달한다. 작업 브랜치에서 조사·도구/가상 회귀·증거를 제출하고 제품/실데이터는 수정하지 않는다.
+1. Codex가 T-03 브랜치를 검토하고 REG-01 판정(권고 C)과 F-1~F-3 수정 지시를 정한다. 제품/실데이터는 미변경.
 2. T-01 가상 화면 확인은 결과 보고의 명령·기대 문구를 따른다. 사용자 ‘완료’는 제출 알림이며 화면 승인과 구분한다.
 3. iPhone은 `?workspace=content&review=iphone-restore-20261027`의 빈 공간에서 전체 백업 복원·재실행을 확인한다.
 4. [잔여 목록](deferred-verification.md): REG-01·원천/의미·지역 ZIP·Fact65개/권리·별도 매체 백업·전체 PC 확인.
