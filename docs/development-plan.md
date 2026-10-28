@@ -1,6 +1,8 @@
 # travel-app 개발 실행계획 개정안
 
-2026-10-28 · v1.2 · **T-02 main 필수 검사·배포 확인 / T-03 전달 준비**
+2026-10-28 · v1.2 · **T-02 배포 확인 / T-03 도구 보완 요청**
+
+T-03 제출 `e069c35`는 [Codex 검증](claude-task-03-review.md)에서 종료 코드·입력 보호 보완을 요청했다. [T-03-R1](claude-task-03-r1.md)을 먼저 수행한다. REG-01 C안은 원천 근거를 확인했으나 제품 변경은 미지시다.
 
 T-01-R1 제출 `1e56c71`의 보완은 [Codex 검증](claude-task-01-review.md)을 통과했다. REG-01은 현 데이터를 유지하며 T-03에서 추가 대조한다. 사용자 승인으로 T-02를 main `ac09ca0`에 반영하고 필수 검사·Pages 배포·공개 SHA 일치를 확인했다([검증/반영 기록](claude-task-02-review.md)). 다음 [T-03 지시서](claude-task-03-source-audit.md)는 전달 준비다. 사용자 화면 확인·전체 이행은 대기다.
 
