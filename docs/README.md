@@ -4,6 +4,7 @@
 
 ## 진행 중인 작업
 
+- [Sonnet T-04 지시서](claude-task-04-regions.md): REG-01 하루 지역·야간 숙박 분리 수정, 구현 미착수.
 - [T-03 결과](claude-task-03-result.md)·[Codex 검증](claude-task-03-review.md): 원천/지역 ZIP 대조와 도구 보호 보완.
 - [이행 잔여 목록](deferred-verification.md): REG-01·원천 콘텐츠·실기기·사용자 확인.
 - [iPhone 확인 절차](phase-2-prime-runbook.md): 백업 파일 재선택·빈 공간 복원 등.

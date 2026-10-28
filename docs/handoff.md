@@ -1,12 +1,12 @@
 # travel-app 현재 상태
 
-2026-10-28 · **T-03-R1 검토 통과 / 과거 문서 정리 / REG-01 후속 대기**
+2026-10-28 · **T-03-R1 검토 통과 / T-04 REG-01 수정 전달 준비**
 
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
 - [T-01 결과](claude-task-01-result.md) `1e56c71`·[Codex 검증](claude-task-01-review.md): R1 화면/의미 분석 제출은 통과.
-- REG-01: 원천 하루 모델 확인, 권고 C(`≤checkout`). 미적용·판정 대기, [T-03 결과](claude-task-03-result.md) §3.
+- [Sonnet T-04](claude-task-04-regions.md): 원천 C안의 하루 지역/야간 숙박 분리 수정. 미전달·구현 미착수, 실제 데이터 적용 없음.
 - [T-02 검증](claude-task-02-review.md): 승인 후 main `ac09ca0` 반영. 필수3검사→공개 빌드→Pages 배포·main CI success.
 - [T-03 검증](claude-task-03-review.md): R1 종료 코드·입력 보호 보완 통과. 독립 가상 검사13통과·1환경 skip.
 - [문서 목차](README.md): 종료된 시작/재개·T-01/T-02 지시서4개를 history/instructions로 보관하고 링크 수정.
@@ -30,7 +30,7 @@
 
 ## 다음 작업·명령
 
-1. REG-01 C안·F-1~F-3의 제품 수정 지시를 준비한다. 실제 데이터/기존 패키지 변경은 아직 하지 않는다.
+1. T-04를 Sonnet에 전달한다. 작업 브랜치에서 구현·가상/실데이터 사본 검증 후 제출하며 기존 여행에 적용하지 않는다.
 2. T-01 가상 화면 확인은 결과 보고의 명령·기대 문구를 따른다. 사용자 ‘완료’는 제출 알림이며 화면 승인과 구분한다.
 3. iPhone은 `?workspace=content&review=iphone-restore-20261027`의 빈 공간에서 전체 백업 복원·재실행을 확인한다.
 4. [잔여 목록](deferred-verification.md): REG-01·원천/의미·지역 ZIP·Fact65개/권리·별도 매체 백업·전체 PC 확인.
