@@ -4,7 +4,7 @@
 
 ## 현재 기준
 
-- [실행계획](../development-plan.md) → [범위](../product-requirements.md) → [결정](../decisions.md). 재개 지시문: [새 세션 시작](../session-resume-prompt.md). G0·G1·기존 B-01은 사용자 확인 완료.
+- [실행계획](../development-plan.md) → [범위](../product-requirements.md) → [결정](../decisions.md). 재개 지시문: [새 세션 시작](instructions/session-resume-2026-10-26.md). G0·G1·기존 B-01은 사용자 확인 완료.
 - 인계 시작 시 main=`1b95505`, 작업 트리 깨끗함·GitHub main 일치. 이후 변경은 이번 인계 문서뿐이며 최종 문서 커밋은 `git log -1`로 확인한다.
 - [웹 앱](https://jeongjae.github.io/travel-app/)·[v0.1.0-preview.1](https://github.com/jeongjae/travel-app/releases/tag/v0.1.0-preview.1) 공개 완료. 배포·태그 대상=`00a546a`, 최신 main의 문서 커밋과 구분. [배포 보고](../web-release-2026-10-25.md).
 - 공개에는 앱·가상 표본만 포함. 실제 여행·예약·키·백업은 Git 제외. PC/iPhone·브라우저별 데이터 자동 동기화 없음. 개인 ZIP은 사용자가 파일 앱에 별도 복사해 가져온다.

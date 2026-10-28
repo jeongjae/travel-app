@@ -1,0 +1,22 @@
+# 문서 안내
+
+현재 실행 기준은 [handoff](handoff.md) → [개발계획](development-plan.md) → [요구사항](product-requirements.md) → [결정](decisions.md) 순서다.
+
+## 진행 중인 작업
+
+- [T-03 결과](claude-task-03-result.md)·[Codex 검증](claude-task-03-review.md): 원천/지역 ZIP 대조와 도구 보호 보완.
+- [이행 잔여 목록](deferred-verification.md): REG-01·원천 콘텐츠·실기기·사용자 확인.
+- [iPhone 확인 절차](phase-2-prime-runbook.md): 백업 파일 재선택·빈 공간 복원 등.
+
+## 계약과 증거
+
+- [저장/교환 계약](storage-and-exchange-contracts.md), [원천 대응](content-db-mapping.md), [최종 목표](goal-and-migration-criteria.md).
+- [실데이터 PC 증거](full-verification-2026-10-26.md), [T-02 배포 검증](claude-task-02-review.md).
+- 기존 단계 보고서는 해당 당시의 증거다. 현재 단계나 새 코드의 검사 결과로 재사용하지 않는다.
+
+## 과거 기록
+
+사용을 마친 지시서는 [history/instructions](history/instructions/), 과거 계획·인계는 [history](history/)에 보관한다.
+초기 PROJECT_INSTRUCTIONS.md·SESSION_HANDOFF.md는 프로젝트 배경이므로 유지한다.
+2026-10-28에 과거 구현 시작/재개 지시문과 T-01/T-02 최초 지시서 총4개를 보관 위치로 옮기고 링크를 갱신했다.
+실제 데이터·백업·릴리스 자산·소스 코드·Git 이력은 정리 대상으로 삭제하지 않았다.

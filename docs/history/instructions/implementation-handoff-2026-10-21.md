@@ -1,3 +1,5 @@
+> 과거 지시서 보관본입니다. 현재 실행에는 [handoff](../../handoff.md)와 [개발계획](../../development-plan.md)을 사용하세요.
+
 # travel-app 구현 세션 인수인계 지시서
 
 작성일: 2026-10-21 · Asia/Seoul · 상태: 다음 세션의 대표 구현 착수용
@@ -17,12 +19,12 @@
 
 | 순서 | 문서 | 읽을 목적 |
 |---|---|---|
-| 1 | [현재 상태](docs/handoff.md), [요구사항](docs/product-requirements.md), [결정 기록](docs/decisions.md) | 최신 인계와 과거 프로토타입 이력 구분, 사용자 확정 확인 |
-| 2 | [최종 목표·이행 기준](docs/goal-and-migration-criteria.md) v0.5, [항목별 이행표](docs/migration-inventory.md) v0.3 | 핵심 목표와 보존/확장 범위 |
-| 3 | [목표 구조](docs/target-architecture.md) v0.3, [원천→DB→화면](docs/content-db-mapping.md) v0.1 | 콘텐츠/계획/실제/변경안 경계, D/P/V 대응 |
-| 4 | [기술 선정안](docs/technology-selection.md), [저장·교환 계약](docs/storage-and-exchange-contracts.md) v0.1 | 기술 기준, 물리 store·명령·파일·복구 규칙 |
-| 5 | [대표 이행 계획](docs/pilot-migration-plan.md) v0.1, [개발계획](docs/development-plan.md) | P-01~08 실행 순서·R-01~09 판정 |
-| 배경 | [원래 프로젝트 지침](PROJECT_INSTRUCTIONS.md), [첫 인계 배경](SESSION_HANDOFF.md), [프로토타입 모델](docs/data-model.md) | 이전 맥락/현재 코드 설명. 최신 설계를 대체하지 않음 |
+| 1 | [현재 상태](../../handoff.md), [요구사항](../../product-requirements.md), [결정 기록](../../decisions.md) | 최신 인계와 과거 프로토타입 이력 구분, 사용자 확정 확인 |
+| 2 | [최종 목표·이행 기준](../../goal-and-migration-criteria.md) v0.5, [항목별 이행표](../../migration-inventory.md) v0.3 | 핵심 목표와 보존/확장 범위 |
+| 3 | [목표 구조](../../target-architecture.md) v0.3, [원천→DB→화면](../../content-db-mapping.md) v0.1 | 콘텐츠/계획/실제/변경안 경계, D/P/V 대응 |
+| 4 | [기술 선정안](../../technology-selection.md), [저장·교환 계약](../../storage-and-exchange-contracts.md) v0.1 | 기술 기준, 물리 store·명령·파일·복구 규칙 |
+| 5 | [대표 이행 계획](../../pilot-migration-plan.md) v0.1, [개발계획](../../development-plan.md) | P-01~08 실행 순서·R-01~09 판정 |
+| 배경 | [원래 프로젝트 지침](../../../PROJECT_INSTRUCTIONS.md), [첫 인계 배경](../../../SESSION_HANDOFF.md), [프로토타입 모델](../../data-model.md) | 이전 맥락/현재 코드 설명. 최신 설계를 대체하지 않음 |
 
 문서의 기술 선택·store/필드·파일 버전·한도·성능 목표는 작성자의 설계안이다. 모두 사용자 승인됐다고 기록하지 않는다. 이를 구현 출발점으로 삼고 일반적인 코드 구성·호환성 조정은 근거와 영향을 기록하며 처리한다. 범위·보존 정책·개인정보/외부 운영에 영향을 주는 변경은 해당 시점에 구분한다.
 

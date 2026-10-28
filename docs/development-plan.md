@@ -1,15 +1,15 @@
 # travel-app 개발 실행계획 개정안
 
-2026-10-28 · v1.2 · **T-02 배포 확인 / T-03 도구 보완 요청**
+2026-10-28 · v1.2 · **T-02 배포 확인 / T-03-R1 검토 통과·REG-01 후속 대기**
 
-T-03 제출 `e069c35`는 [Codex 검증](claude-task-03-review.md)에서 종료 코드·입력 보호 보완을 요청했다. [T-03-R1](claude-task-03-r1.md)을 먼저 수행한다. REG-01 C안은 원천 근거를 확인했으나 제품 변경은 미지시다.
+T-03-R1 `b060062`의 종료 코드·입력 보호 보완은 [Codex 검증](claude-task-03-review.md)을 통과했다. REG-01 C안·지역 ZIP 갱신·렌더러 잔여 분류는 후속 작업이며 제품 변경은 미지시다. 과거 지시서는 [문서 목차](README.md)에서 이력과 구분한다.
 
 T-01-R1 제출 `1e56c71`의 보완은 [Codex 검증](claude-task-01-review.md)을 통과했다. REG-01은 현 데이터를 유지하며 T-03에서 추가 대조한다. 사용자 승인으로 T-02를 main `ac09ca0`에 반영하고 필수 검사·Pages 배포·공개 SHA 일치를 확인했다([검증/반영 기록](claude-task-02-review.md)). 다음 [T-03 지시서](claude-task-03-source-audit.md)는 전달 준비다. 사용자 화면 확인·전체 이행은 대기다.
 
 사용자 확정: Codex가 계획·지시를 작성하고 Claude가 구현한 뒤 Codex가 검증한다. 현재 Sonnet 설정에 맞춰 작업을 나눈다.
 아래 세부 순서·UI 해법·검증 보완은 작성자의 실행 제안이다. 문서 작성 요청을 단계 완료·새 제품 범위·배포·유료 실행 승인으로 기록하지 않는다.
 
-실행 순서는 이 문서 한 곳에서 관리한다. [첫 Claude 지시서 T-01](claude-task-01-regression-2026-10-27.md)을 함께 읽는다.
+실행 순서는 이 문서 한 곳에서 관리한다. [첫 Claude 지시서 T-01](history/instructions/claude-task-01-regression-2026-10-27.md)을 함께 읽는다.
 [직전 계획](history/development-plan-2026-10-27-before-review.md)은 기존 판단·단계별 상세를 보존한다.
 P-01~08·M-01~11·R-01~09·단계 관문 G0~G4를 유지한다. 최종 요구 G-01~08과 단계 관문을 구분한다.
 

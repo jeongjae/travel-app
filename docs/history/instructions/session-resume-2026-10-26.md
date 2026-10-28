@@ -1,9 +1,11 @@
+> 과거 지시서 보관본입니다. 현재 실행에는 [handoff](../../handoff.md)와 [개발계획](../../development-plan.md)을 사용하세요.
+
 # 새 세션 재개 지시문
 
 2026-10-26 · 아래 코드 블록을 새 세션의 첫 메시지로 붙여 넣는다. 현재 상태는 복제하지 않고 `handoff.md`에서 읽는다. 이 파일 작성은 새 세션 생성이나 후속 검증 실행을 뜻하지 않는다.
 
 ```text
-작업공간: C:\Users\NB-24021500\Projects\travel-app
+작업공간: <프로젝트 경로>
 저장소: jeongjae/travel-app (main)
 
 AGENTS.md → docs/handoff.md → docs/development-plan.md → docs/product-requirements.md → docs/decisions.md 순서로 읽고 이어서 작업해 주세요. PROJECT_INSTRUCTIONS.md와 SESSION_HANDOFF.md는 초기 배경이며, 현재 상태·후속 결정과 혼동하지 마세요.

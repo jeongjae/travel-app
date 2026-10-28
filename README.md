@@ -1,5 +1,8 @@
 # travel-app
 
+현재 상태는 [handoff](docs/handoff.md), 실행 순서는 [개발계획](docs/development-plan.md), 전체 문서 안내는 [문서 목차](docs/README.md)를 확인하세요.
+아래 초기 구현 소개와 단계 보고는 당시 범위의 기록이며 현재 완료 판정은 handoff를 따릅니다.
+
 Phase 0의 코드 전후 비교와 확인 항목은 [가독성 확인 자료](docs/phase-0-readability.md), 실행·검증·대기 상태는 [Phase 0 보고](docs/phase-0-report.md)에 있습니다. 현재 실행 순서는 [개발 실행계획](docs/development-plan.md)을 따릅니다.
 
 ## iPhone 웹 접속 · v0.1.0-preview.1
