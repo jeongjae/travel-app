@@ -4,6 +4,9 @@ The expectations are built from the source files only (daily cards, itinerary.js
 the app's normalizer is not imported. Inputs are explicit arguments, nothing is written next to them, and
 the JSON report goes to --out (outside the source tree). Reports use day numbers, ids and counts only.
 
+Exit codes: 0 all checks passed, 1 verification failures (report is still written), 2 input error or refused
+output path (see audit_paths.py). Observations such as the reg01 rows are never failures.
+
 Usage:
   python scripts/audit-spfr-package.py --source <source-copy> --package <pilot.zip> [--package ...] \
       [--reference <full pilot.zip>] --out <report.json>
@@ -18,6 +21,9 @@ import re
 import sys
 import zipfile
 from collections import Counter, defaultdict
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import audit_paths  # noqa: E402
 
 TIME = re.compile(r'^\d{2}:\d{2}$')
 
@@ -417,10 +423,20 @@ def main():
     parser.add_argument('--commit', default='35498adc6413dad45922f2dab87781afeb04d898')
     parser.add_argument('--out', required=True)
     arguments = parser.parse_args()
-    source_root = os.path.abspath(arguments.source)
-    out = os.path.abspath(arguments.out)
-    if out.startswith(source_root + os.sep):
-        sys.exit('출력 경로가 읽기 전용 원천 안에 있습니다.')
+    for path in [*arguments.package, *([arguments.reference] if arguments.reference else [])]:
+        if not os.path.isfile(path):
+            audit_paths.fail_input('입력 파일이 없습니다: ' + path)
+    if not os.path.isdir(arguments.source):
+        audit_paths.fail_input('원천 폴더가 없습니다: ' + arguments.source)
+    protected = [*arguments.package, *([arguments.reference] if arguments.reference else [])]
+    audit_paths.check_output(arguments.out, protected, [arguments.source])
+    try:
+        run(arguments)
+    except (zipfile.BadZipFile, KeyError, FileNotFoundError, json.JSONDecodeError) as error:
+        audit_paths.fail_input(f'{type(error).__name__}: {error}')
+
+
+def run(arguments):
     source = Source(arguments.source)
     report = {'sourceCommit': arguments.commit, 'packages': {}}
     for package in arguments.package:
@@ -451,6 +467,10 @@ def main():
         print(os.path.relpath(package), 'days', len(day_numbers), 'failures', len(failures))
     with open(arguments.out, 'w', encoding='utf-8') as handle:
         json.dump(report, handle, ensure_ascii=False, indent=2)
+    total = sum(entry['failureCount'] for entry in report['packages'].values())
+    if total:
+        print(f'검증 실패 {total}건 (보고서 저장됨)', file=sys.stderr)
+        sys.exit(audit_paths.EXIT_FAILURES)
 
 
 if __name__ == '__main__':

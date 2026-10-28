@@ -20,6 +20,9 @@ import sys
 import zipfile
 from collections import Counter, defaultdict
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import audit_paths  # noqa: E402
+
 HANGUL = re.compile(r'[가-힣]')
 TAG = re.compile(r'<[^>]+>')
 PLACEHOLDER = re.compile(r'\{[^{}]*\}|%\([^)]*\)[sd]|%[sd]')
@@ -28,13 +31,6 @@ SPACE = re.compile(r'\s+')
 
 def normalize(text):
     return SPACE.sub(' ', text).strip()
-
-
-def refuse_inside(path, root):
-    absolute = os.path.abspath(path)
-    root_absolute = os.path.abspath(root)
-    if absolute == root_absolute or absolute.startswith(root_absolute + os.sep):
-        sys.exit('출력 경로가 읽기 전용 입력 안에 있습니다: ' + path)
 
 
 def relative_files(root):
@@ -136,7 +132,9 @@ def module_literals(path):
 
 def scope(arguments):
     root = arguments.source
-    refuse_inside(arguments.out, root)
+    if not os.path.isdir(root) or not os.path.isfile(arguments.selection):
+        audit_paths.fail_input('원천 폴더 또는 selection 파일이 없습니다')
+    audit_paths.check_output(arguments.out, [arguments.selection], [root])
     with open(arguments.selection, encoding='utf-8') as handle:
         selected = {entry['path'] for entry in json.load(handle)}
     files = relative_files(root)
@@ -168,10 +166,20 @@ def scope(arguments):
     print(json.dumps({key: report[key] for key in ('fileCount', 'totalBytes', 'combinedSha256', 'selectionEntries')}))
     for group, counts in report['groups'].items():
         print(group, counts)
+    if report['selectedMissingFromTree']:
+        print('검증 실패: 선택 목록의 파일이 원천에 없음', len(report['selectedMissingFromTree']), file=sys.stderr)
+        sys.exit(audit_paths.EXIT_FAILURES)
 
 
 def renderer(arguments):
-    refuse_inside(arguments.out, arguments.source)
+    if not os.path.isdir(arguments.source) or not os.path.isfile(arguments.package):
+        audit_paths.fail_input('원천 폴더 또는 패키지 파일이 없습니다')
+    paths = [os.path.join(arguments.source, relative) for relative in arguments.files]
+    for relative, path in zip(arguments.files, paths):
+        audit_paths.require_inside(path, arguments.source, '파일 인자 ' + relative)
+        if not os.path.isfile(path):
+            audit_paths.fail_input('원천에 없는 파일: ' + relative)
+    audit_paths.check_output(arguments.out, [arguments.package, *paths], [arguments.source])
     corpus = package_corpus(arguments.package)
     report = {'package': os.path.basename(os.path.dirname(os.path.dirname(arguments.package))), 'files': {}}
     for relative in arguments.files:
@@ -218,7 +226,10 @@ def main():
     renderer_parser.add_argument('--out', required=True)
     renderer_parser.add_argument('files', nargs='+', help='source-relative Python files')
     arguments = parser.parse_args()
-    {'scope': scope, 'renderer': renderer}[arguments.command](arguments)
+    try:
+        {'scope': scope, 'renderer': renderer}[arguments.command](arguments)
+    except (zipfile.BadZipFile, KeyError, FileNotFoundError, json.JSONDecodeError, SyntaxError) as error:
+        audit_paths.fail_input(f'{type(error).__name__}: {error}')
 
 
 if __name__ == '__main__':
