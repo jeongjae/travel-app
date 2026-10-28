@@ -71,6 +71,15 @@ class Source:
     def arriving(self, date):
         return [stay['key'] for stay in self.stays if stay['checkin'] == date]
 
+    def model_regions(self, date):
+        """Source day model (build/model.py::load_days): stays with checkin <= date <= checkout, unique, in order."""
+        keys = [stay['key'] for stay in self.stays if stay['checkin'] <= date <= stay['checkout']]
+        return list(dict.fromkeys(keys))
+
+    def model_overnight(self, date):
+        keys = [stay['key'] for stay in self.stays if stay['checkin'] <= date < stay['checkout']]
+        return keys[-1] if keys else None
+
     def day_kind(self, date):
         covering, departing, arriving = self.covering(date), self.departing(date), self.arriving(date)
         if departing and arriving:
@@ -368,6 +377,8 @@ def reg01(source, days, day_numbers):
                 'placeFrontmatterRegions': place_regions,
                 'dbRegionIds': day['regionIds'],
                 'dbOvernightRegionId': day.get('overnightRegionId'),
+                'modelRegionIds': source.model_regions(date),
+                'modelOvernightRegionId': source.model_overnight(date),
                 'cityHasArrow': '→' in card['city'],
             }
         )
@@ -380,6 +391,38 @@ def scrub(value, ids):
     for identifier in ids:
         text = text.replace(identifier, '<id>')
     return text
+
+
+# Adapters from v3 on follow the source day model; older packages keep their own (departure-less) meaning.
+REG01_ADAPTER_PREFIX = 'spfr-pilot-v'
+REG01_FIRST_VERSION = 3
+
+
+def reg01_semantics(adapter_version):
+    if isinstance(adapter_version, str) and adapter_version.startswith(REG01_ADAPTER_PREFIX):
+        number = adapter_version[len(REG01_ADAPTER_PREFIX):]
+        if number.isdigit() and int(number) >= REG01_FIRST_VERSION:
+            return 'source-day-model'
+    return 'legacy-arrival-only'
+
+
+def check_reg01(source, days, day_numbers, adapter_version, failures):
+    """Strict only for packages that claim the source day model; legacy packages are never reinterpreted."""
+    semantics = reg01_semantics(adapter_version)
+    mismatches = 0
+    if semantics == 'source-day-model':
+        for number in day_numbers:
+            card = source.cards.get(number)
+            if card is None:
+                continue
+            day = days[f'day-{number}']
+            if day['regionIds'] != source.model_regions(card['date']):
+                mismatches += 1
+                failures.append(f'reg01: day-{number}.regionIds가 원천 하루 모델과 다름')
+            if day.get('overnightRegionId') != source.model_overnight(card['date']):
+                mismatches += 1
+                failures.append(f'reg01: day-{number}.overnightRegionId가 원천 하루 모델과 다름')
+    return {'semantics': semantics, 'adapterVersion': adapter_version, 'mismatches': mismatches}
 
 
 def reference_diff(archive, reference_path, day_numbers):
@@ -448,6 +491,7 @@ def run(arguments):
             stays = check_stays(archive, source, day_numbers, failures)
             card_fields = check_card_fields(archive, source, day_numbers, failures)
             references = check_references(archive, source, days, failures)
+            reg01_check = check_reg01(source, days, day_numbers, container['adapterVersion'], failures)
             entry = {
                 'zipBytes': os.path.getsize(package),
                 'zipSha256': package_hash,
@@ -457,6 +501,7 @@ def run(arguments):
                 'stays': stays,
                 'cardFields': card_fields,
                 'references': references,
+                'reg01Check': reg01_check,
                 'reg01': reg01(source, days, day_numbers),
             }
             if arguments.reference:

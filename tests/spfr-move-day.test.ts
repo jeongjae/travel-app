@@ -164,21 +164,17 @@ describe('T-01b · 하루 안의 복수 지역 이동', () => {
   });
 });
 
-// 아래 블록은 계약 검증이 아니라 현 구현의 day.regionIds 값을 기록한 관찰이다.
-// regionIds의 의미(숙박 전용인지, 활동 장소 지역을 포함하는지)는 문서·코드·소비자 어디에서도 확정되지 않았다.
-// 근거와 판단 후보: docs/claude-task-01-r1-regionids.md. 의미가 정해지면 이 기대값은 계약 검증으로 승격하거나 바뀔 수 있다.
-describe('[현 동작 관찰 · 계약 미확정] 이동일 day.regionIds', () => {
-  it('현재 day.regionIds는 그날을 덮는 숙박의 지역만 담고 이동일에는 도착 지역뿐이다', async () => {
+// REG-01(T-04): 원천 하루 모델(build/model.py::load_days)을 따른다. 이전에는 이 값이 '현 동작 관찰'이었고
+// 이동일 출발 지역 포함 여부는 it.todo(판단 대기)였다. 근거: docs/claude-task-03-result.md §3, docs/decisions.md.
+describe('T-04 · 이동일 day.regionIds / overnightRegionId', () => {
+  it('regionIds는 checkin <= 날짜 <= checkout 숙박 지역이라 이동일에 출발·도착을 모두 담고, 야간 지역은 도착이다', async () => {
     const { plan } = await normalizeMoveTrip();
-    const regionsByDay = Object.fromEntries(plan.days.map((day) => [day.dayId, day.regionIds]));
-    expect(regionsByDay).toEqual({
-      'day-28': ['fiction'],
-      'day-29': ['fiction'],
-      'day-30': ['other'],
-      'day-31': [],
+    const byDay = Object.fromEntries(plan.days.map((day) => [day.dayId, [day.regionIds, day.overnightRegionId]]));
+    expect(byDay).toEqual({
+      'day-28': [['fiction'], 'fiction'],
+      'day-29': [['fiction'], 'fiction'],
+      'day-30': [['fiction', 'other'], 'other'],
+      'day-31': [['other'], undefined],
     });
   });
-
-  // 원 지시서 T-01b의 "하루의 복수 지역 참조가 하루 지역 필드에서 보존되는지"는 의미 판단 전이라 검증하지 않았다.
-  it.todo('[판단 대기] 이동일 day.regionIds에 출발 지역(fiction)을 포함해야 하는가 — Codex 계약 판정 후');
 });

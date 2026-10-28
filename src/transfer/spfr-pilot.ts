@@ -27,6 +27,7 @@ import { mapSpfrFieldState } from './spfr-field-state.ts';
 import { splitSpfrGuides } from './spfr-guide-chunks.ts';
 import { bindSpfrFacts } from './spfr-fact-bindings.ts';
 import { bindSpfrLinks } from './spfr-links.ts';
+import { spfrPilotAdapterVersion, stayRegionsForDay, type SourceStay } from './spfr-stays.ts';
 
 const cloneJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 const escaped = (value: string) => value.replaceAll('~', '~0').replaceAll('/', '~1');
@@ -167,6 +168,11 @@ export async function normalizeSpfrPilot(
     nights: z.number().int().parse(trip.nights),
     inflightNights: z.number().int().parse(trip.inflightNights),
   };
+  const sourceStays: SourceStay[] = arr(itinerary.stays).map((stay) => ({
+    key: str(stay.key),
+    checkin: str(stay.checkin),
+    checkout: str(stay.checkout),
+  }));
   for (const [index, stay] of arr(itinerary.stays).entries()) {
     if (dates.some((date) => str(stay.checkin) <= date && date < str(stay.checkout))) {
       show(itineraryPath, `/stays/${index}`, stay, '이 구간의 숙박 원천');
@@ -229,8 +235,9 @@ export async function normalizeSpfrPilot(
         dayGuide,
       );
     }
-    if (day.regionIds.length === 1) {
-      day.overnightRegionId = day.regionIds[0];
+    const { overnightRegionId } = stayRegionsForDay(sourceStays, day.date);
+    if (overnightRegionId !== undefined) {
+      day.overnightRegionId = overnightRegionId;
     }
     const map = obj(card.map);
     day.sourceMetadata = {
@@ -770,7 +777,7 @@ export async function normalizeSpfrPilot(
   }));
   const validated = validateTripDataset(cloneJson(dataset));
   const report = {
-    adapterVersion: 'spfr-pilot-v2',
+    adapterVersion: spfrPilotAdapterVersion,
     sourceCommit: extract.sourceCommit,
     scope: { days: options.days, dates, regions: selectedRegions, places: selectedPlaces },
     blocking: [...new Set(blocking)],

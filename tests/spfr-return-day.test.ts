@@ -35,10 +35,12 @@ describe('T-01a · 숙박 없는 마지막 귀국일', () => {
     ]);
   });
 
-  it('앞날의 숙박·지역을 상속하거나 없는 숙박을 만들지 않는다', async () => {
+  it('종료 숙박 지역은 보존하되 야간 지역이나 없는 숙박을 만들지 않는다', async () => {
     const { plan } = await normalizeReturnTrip('unknown');
     const lastDay = plan.days.at(-1)!;
-    expect(lastDay.regionIds).toEqual([]);
+    // T-04: 숙박 종료일은 종료되는 숙박의 지역을 regionIds에 보존하되(원천 Day.regions), 야간 지역은 만들지 않는다.
+    // 이전 기대값 []는 원천 하루 모델과 달라 바꿨다. 장소 지역 추정이 아니라 숙박 경계에서만 나온다.
+    expect(lastDay.regionIds).toEqual(['other']);
     expect(lastDay.overnightRegionId).toBeUndefined();
     // 숙박은 원천의 두 건뿐이며 마지막 날짜에서 시작하거나 마지막 날짜를 덮는 숙박이 없다.
     expect(plan.stays).toHaveLength(2);
@@ -127,12 +129,12 @@ describe('T-01a · 숙박 없는 마지막 귀국일', () => {
   });
 });
 
-// 아래 블록은 계약 검증이 아니라 현 구현의 day.regionIds 값을 기록한 관찰이다.
-// regionIds의 의미(숙박 전용인지, 활동 장소 지역을 포함하는지)는 문서·코드·소비자 어디에서도 확정되지 않았다.
-// 근거와 판단 후보: docs/claude-task-01-r1-regionids.md. 의미가 정해지면 이 기대값은 계약 검증으로 승격하거나 바뀔 수 있다.
-describe('[현 동작 관찰 · 계약 미확정] 귀국일 day.regionIds', () => {
-  it('원천에 지역이 명시된 장소가 있어도 현재는 숙박이 없는 귀국일의 day.regionIds가 비어 있다', async () => {
-    const { plan } = await normalizeReturnTrip('explicit');
-    expect(plan.days.at(-1)!.regionIds).toEqual([]);
+// T-04: 이전 '[현 동작 관찰]' 블록은 계약으로 승격했다. regionIds는 숙박 경계에서만 나오며 장소 지역과 무관하다.
+describe('T-04 · 숙박 종료일 day.regionIds는 장소 지역과 무관하다', () => {
+  it('귀국일 활동의 장소 지역이 명시되어도 명시되지 않아도 regionIds는 종료 숙박 지역 하나다', async () => {
+    for (const returnDay of ['unknown', 'explicit'] as const) {
+      const { plan } = await normalizeReturnTrip(returnDay);
+      expect(plan.days.at(-1)!.regionIds).toEqual(['other']);
+    }
   });
 });

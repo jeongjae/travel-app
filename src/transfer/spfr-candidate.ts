@@ -13,6 +13,7 @@ import {
 } from '../contracts/v2/index.ts';
 import { currentMappings } from './normalize.ts';
 import { spfrRegistryRows } from './spfr-registry.ts';
+import { stayRegionsForDay, type SourceStay } from './spfr-stays.ts';
 
 const object = (v: unknown) => z.record(z.string(), z.unknown()).parse(v);
 const objects = (v: unknown) => z.array(z.record(z.string(), z.unknown())).parse(v);
@@ -105,9 +106,13 @@ export async function normalizeSpfrCandidate(
     });
   const dates = cards.map((c) => string(c.date)),
     itinerary = json('source/CURRENT/10_Core/itinerary.json');
-  const stays = objects(itinerary.stays).filter((s) =>
-    dates.some((d) => string(s.checkin) <= d && d < string(s.checkout)),
-  );
+  const sourceStays: SourceStay[] = objects(itinerary.stays).map((s) => ({
+    key: string(s.key),
+    checkin: string(s.checkin),
+    checkout: string(s.checkout),
+  }));
+  // Regions that touch a selected day (checkout day included) must exist as region content.
+  const stays = sourceStays.filter((s) => dates.some((d) => s.checkin <= d && d <= s.checkout));
   const contextRegions = cards.flatMap((card) =>
     objects(card.stops).flatMap((stop) => {
       const slug = optionalString(stop.place_ref);
@@ -122,7 +127,7 @@ export async function normalizeSpfrCandidate(
       return [...(match ? [match[1]] : []), ...(factRegion ? [factRegion] : [])];
     }),
   );
-  const regionIds = [...new Set([...stays.map((s) => string(s.key)), ...contextRegions])],
+  const regionIds = [...new Set([...stays.map((s) => s.key), ...contextRegions])],
     regions = objects(json('source/CURRENT/10_Core/regions.json').regions);
   for (const regionId of regionIds) {
     const r = regions.find((r) => r.slug === regionId);
@@ -179,9 +184,7 @@ export async function normalizeSpfrCandidate(
       dayId = `day-${day}`,
       date = string(c.date),
       path = pathFor(day);
-    const localRegions = stays
-      .filter((s) => string(s.checkin) <= date && date < string(s.checkout))
-      .map((s) => string(s.key));
+    const { regionIds: localRegions } = stayRegionsForDay(sourceStays, date);
     plan.days.push({
       tripId,
       planVersionId,

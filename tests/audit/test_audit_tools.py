@@ -72,7 +72,7 @@ def revision(kind, entity, payload):
     return {'kind': kind, 'entityId': entity, 'payload': payload}
 
 
-def make_package(path, break_title=False):
+def make_package(path, break_title=False, adapter='v', overnight=None):
     blob = b'virtual-asset-bytes'
     blob_hash = hashlib.sha256(blob).hexdigest()
     local_start = {'start': {'precision': 'local', 'localTime': '09:00'}}
@@ -87,6 +87,7 @@ def make_package(path, break_title=False):
                 'title': 'Virtual day',
                 'dayType': 'city',
                 'regionIds': ['r1'],
+                **({'overnightRegionId': overnight} if overnight else {}),
                 'time': local_start,
             }
         ],
@@ -137,7 +138,7 @@ def make_package(path, break_title=False):
         files.append(
             {'path': f'assets/sha256/{blob_hash}', 'role': 'asset', 'byteLength': len(blob), 'sha256': blob_hash}
         )
-        source = {'sourceCommit': COMMIT, 'adapterVersion': 'v', 'normalizationVersion': '1'}
+        source = {'sourceCommit': COMMIT, 'adapterVersion': adapter, 'normalizationVersion': '1'}
         archive.writestr('manifest.json', json.dumps({'files': files, 'source': source}))
 
 
@@ -194,6 +195,20 @@ class AuditToolTests(unittest.TestCase):
         entry = list(self.report()['packages'].values())[0]
         self.assertEqual(len(entry['reg01']), 1)
         self.assertEqual(entry['failureCount'], 0)
+
+    def test_reg01_is_strict_only_for_packages_that_claim_the_source_day_model(self):
+        modern_ok = os.path.join(self.directory, 'modern-ok.zip')
+        modern_bad = os.path.join(self.directory, 'modern-bad.zip')
+        make_package(modern_ok, adapter='spfr-pilot-v3', overnight='r1')
+        make_package(modern_bad, adapter='spfr-pilot-v3')
+        self.assertEqual(self.package(modern_ok).returncode, 0)
+        self.assertEqual(self.package(modern_bad).returncode, 1)
+        failures = list(self.report()['packages'].values())[0]['failures']
+        self.assertTrue(any('overnightRegionId' in failure for failure in failures))
+        # a legacy package is reported as legacy and never silently re-read with the new meaning
+        self.assertEqual(self.package(self.good).returncode, 0)
+        check = list(self.report()['packages'].values())[0]['reg01Check']
+        self.assertEqual(check['semantics'], 'legacy-arrival-only')
 
     def test_missing_input_is_an_input_error(self):
         self.assertEqual(self.package(os.path.join(self.directory, 'missing.zip')).returncode, 2)

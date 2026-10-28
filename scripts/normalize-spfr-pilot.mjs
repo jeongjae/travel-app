@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, realpath } from 'node:fs/promises';
 import { resolve, relative, isAbsolute } from 'node:path';
 import { parseArgs } from 'node:util';
 import { normalizeSpfrPilot } from '../src/transfer/spfr-pilot.ts';
+import { spfrPilotAdapterVersion, spfrPilotNormalizationVersion } from '../src/transfer/spfr-stays.ts';
 import { buildPackage, readPackage } from '../src/transfer/package.ts';
 import { canonicalJson, parseStrictJson, digestBytes } from '../src/contracts/v2/index.ts';
 
@@ -99,8 +100,8 @@ if (!normalized.report.packageReady) {
       sourceRepository: extract.sourceRepository,
       sourceCommit: extract.sourceCommit,
       lineageId: values['lineage-id'] ?? 'spfr-pilot-28-30',
-      adapterVersion: 'spfr-pilot-v2',
-      normalizationVersion: '2',
+      adapterVersion: spfrPilotAdapterVersion,
+      normalizationVersion: spfrPilotNormalizationVersion,
     },
     normalized.report,
     normalized.mappings,
