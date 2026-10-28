@@ -14,6 +14,7 @@ on:
       - pnpm-workspace.yaml
       - .node-version
       - .github/workflows/pages.yml
+      - .github/workflows/checks.yml
 
 permissions:
   contents: read
@@ -23,20 +24,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Same commit (github.sha) as the build below; build and deploy never run unless every required check succeeded.
+  checks:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/checks.yml
   build:
+    needs: checks
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .node-version
       - run: corepack enable
       - run: corepack install
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run format:check && pnpm run lint
       - run: pnpm run build
         env:
           VITE_BASE_PATH: /travel-app/
