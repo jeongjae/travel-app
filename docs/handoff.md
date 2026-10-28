@@ -1,16 +1,17 @@
 # travel-app 현재 상태
 
-2026-10-28 · **T-02 구조/브랜치 검사 통과 / main 반영·배포 승인 대기**
+2026-10-28 · **T-02 main 필수 검사·배포 확인 / T-03 전달 준비**
 
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
 - [T-01 결과](claude-task-01-result.md) `1e56c71`·[Codex 검증](claude-task-01-review.md): R1 화면/의미 분석 제출은 통과.
 - 하루 regionIds 의미(REG-01)는 현 값 유지·확정 보류. 관찰/todo를 유지하고 T-03 원천 대조에서 처리한다.
-- [T-02 검증](claude-task-02-review.md): `codex/t02-pages-gate` `fa3871f`, 구조·원격 필수3검사 성공 재확인. 실패 차단 런타임·main 배포 미검증.
+- [T-02 검증](claude-task-02-review.md): 승인 후 main `ac09ca0` 반영. 필수3검사→공개 빌드→Pages 배포·main CI success.
+- [Sonnet T-03](claude-task-03-source-audit.md): 원천 잔여·REG-01·지역 ZIP 독립 대조. 미전달·구현 미착수.
 - Codex는 계획/독립 검증, Sonnet은 상세 조사·구현·전체 검사. 짧은 요약·위험 diff 중심으로 검토한다.
 - G0·G1·기존 B-01 확인 완료. G2/G2′/G3/G4·전체 PC·T-01 사용자 확인은 대기.
-- [웹 앱](https://jeongjae.github.io/travel-app/)은 앱/가상 표본만 공개. 앱 코드는 메모 수정 `01c2716` Pages 반영 확인.
+- [웹 앱](https://jeongjae.github.io/travel-app/): HTTP200·deployment.json=`ac09ca0` 일치, 앱/가상 표본만 공개. 실패 주입 런타임은 미검증.
 - 개인 ZIP `local-data/phase2/verified-package-20261026/pilot.zip`: 84,453,766바이트·blob594개.
 - SHA-256=`d183228064312c2a69d27018f5cfc6f5c909e262d621890f101770049274bbe0`, 10/27 일치.
 - 원본·기존 통합본·백업·프로필 보존. 미추적 `docs/status-review-2026-10-26.md`는 커밋 제외.
@@ -29,11 +30,11 @@
 
 ## 다음 작업·명령
 
-1. T-02 main 반영/공개 배포는 사용자 승인 후 진행한다. 10/28 main 보호/필수 체크 없음 확인, 설정 변경 없음.
+1. T-03 지시서를 Sonnet에 전달한다. 작업 브랜치에서 조사·도구/가상 회귀·증거를 제출하고 제품/실데이터는 수정하지 않는다.
 2. T-01 가상 화면 확인은 결과 보고의 명령·기대 문구를 따른다. 사용자 ‘완료’는 제출 알림이며 화면 승인과 구분한다.
 3. iPhone은 `?workspace=content&review=iphone-restore-20261027`의 빈 공간에서 전체 백업 복원·재실행을 확인한다.
 4. [잔여 목록](deferred-verification.md): REG-01·원천/의미·지역 ZIP·Fact65개/권리·별도 매체 백업·전체 PC 확인.
 - 기존 여행은 삭제하지 않는다. 검토 공간이 비어 있지 않으면 중단한다. AI 운영/인증·모델/예산/전송 미결정 유지.
 - pnpm12.14.0/Node24.13.1/프로젝트 `.venv`, 캐시 `.cache/corepack`·`.cache/ms-playwright`.
 - UI `pnpm run dev:ui` 5173, 빌드 후 `preview:ui` 4173, 회귀 `check:deferred`. 포트 소유 먼저 확인.
-- [직전 인계](history/handoff-2026-10-28-before-r1-review.md). 상세 판단·검사 근거는 Codex 검증 보고를 따른다.
+- [배포 전 인계](history/handoff-2026-10-28-before-t02-release.md). 상세 판단·검사 근거는 Codex 검증 보고를 따른다.

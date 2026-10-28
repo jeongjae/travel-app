@@ -2,7 +2,7 @@
 
 2026-10-28 · 대상 `fa3871fb569b15632ea77d7596b44e558f63e015`·제출 `32788aa`
 
-**구조 검토·브랜치 검사 통과 / main 반영·실제 배포·사용자 확인 대기**
+**구조 검토·main 필수 검사·성공 경로 배포 확인 / 실패 주입·사용자 화면 확인은 별도**
 
 ## 확인한 결과
 
@@ -20,7 +20,7 @@
 로컬 검증의 초기 시도에서 직접 YAML 모듈을 찾지 못했다. 새 설치 없이 프로젝트 Prettier로 문법/포맷을 검사했다.
 기본 Corepack 경로의 다운로드 실패는 프로젝트 캐시 설정 후 재실행해 해소했다. 제품 실패로 분류하지 않는다.
 
-## 남은 한계와 반영 전 확인
+## 반영 전 한계·확인 사항 (후속 반영 결과는 아래 참조)
 
 - 실패·취소·생략 시 배포 차단은 의존 구조에 대한 판정이다. GitHub에서 실패를 주입한 실행 증거는 없다.
 - main의 공개 빌드·업로드·배포는 실행하지 않았다. 따라서 실제 운영 적용 완료로 판정하지 않는다.
@@ -35,3 +35,14 @@
 [브랜치 비교](https://github.com/jeongjae/travel-app/compare/main...codex/t02-pages-gate)와
 [Claude 결과](claude-task-02-result.md)의 그래프·상황별 표를 함께 확인한다.
 main을 변경하지 않고 검토 가능한 결과다. 사용자 ‘완료’는 구현 제출 알림이며 배포 승인으로 기록하지 않는다.
+
+## 사용자 승인 후 main 반영·배포 (2026-10-28)
+
+- 사용자의 ‘배포하고 다음 단계 진행’ 요청에 따라 원격 main을 확인했다. 기존 main과 origin/main은 `48b9d22`로 같았다.
+- 검토한 브랜치를 main `ac09ca04b8ceb583fc60ad4da509a3bd67fb3b63`로 fast-forward 반영·push했다. 충돌·강제 push 없음.
+- [Pages 실행](https://github.com/jeongjae/travel-app/actions/runs/40648440929) success:
+  `checks / checks` 4분15초 → 공개 build 20초 → deploy 11초 순서로 성공했다. 필수 check·pilot·E2E 모두 통과했다.
+- 같은 SHA의 [main CI](https://github.com/jeongjae/travel-app/actions/runs/40648441108)도 success를 확인했다.
+- 공개 앱 HTTP200, deployment.json의 전체 SHA 일치·staticHosting=true를 확인했다. HTML root 요소 존재를 확인한 것이며 추가 UI 실기기 검사로 보고하지 않는다.
+- 앱/가상 표본만 배포했다. 제품 코드·의존성·개인 데이터·AI 서버 변경은 없었다.
+- 이 성공 경로는 실패/취소 주입의 런타임 검증을 대신하지 않는다. T-01 사용자 확인·iPhone 복원·REG-01도 유지한다.
