@@ -2,7 +2,7 @@
 
 2026-10-28 · **R1 검토 통과 / REG-01·iPhone 복원·전체 확인 대기**
 
-실행 순서와 역할은 [계획 개정안](development-plan.md)을 따른다. [T-01 결과](claude-task-01-result.md)의 R1 화면/분석 보완은 [Codex 검증](claude-task-01-review.md)을 통과했다. 하루 regionIds 의미(REG-01)·사용자 확인·전체 이행은 대기다. 독립 작업 [T-02](claude-task-02-pages-gate.md)는 전달 준비이며 구현 미착수다. 과거 검사를 새 작업의 성공으로 재사용하지 않는다.
+실행 순서와 역할은 [계획 개정안](development-plan.md)을 따른다. [T-01 결과](claude-task-01-result.md)의 R1 화면/분석 보완은 [Codex 검증](claude-task-01-review.md)을 통과했다. 하루 regionIds 의미(REG-01)·사용자 확인·전체 이행은 대기다. 독립 작업 [T-02 결과](claude-task-02-result.md)는 브랜치 구현·원격 CI 통과, Codex 검토 대기이며 실패 차단 런타임과 main 배포는 미검증이다. 과거 검사를 새 작업의 성공으로 재사용하지 않는다.
 
 2026-10-23 연속 구현에서는 테스트를 보류했다. 2026-10-25 웹 배포 작업에서 계약/변환 기대값과 모의 API 상태 응답을 보완하고, `00a546a`의 새 원격 실행으로 `check`123개·`check:pilot`·E2E38개가 통과했다. 공개 URL 가상 여행의 PC/모바일 크기·오프라인 재실행도 확인했다. [배포 증거](web-release-2026-10-25.md). 아래 전체 실데이터·추가 회귀·실기기·유료 API 항목은 여전히 미완료다.
 
