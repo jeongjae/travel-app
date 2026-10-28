@@ -118,3 +118,26 @@ T03_REG01_REPRO=1 pnpm exec vitest run tests/spfr-reg01-source-model.test.ts   #
 - 재현 테스트: 기본 실행 skip, 환경변수 실행 2 실패·1 통과.
 - `pnpm run check` 결과는 `.cache/t03-logs/check.log`와 커밋 보고에 기재.
 - 구분: 구현·자동 검사·실데이터 대조(읽기 전용) 완료 / Codex 검토 **대기** / 사용자 확인 **검토 준비**. 원격 CI는 push 후 별도 기재.
+
+---
+
+## R1 · 읽기 검증 도구 보호 보완 (2026-10-28, 위 T-03 결과는 그대로 보존)
+
+상태: 구현·가상 검사·실데이터 재검사 완료 / Codex 검토 **대기** / 사용자 확인 **검토 준비**. 제품 변환·REG-01 계약·개인 ZIP·workflow·의존성 변경 없음.
+
+**R1-1 실패 신호**: `audit-spfr-package.py`는 보고서를 저장한 뒤 어느 패키지든 `failureCount>0`이면 exit 1. 종료 코드: **0** 통과 / **1** 검증 실패(보고서 저장) / **2** 입력 오류·출력 경로 거부(아무것도 쓰지 않음). `audit-spfr-source.py scope`는 선택 목록 파일이 원천에 없으면 1. 미선택 파일·REG-01 행·렌더러 미분류는 보고서의 관찰이며 실패가 아니다(기대값 약화 없음).
+
+**R1-2 입력 보호**: 공용 `scripts/audit_paths.py`. 쓰기 전에 출력 경로를 `realpath`+`normcase`로 정규화해 ① 원천 폴더 안/동일 ② 읽을 입력 파일(입력·참조 ZIP, selection, 렌더러 파일 인자)과 같은 파일(존재하면 `samefile`로 하드 링크 포함)을 거부하고, 출력 폴더 없음·디렉터리도 거부한다. 렌더러 파일 인자는 원천 밖(`..`·심볼릭 링크 탈출)이면 거부. 제약: 링크 생성에는 환경에 따라 권한이 필요하며, 이 PC에서는 하드 링크·심볼릭 링크 시험이 모두 실행됐다(권한 없는 환경에서는 skip).
+
+**가상 검사**: `tests/audit/test_audit_tools.py`(임시 가상 원천·ZIP만 사용, subprocess 종료 코드와 `failureCount` 및 입력 해시 전후 비교). 정상 0, 변조 1+보고서, 혼합 실행 1, 입력 없음 2, 입력/참조/selection/원천 내부 덮어쓰기 2, `..`·대소문자(Windows)·하드/심볼릭 별칭 2, 실패 후 입력 보존, 렌더러 탈출 2.
+
+| 검사 | 명령 | 결과 |
+|---|---|---|
+| 가상 도구 검사 | `python -m unittest discover -s tests/audit -v` | 14개 통과, skip 0 (`.cache/t03-logs/r1-unittest.log`) |
+| verified ZIP 재검사 | `audit-spfr-package.py … --out local-data/t03-r1/valid.json` | exit 0, 실패 0 |
+| 변조 사본 재검사 | 같은 명령, 새 출력 `tampered.json` | **exit 1**, 실패 5 (이전엔 exit 0) |
+| 입력 덮어쓰기 시도 | `--out <verified ZIP>` | exit 2, 거부 |
+
+원본 보존: verified `d1832280…bd3e`(= 문서 값), 지역 lyon `f377a430…8cc3`, 변조 사본 `c6f4ff6a…0e76`이 실행 전후 동일. 로그 `.cache/t03-logs/r1-real.log`, 새 출력 `local-data/t03-r1/`(Git 제외). 제품 코드·TS는 변경이 없어 `pnpm run check`와 UI/전체 회귀는 반복하지 않았다.
+
+**자동 검사 연결 제안(이번에 변경 안 함)**: 가상 데이터만 쓰므로 CI의 기존 Python 단계(`.venv/bin/python`) 뒤에 `python -m unittest discover -s tests/audit`를 한 줄 추가하면 된다. workflow 변경이라 Codex 지시 후에.
