@@ -1,12 +1,12 @@
 # travel-app 현재 상태
 
-2026-10-28 · **T-03-R1 검토 통과 / T-04 REG-01 수정 전달 준비**
+2026-10-28 · **T-04 REG-01 수정 Codex 검토 대기**
 
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
 - [T-01 결과](claude-task-01-result.md) `1e56c71`·[Codex 검증](claude-task-01-review.md): R1 화면/의미 분석 제출은 통과.
-- [Sonnet T-04](claude-task-04-regions.md): 원천 C안의 하루 지역/야간 숙박 분리 수정. 미전달·구현 미착수, 실제 데이터 적용 없음.
+- [T-04 결과](claude-task-04-result.md): 브랜치 `codex/t04-regions` `64a84e4`, 어댑터 v3. 새 43일 사본은 9일만 변경, 미가져옴. F-4(재가져오기 항목 정렬) 발견.
 - [T-02 검증](claude-task-02-review.md): 승인 후 main `ac09ca0` 반영. 필수3검사→공개 빌드→Pages 배포·main CI success.
 - [T-03 검증](claude-task-03-review.md): R1 종료 코드·입력 보호 보완 통과. 독립 가상 검사13통과·1환경 skip.
 - [문서 목차](README.md): 종료된 시작/재개·T-01/T-02 지시서4개를 history/instructions로 보관하고 링크 수정.
@@ -30,7 +30,7 @@
 
 ## 다음 작업·명령
 
-1. T-04를 Sonnet에 전달한다. 작업 브랜치에서 구현·가상/실데이터 사본 검증 후 제출하며 기존 여행에 적용하지 않는다.
+1. Codex가 T-04 브랜치를 검토하고 F-2·F-3·F-4 후속과 사본 적용 여부를 정한다. 기존 여행에는 적용하지 않았다.
 2. T-01 가상 화면 확인은 결과 보고의 명령·기대 문구를 따른다. 사용자 ‘완료’는 제출 알림이며 화면 승인과 구분한다.
 3. iPhone은 `?workspace=content&review=iphone-restore-20261027`의 빈 공간에서 전체 백업 복원·재실행을 확인한다.
 4. [잔여 목록](deferred-verification.md): REG-01·원천/의미·지역 ZIP·Fact65개/권리·별도 매체 백업·전체 PC 확인.
