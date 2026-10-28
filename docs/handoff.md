@@ -1,39 +1,39 @@
 # travel-app 현재 상태
 
-2026-10-27 · **T-01-R1 구현·자체 검사 완료 / Codex 재검토 대기**
+2026-10-28 · **T-01-R1 검토 통과 / REG-01·사용자 확인 대기 / T-02 전달 준비**
 
 ## 현재 기준
 
-- [실행계획 개정안](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
-- [T-01 결과](claude-task-01-result.md)(R1 절 포함): 귀국/이동일 화면·패키지 생성 명령 추가, 자체 검사 통과(단위169·E2E6). Codex 검토 대기·사용자 확인 검토 준비.
-- [regionIds 분석](claude-task-01-r1-regionids.md): 의미 미확정, 하루 필드 복수 지역은 판단 대기(후보 A/B).
-- Codex는 계획·지시/독립 검증, Claude는 구현·자체 검사, 사용자는 제품 결정·실제 산출물 확인을 맡는다.
-- G0·G1·기존 B-01 확인 완료 유지. G2/G2′/G3/G4 전체 확인은 대기. 개정안 세부 해법은 검토안이다.
-- [웹 앱](https://jeongjae.github.io/travel-app/)은 앱·가상 표본만 공개. 개인 여행·예약·키·백업 제외. 메모 수정 `01c2716` Pages 반영 확인.
+- [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
+- [T-01 결과](claude-task-01-result.md) `1e56c71`·[Codex 검증](claude-task-01-review.md): R1 화면/의미 분석 제출은 통과.
+- 하루 regionIds 의미(REG-01)는 현 값 유지·확정 보류. 관찰/todo를 유지하고 T-03 원천 대조에서 처리한다.
+- [Claude Sonnet T-02](claude-task-02-pages-gate.md): 같은 커밋의 필수 검사 성공을 Pages 조건으로 강제. 미전달·구현 미착수.
+- Codex는 계획/독립 검증, Sonnet은 상세 조사·구현·전체 검사. 짧은 요약·위험 diff 중심으로 검토한다.
+- G0·G1·기존 B-01 확인 완료. G2/G2′/G3/G4·전체 PC·T-01 사용자 확인은 대기.
+- [웹 앱](https://jeongjae.github.io/travel-app/)은 앱/가상 표본만 공개. 앱 코드는 메모 수정 `01c2716` Pages 반영 확인.
 - 개인 ZIP `local-data/phase2/verified-package-20261026/pilot.zip`: 84,453,766바이트·blob594개.
-- SHA-256=`d183228064312c2a69d27018f5cfc6f5c909e262d621890f101770049274bbe0`, 10/27 재대조 일치.
-- 원본·기존 통합본·G1/B-01·백업·사용자 프로필 보존. 미추적 `docs/status-review-2026-10-26.md`는 커밋 제외.
+- SHA-256=`d183228064312c2a69d27018f5cfc6f5c909e262d621890f101770049274bbe0`, 10/27 일치.
+- 원본·기존 통합본·백업·프로필 보존. 미추적 `docs/status-review-2026-10-26.md`는 커밋 제외.
 
-## 검증·사용자 상태
+## 최근 검증·한계
 
-- [실데이터 PC](full-verification-2026-10-26.md): 43일·첨부594해시·편집/오프라인·B/L/R·전체 복원 통과. 전체 PC 사용자 확인 대기.
-- PC 검토 프로필 `local-data/phase2/user-review-full-20261026/` 보존. 창·서버 동작을 가정하지 않는다.
-- [iPhone 기록](phase-2-prime-runbook.md): 가져오기·일정/사진/기존 메모·오프라인 새 메모 저장·Chrome 종료 후 유지 사용자 확인 완료.
-- 10/27 백업 파일 저장 사용자 확인. 크기·재선택/빈 공간 복원·복원 공간 재실행·기기 해시 대조는 대기.
-- [메모 수정](note-visibility-fix-2026-10-27.md): DB 저장 후 조회 UI 누락 수정, 저장 형식·revision/트랜잭션 유지.
-- Codex가 `a7070b4`에서 재실행한 `check:deferred`: check152개·PC/모바일 E2E48개·pilot 통과.
-- 로그 `.cache/verification/2026-10-27T07-10-29-263Z/`. 최초 sandbox 파일/localhost 제한 실패 후 권한 검토 재실행.
-- 위 152·48개 결과는 T-01 이전 기준이다. T-01 로그 `.cache/verification/2026-10-27T07-47-06-848Z/`.
-- `01c2716` 원격 CI/Pages success 재확인. [v2 모의/경계](phase-3-mock-verification-2026-10-26.md)는 실제 AI 증거가 아니다.
-- 실제 키 로드/변경·OpenAI 호출·v2 활성화·AI 서버 공개 없음.
+- Claude T-01 전체 회귀: 단위168·E2E52·pilot. R1 자체: check169·대상 E2E6, skipped1·todo1 구분.
+- Codex T-01: 신규 단위16·Fact UI4 통과. R1: 10/27 변경 단위/생성 도구13 통과·todo1.
+- 10/27 R1 UI 요청은 자동 승인 검토 사용 한도로 미실행. 10/28 정상 재실행 PC/모바일2 통과(15.8초).
+- 귀국/이동일 화면 직접 확인·가상ZIP4개 생성/읽기 통과. `.cache/t01-codex-review/`, `.cache/t01-review/screens/`.
+- 전체 회귀를 다시 반복하지 않았다. 제품 코드/의존성/workflow 변경 없음. 원격 CI는 이번에 미확인.
+- [실데이터 PC](full-verification-2026-10-26.md)의 43일·594해시·편집/오프라인·B/L/R·전체 복원 증거는 유지한다.
+- PC 사용자 프로필 `local-data/phase2/user-review-full-20261026/` 보존. 창·서버 상태를 가정하지 않는다.
+- [iPhone](phase-2-prime-runbook.md): 가져오기·일정/사진/메모·오프라인 저장·종료 후 유지·백업 파일 저장 확인.
+- iPhone 백업 크기·재선택/빈 공간 복원·복원 공간 재실행·기기 해시는 대기. 실제 키/API·v2 활성화 없음.
 
 ## 다음 작업·명령
 
-1. Codex가 R1을 재검토하고 regionIds 의미(A/B)를 판정한다. 그 뒤 T-02.
-2. 병행: iPhone 백업 크기 확인 후 `?workspace=content&review=iphone-restore-20261027`의 빈 공간에서 전체 백업 복원.
-3. 기존 데이터는 삭제하지 않는다. 빈 공간이 아니면 중단한다. 일정·사진·메모·오프라인/종료 후 유지를 확인한다.
-4. [잔여 목록](deferred-verification.md)의 원천/의미·지역 ZIP·Fact65개/권리·다른 매체 백업과 전체 PC 확인을 마감한다.
-5. 별도 여행 작성·회고 및 실제 AI 운영은 개정안 C/D로 진행한다. 호스팅/인증·모델/예산/전송 미결정은 유지한다.
-- pnpm12.14.0/Node24.13.1/프로젝트 `.venv`; `COREPACK_HOME=.cache/corepack`, `PLAYWRIGHT_BROWSERS_PATH=.cache/ms-playwright`.
-- UI `pnpm run dev:ui`(5173), 빌드 후 `pnpm run preview:ui`(4173), 회귀 `pnpm run check:deferred`. 포트 소유 먼저 확인.
-- [직전 인계](history/handoff-2026-10-27-before-claude.md). 구현/검토/확인 상태를 구분한다.
+1. T-02를 Sonnet에 전달한다. 별도 작업 브랜치에 commit/push만 하고 main 반영·실제 배포는 하지 않는다.
+2. T-01 가상 화면 확인은 결과 보고의 명령·기대 문구를 따른다. 사용자 ‘완료’는 제출 알림이며 화면 승인과 구분한다.
+3. iPhone은 `?workspace=content&review=iphone-restore-20261027`의 빈 공간에서 전체 백업 복원·재실행을 확인한다.
+4. [잔여 목록](deferred-verification.md): REG-01·원천/의미·지역 ZIP·Fact65개/권리·별도 매체 백업·전체 PC 확인.
+- 기존 여행은 삭제하지 않는다. 검토 공간이 비어 있지 않으면 중단한다. AI 운영/인증·모델/예산/전송 미결정 유지.
+- pnpm12.14.0/Node24.13.1/프로젝트 `.venv`, 캐시 `.cache/corepack`·`.cache/ms-playwright`.
+- UI `pnpm run dev:ui` 5173, 빌드 후 `preview:ui` 4173, 회귀 `check:deferred`. 포트 소유 먼저 확인.
+- [직전 인계](history/handoff-2026-10-28-before-r1-review.md). 상세 판단·검사 근거는 Codex 검증 보고를 따른다.
