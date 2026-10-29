@@ -6,6 +6,7 @@ import { readPackage } from '../transfer/package';
 import type { Review } from '../transfer/reimport';
 import type { ContentRevision, FieldRecord, PlanVersion, RevisionRef, TimeSpec, TripDataset } from '../contracts/v2';
 import { GuideDetail } from './Guide';
+import { buildNewTrip } from './trip-factory';
 import { DayDetails } from './DayDetails';
 import {
   clockLabel,
@@ -1247,67 +1248,29 @@ function TripCreator({
   const [name, setName] = useState(''),
     [start, setStart] = useState(''),
     [end, setEnd] = useState(''),
+    [zone, setZone] = useState(''),
+    [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   return (
     <Modal title="새 여행 만들기" onClose={onClose}>
       <form
+        aria-busy={busy}
         onSubmit={async (e) => {
           e.preventDefault();
+          if (busy) {
+            return;
+          }
+          setBusy(true);
           try {
-            if (end < start) {
-              throw new Error('기간을 확인하세요.');
-            }
-            const tripId = crypto.randomUUID(),
-              planVersionId = crypto.randomUUID(),
-              days: PlanVersion['days'] = [];
-            for (let d = Temporal.PlainDate.from(start); d.toString() <= end; d = d.add({ days: 1 })) {
-              if (days.length >= 3660) {
-                throw new Error('여행 날짜 수 한도는 3660일입니다.');
-              }
-              days.push({
-                tripId,
-                planVersionId,
-                dayId: crypto.randomUUID(),
-                ordinal: days.length + 1,
-                date: d.toString(),
-                cityText: '',
-                title: d.toString(),
-                regionIds: [],
-                time: { start: { precision: 'date', date: d.toString() } },
-                transport: [],
-                food: [],
-                highlights: [],
-                needsReview: [],
-                assetRefs: [],
-              });
-            }
+            const trip = buildNewTrip({ name, start, end, timeZone: zone });
             await repo.execute(
-              command(tripId, 'CreateTrip', {
-                header: {
-                  tripId,
-                  name,
-                  startDate: start,
-                  endDate: end,
-                  timeZoneStatus: 'unknown',
-                  domainRevision: 0,
-                  currentPlanVersionId: planVersionId,
-                },
-                initialPlan: {
-                  tripId,
-                  planVersionId,
-                  number: 1,
-                  reason: '새 여행',
-                  contextRefs: [],
-                  days,
-                  items: [],
-                  legs: [],
-                  stays: [],
-                },
-              }),
+              command(trip.tripId, 'CreateTrip', { header: trip.header, initialPlan: trip.initialPlan }),
             );
-            onSaved(tripId);
+            onSaved(trip.tripId);
           } catch (err) {
             setError(errorText(err));
+          } finally {
+            setBusy(false);
           }
         }}
       >
@@ -1323,8 +1286,19 @@ function TripCreator({
           종료 날짜
           <input type="date" required value={end} onChange={(e) => setEnd(e.target.value)} />
         </label>
+        <label>
+          시간대 (확인한 경우만)
+          <input
+            value={zone}
+            placeholder="예: Europe/Paris · 비우면 미확인"
+            onChange={(e) => setZone(e.target.value)}
+          />
+        </label>
+        <p className="muted">지역·숙박·일정은 만든 뒤 가이드와 오늘 화면에서 추가합니다.</p>
         <ErrorText error={error} />
-        <button className="primary">여행 만들기</button>
+        <button className="primary" disabled={busy}>
+          여행 만들기
+        </button>
       </form>
     </Modal>
   );

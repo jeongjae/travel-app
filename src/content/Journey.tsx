@@ -148,6 +148,8 @@ export function DayLead({
             ) : null}
           </div>
         </section>
+      ) : items.length === 0 ? (
+        <p className="notice">이 날에는 아직 일정이 없습니다. 아래 '활동 추가'로 장소나 활동을 넣어 보세요.</p>
       ) : (
         <p className="notice">오늘 계획된 시간표의 마지막 시각이 지났습니다. 아래에서 전체 일정을 확인하세요.</p>
       )}
