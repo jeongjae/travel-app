@@ -32,6 +32,7 @@ import {
 } from '../transfer/reimport';
 import * as recovery from './recovery';
 import { applyContentBatch } from './content-batch';
+import { dayRegionsFromStays, isProblem, stayRange, type StayRange } from '../plan/manual-stays';
 import { prepareAssetRecord, readAssetRecord, discardPreparedFiles, type AssetRecord } from './asset-files.ts';
 
 const uid = () => crypto.randomUUID();
@@ -768,24 +769,124 @@ export class ContentRepository {
     } else {
       delete p.proposalId;
     }
+    const touchedStayRanges: StayRange[] = [];
+    const noteStayRange = (stay: PlanVersion['stays'][number] | undefined) => {
+      const range = stay ? stayRange(stay) : undefined;
+      if (range && !isProblem(range)) {
+        touchedStayRanges.push(range);
+      }
+    };
+    const dropLegsOf = (activityId: string) => {
+      p.legs = p.legs.filter((l) => l.fromActivityId !== activityId && l.toActivityId !== activityId);
+    };
     for (const op of operations) {
-      const activityId = op.type === 'remove-item' ? op.activityId : op.item.activityId;
-      if (op.type === 'remove-item') {
-        must(
-          p.items.some((i) => i.activityId === activityId),
-          'BROKEN_REFERENCE',
-          '삭제할 활동이 없습니다.',
-        );
-        p.items = p.items.filter((i) => i.activityId !== activityId);
-        p.legs = p.legs.filter((l) => l.fromActivityId !== activityId && l.toActivityId !== activityId);
-      } else {
-        must(
-          op.item.tripId === t.header.tripId && op.item.planVersionId === previous.planVersionId,
-          'CONFLICT',
-          '활동 기준 계획이 다릅니다.',
-        );
-        p.items = p.items.filter((i) => i.activityId !== activityId);
-        p.items.push(structuredClone(op.item));
+      switch (op.type) {
+        case 'remove-item': {
+          must(
+            p.items.some((i) => i.activityId === op.activityId),
+            'BROKEN_REFERENCE',
+            '삭제할 활동이 없습니다.',
+          );
+          p.items = p.items.filter((i) => i.activityId !== op.activityId);
+          // 활동에 연결된 이동은 끝점이 사라지므로 함께 제거한다(화면이 영향 개수를 미리 보여준다).
+          dropLegsOf(op.activityId);
+          break;
+        }
+        case 'upsert-item': {
+          must(
+            op.item.tripId === t.header.tripId && op.item.planVersionId === previous.planVersionId,
+            'CONFLICT',
+            '활동 기준 계획이 다릅니다.',
+          );
+          const before = p.items.find((i) => i.activityId === op.item.activityId);
+          if (before && before.dayId !== op.item.dayId) {
+            // 이동은 같은 날짜의 두 활동 사이에서만 성립하므로, 날짜를 옮기면 연결된 이동이 고아가 되지 않게 함께 제거한다.
+            dropLegsOf(op.item.activityId);
+          }
+          p.items = p.items.filter((i) => i.activityId !== op.item.activityId);
+          p.items.push(structuredClone(op.item));
+          break;
+        }
+        case 'upsert-stay': {
+          must(
+            op.stay.tripId === t.header.tripId && op.stay.planVersionId === previous.planVersionId,
+            'CONFLICT',
+            '숙박 기준 계획이 다릅니다.',
+          );
+          const range = stayRange(op.stay);
+          must(!isProblem(range), 'INVALID_INPUT', isProblem(range) ? range.problem : '');
+          if (op.stay.regionId) {
+            const regionId = op.stay.regionId;
+            const head = t.heads.find((h) => h.targetKind === 'region' && h.entityId === regionId);
+            must(head?.status === 'active', 'BROKEN_REFERENCE', '숙박 지역이 없거나 비활성입니다.');
+          }
+          if (op.stay.bookingId) {
+            const bookingId = op.stay.bookingId;
+            must(
+              t.heads.some((h) => h.targetKind === 'booking' && h.entityId === bookingId && h.status === 'active'),
+              'BROKEN_REFERENCE',
+              '숙박 예약이 없거나 비활성입니다.',
+            );
+          }
+          const index = p.stays.findIndex((stay) => stay.stayId === op.stay.stayId);
+          if (index >= 0) {
+            noteStayRange(p.stays[index]);
+            p.stays[index] = structuredClone(op.stay);
+          } else {
+            p.stays.push(structuredClone(op.stay));
+          }
+          noteStayRange(op.stay);
+          break;
+        }
+        case 'remove-stay': {
+          const existing = p.stays.find((stay) => stay.stayId === op.stayId);
+          must(existing, 'BROKEN_REFERENCE', '삭제할 숙박이 없습니다.');
+          noteStayRange(existing);
+          p.stays = p.stays.filter((stay) => stay.stayId !== op.stayId);
+          break;
+        }
+        case 'upsert-leg': {
+          must(
+            op.leg.tripId === t.header.tripId && op.leg.planVersionId === previous.planVersionId,
+            'CONFLICT',
+            '이동 기준 계획이 다릅니다.',
+          );
+          const { fromActivityId, toActivityId, dayId } = op.leg;
+          must(fromActivityId !== toActivityId, 'INVALID_INPUT', '출발과 도착 활동이 같습니다.');
+          must(
+            [fromActivityId, toActivityId].every((id) => p.items.some((i) => i.activityId === id && i.dayId === dayId)),
+            'BROKEN_REFERENCE',
+            '이동의 출발·도착 활동은 같은 날짜에 있어야 합니다.',
+          );
+          p.legs = p.legs.filter((leg) => leg.legId !== op.leg.legId);
+          p.legs.push(structuredClone(op.leg));
+          break;
+        }
+        case 'remove-leg': {
+          must(
+            p.legs.some((leg) => leg.legId === op.legId),
+            'BROKEN_REFERENCE',
+            '삭제할 이동이 없습니다.',
+          );
+          p.legs = p.legs.filter((leg) => leg.legId !== op.legId);
+          break;
+        }
+      }
+    }
+    // 숙박이 바뀐 날짜(이전·새 기간의 합집합)만 하루 지역·야간 지역을 다시 계산한다. 다른 날과 필드는 그대로 둔다.
+    if (touchedStayRanges.length) {
+      for (const day of p.days) {
+        if (!touchedStayRanges.some((range) => range.checkin <= day.date && day.date <= range.checkout)) {
+          continue;
+        }
+        const regions = dayRegionsFromStays(p.stays, day.date);
+        must(!isProblem(regions), 'INVALID_INPUT', isProblem(regions) ? regions.problem : '');
+        day.regionIds = regions.regionIds;
+        if (regions.overnightRegionId) {
+          day.overnightRegionId = regions.overnightRegionId;
+        } else {
+          delete day.overnightRegionId;
+        }
       }
     }
     p.items = retarget(p.items, t) as PlanVersion['items'];

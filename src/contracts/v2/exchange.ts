@@ -15,7 +15,7 @@ import {
 import { contentRevisionSchema, sectionSchema } from './content.ts';
 import {
   fieldRecordSchema,
-  planOperationSchema,
+  planEditOperationSchema,
   planVersionSchema,
   proposalSchema,
   tripHeaderSchema,
@@ -70,7 +70,7 @@ export const commandSchema = z.discriminatedUnion('kind', [
   command('UpdateContent', z.strictObject({ expectedRevisionId: id, content: contentInputSchema }), update),
   command(
     'ChangePlan',
-    z.strictObject({ currentPlanVersionId: id, operations: z.array(planOperationSchema).min(1), reason: text }),
+    z.strictObject({ currentPlanVersionId: id, operations: z.array(planEditOperationSchema).min(1), reason: text }),
     update,
   ),
   command(

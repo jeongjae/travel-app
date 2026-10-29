@@ -183,6 +183,14 @@ export const planOperationSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('upsert-item'), item: planItemSchema }),
   z.strictObject({ type: z.literal('remove-item'), activityId: id }),
 ]);
+// 계획 편집 명령(ChangePlan)만 숙박·이동 연산을 받는다. 변경안·AI 경계(planOperationSchema)는 항목 연산에 머문다.
+export const planEditOperationSchema = z.discriminatedUnion('type', [
+  ...planOperationSchema.options,
+  z.strictObject({ type: z.literal('upsert-stay'), stay: planStaySchema }),
+  z.strictObject({ type: z.literal('remove-stay'), stayId: id }),
+  z.strictObject({ type: z.literal('upsert-leg'), leg: planLegSchema }),
+  z.strictObject({ type: z.literal('remove-leg'), legId: id }),
+]);
 export const proposalSchema = z
   .strictObject({
     tripId: id,
