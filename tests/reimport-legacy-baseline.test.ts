@@ -31,7 +31,11 @@ function legacyComparablePlan(plan: PlanVersion) {
   };
 }
 
-async function legacyPackage(edit?: (plan: PlanVersion) => void, sourceCommit = 'a'.repeat(40)) {
+async function legacyPackage(
+  edit?: (plan: PlanVersion) => void,
+  sourceCommit = 'a'.repeat(40),
+  tamper?: (baseline: Record<string, unknown>) => void,
+) {
   const fixture = await spfrReturnTripFixture('unknown');
   const result = await normalizeSpfrPilot(fixture.extract, fixture.options);
   const dataset = structuredClone(result.dataset);
@@ -41,7 +45,9 @@ async function legacyPackage(edit?: (plan: PlanVersion) => void, sourceCommit = 
   plan.stays.reverse();
   edit?.(plan);
   const mappings = currentMappings(dataset);
-  mappings.find((mapping) => mapping.targetKind === 'plan')!.baselineValue = legacyComparablePlan(plan);
+  const baseline = legacyComparablePlan(plan) as Record<string, unknown>;
+  tamper?.(baseline);
+  mappings.find((mapping) => mapping.targetKind === 'plan')!.baselineValue = baseline;
   const assets = new Map([
     ...fixture.options.media.map((file) => [file.sha256, file.bytes] as const),
     ...result.generatedAssets,
@@ -151,5 +157,29 @@ describe('T-05 R1 · 이전 비교 기준 호환', () => {
     );
     expect(JSON.stringify(comparablePlan(changed))).not.toBe(canonical);
     expect(JSON.stringify(canonicalPlanValue(legacyComparablePlan(plan)))).toBe(canonical);
+  });
+
+  it.each([
+    [
+      '기준 B에 대상에 없는 최상위 필드를 더한 패키지',
+      (baseline: Record<string, unknown>) => (baseline.unexpected = 'x'),
+    ],
+    [
+      '기준 B 행에 대상에 없는 필드를 더한 패키지',
+      (baseline: Record<string, unknown>) => ((baseline.items as Record<string, unknown>[])[0].unexpected = 'x'),
+    ],
+    [
+      '기준 B의 실제 값이 대상과 다른 패키지',
+      (baseline: Record<string, unknown>) => ((baseline.items as Record<string, unknown>[])[0].title = '다른 제목'),
+    ],
+  ])('%s는 순서가 달라도 계속 거부한다', async (_name, tamper) => {
+    const { pkg } = await legacyPackage(undefined, 'a'.repeat(40), tamper);
+    const database = new TravelDB(`legacy-${crypto.randomUUID()}`);
+    databases.push(database);
+    const repository = new ContentRepository(database);
+    await repository.init();
+    await expect(repository.prepareImport(pkg.dataset, pkg.assets, pkg.provenance)).rejects.toThrow(
+      '기준 B가 대상 콘텐츠와 다릅니다.',
+    );
   });
 });
