@@ -51,6 +51,10 @@ const command = <K extends string, S extends z.ZodType, P extends z.ZodRawShape 
   payload: S,
   preconditions: P = {} as P,
 ) => z.strictObject({ ...envelope, kind: z.literal(kind), ...preconditions, payload });
+// Authoring batches only create or relink region/place/guide documents; they are not a general content write API.
+const authoredKinds = ['region', 'place', 'guide'];
+const authoredInput = contentInputSchema.refine((content) => authoredKinds.includes(content.kind));
+const ownerInput = contentInputSchema.refine((content) => content.kind === 'region' || content.kind === 'place');
 const contentBase = z.strictObject({ targetKind: contentKind, entityId: id, revisionId: id });
 export const commandSchema = z.discriminatedUnion('kind', [
   command(
@@ -110,6 +114,14 @@ export const commandSchema = z.discriminatedUnion('kind', [
     'DecideProposal',
     z.strictObject({ proposalId: id, decision: z.enum(['apply', 'reject']), confirmedByUser: z.literal(true) }),
     { expectedProposalRevision: positive },
+  ),
+  command(
+    'CreateContentBatch',
+    z.strictObject({
+      create: z.array(authoredInput).min(1).max(20),
+      updateOwners: z.array(z.strictObject({ expectedRevisionId: id, content: ownerInput })).max(20),
+    }),
+    update,
   ),
   command('ApplyReimport', packageInput.extend({ reviewDigest: sha256, lineageId: id }), update),
   command('UpdateTripMetadata', z.strictObject({ name: text, startDate: date, endDate: date }), update),

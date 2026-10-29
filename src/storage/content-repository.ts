@@ -31,6 +31,7 @@ import {
   type Review,
 } from '../transfer/reimport';
 import * as recovery from './recovery';
+import { applyContentBatch } from './content-batch';
 import { prepareAssetRecord, readAssetRecord, discardPreparedFiles, type AssetRecord } from './asset-files.ts';
 
 const uid = () => crypto.randomUUID();
@@ -859,6 +860,11 @@ export class ContentRepository {
           contentRevisionSchema.parse({ ...c.payload.booking, commitSeq: seq, recordedAt: now(), actor: 'user' }),
           c.payload.expectedRevisionId,
         );
+        break;
+      case 'CreateContentBatch':
+        applyContentBatch(t, c.payload, seq, now(), refs, (code, message) => {
+          throw new RepositoryError(code, message);
+        });
         break;
       case 'DeactivateContent': {
         const h = t.heads.find(
