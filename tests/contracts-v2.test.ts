@@ -319,6 +319,10 @@ describe('P-01 명령/교환 입력 경계', () => {
     const evidenceRow = t.contents.find((row) => row.kind === 'evidence')!;
     const { commitSeq: _ec, recordedAt: _er, actor: _ea, ...evidence } = evidenceRow;
     const { commitSeq: _vc, createdAt: _vca, ...initialPlan } = t.plans[0];
+    const regionRow = t.contents.find((row) => row.kind === 'region')!;
+    const { commitSeq: _gc, recordedAt: _gr, actor: _ga, ...region } = regionRow;
+    const factRow = t.contents.find((row) => row.kind === 'fact')!;
+    const { commitSeq: _fc, recordedAt: _fr, actor: _fa, ...fact } = factRow;
     const c = baseCommand();
     const { kind: _k, payload: _p, expectedDomainRevision: _e, ...env } = c;
     const write = { expectedDomainRevision: 0 },
@@ -389,6 +393,7 @@ describe('P-01 명령/교환 입력 경계', () => {
         expectedProposalRevision: 1,
         payload: { proposalId: 'proposal-1', decision: 'apply', confirmedByUser: true },
       },
+      { kind: 'CreateContentBatch', ...write, payload: { create: [region], updateOwners: [] } },
       { kind: 'ApplyReimport', ...write, payload: { ...pkg, lineageId: 'fixture', reviewDigest: '0'.repeat(64) } },
       {
         kind: 'UpdateTripMetadata',
@@ -405,6 +410,13 @@ describe('P-01 명령/교환 입력 경계', () => {
       expect(validateCommand({ ...env, ...input }).kind).toBe(input.kind);
     }
     expect(cases).toHaveLength(commandSchema.options.length);
+    // 작성 배치는 region/place/guide 생성과 소유 갱신에만 쓰며 내부 저장 필드·다른 종류를 받지 않는다.
+    const batchInput = { ...env, ...cases.find((input) => input.kind === 'CreateContentBatch')! };
+    expect(() => validateCommand({ ...batchInput, payload: { create: [fact], updateOwners: [] } })).toThrow();
+    expect(() =>
+      validateCommand({ ...batchInput, payload: { create: [{ ...region, commitSeq: 9 }], updateOwners: [] } }),
+    ).toThrow();
+    expect(() => validateCommand({ ...batchInput, payload: { create: [], updateOwners: [] } })).toThrow();
     const updateInput = { ...env, ...cases[3] };
     expect(() =>
       validateCommand({
