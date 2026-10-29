@@ -25,6 +25,7 @@ export function applyContentBatch(
   }
   const seen = new Set<string>();
   const touched: ContentRevision[] = [];
+  const replaced: { previous: ContentRevision; next: ContentRevision }[] = [];
   const stamp = (input: Payload['create'][number]) =>
     contentRevisionSchema.parse({ ...input, commitSeq: seq, recordedAt, actor: 'user' });
 
@@ -41,6 +42,11 @@ export function applyContentBatch(
     );
     must(!seen.has(`${next.kind}/${next.entityId}`), 'INVALID_INPUT', '같은 소유자를 두 번 갱신할 수 없습니다.');
     seen.add(`${next.kind}/${next.entityId}`);
+    const previous = t.contents.find(
+      (c) => c.kind === next.kind && c.entityId === next.entityId && c.revisionId === update.expectedRevisionId,
+    );
+    must(previous && previous.kind === next.kind, 'INVALID_INPUT', '갱신할 소유자의 종류가 다릅니다.');
+    replaced.push({ previous, next });
     t.contents.push(next);
     head.revisionId = next.revisionId;
     touched.push(next);
@@ -86,6 +92,21 @@ export function applyContentBatch(
     guide.payload.ownerRef.targetKind === kind &&
     guide.payload.ownerRef.entityId === entityId;
 
+  // 기존 활성 본문과의 소유 연결을 이 배치가 끊으면 양방향 관계가 깨지므로, 교체·제거 명령이 없는 한 거부한다.
+  for (const { previous, next } of replaced) {
+    const dropped: string[] = [];
+    if (previous.kind === 'place' && next.kind === 'place' && previous.payload.guideId) {
+      if (previous.payload.guideId !== next.payload.guideId) {
+        dropped.push(previous.payload.guideId);
+      }
+    }
+    if (previous.kind === 'region' && next.kind === 'region') {
+      dropped.push(...previous.payload.guideIds.filter((guideId) => !next.payload.guideIds.includes(guideId)));
+    }
+    for (const guideId of dropped) {
+      must(!current('guide', guideId), 'CONFLICT', '기존 활성 본문의 소유 연결을 이 작업으로 끊을 수 없습니다.');
+    }
+  }
   for (const row of touched) {
     if (row.kind === 'place') {
       for (const regionId of row.payload.regionIds) {

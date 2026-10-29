@@ -307,3 +307,83 @@ describe('CreateContentBatch · 원자 생성과 소유 연결', () => {
     expect(await repo.catalog(tripId, 'region')).toHaveLength(1);
   });
 });
+
+describe('CreateContentBatch · 기존 활성 소유 연결 보존 (C-01 R1)', () => {
+  async function withPlace() {
+    const ctx = await setup();
+    const tripId = await newTrip(ctx.repo);
+    const regionId = uuid();
+    await ctx.repo.execute(batch(tripId, 0, [region(tripId, regionId)]));
+    const first = placeWithGuide(tripId, regionId);
+    await ctx.repo.execute(batch(tripId, 1, first.create));
+    return { ...ctx, tripId, regionId, ...first, revision: 2 };
+  }
+
+  it('기존 활성 본문 G1을 두고 장소를 새 본문 G2로 바꾸는 갱신은 거부하고 상태를 바꾸지 않는다', async () => {
+    const { db, repo, tripId, regionId, placeId, revision } = await withPlace();
+    const before = await snapshot(db, repo, tripId);
+    const oldPlace = current(before.trip, 'place', placeId)!;
+    const newGuideId = uuid();
+    const updated = { ...place(tripId, placeId, [regionId], newGuideId), previousRevisionId: oldPlace.revisionId };
+    await expect(
+      repo.execute(
+        batch(
+          tripId,
+          revision,
+          [guide(tripId, newGuideId, 'place-guide', 'place', placeId)],
+          [{ expectedRevisionId: oldPlace.revisionId, content: updated }],
+        ),
+      ),
+    ).rejects.toThrow('CONFLICT');
+    expect(await snapshot(db, repo, tripId)).toEqual(before);
+  });
+
+  it('기존 지역 가이드를 목록에서 빼거나 바꾸는 갱신은 거부하고, 유지하면서 하나 더하는 갱신은 허용한다', async () => {
+    const { db, repo } = await setup();
+    const tripId = await newTrip(repo);
+    const regionId = uuid();
+    const firstGuide = uuid();
+    await repo.execute(
+      batch(tripId, 0, [
+        region(tripId, regionId, [firstGuide]),
+        guide(tripId, firstGuide, 'region-guide', 'region', regionId),
+      ]),
+    );
+    const before = await snapshot(db, repo, tripId);
+    const oldRegion = current(before.trip, 'region', regionId)!;
+    const secondGuide = uuid();
+    const update = (guideIds: string[]) => [
+      {
+        expectedRevisionId: oldRegion.revisionId,
+        content: { ...region(tripId, regionId, guideIds), previousRevisionId: oldRegion.revisionId },
+      },
+    ];
+    const secondCreate = () => [guide(tripId, secondGuide, 'region-guide', 'region', regionId)];
+    for (const guideIds of [[secondGuide], []]) {
+      await expect(repo.execute(batch(tripId, 1, secondCreate(), update(guideIds)))).rejects.toThrow('CONFLICT');
+      expect(await snapshot(db, repo, tripId)).toEqual(before);
+    }
+    await repo.execute(batch(tripId, 1, secondCreate(), update([firstGuide, secondGuide])));
+    const after = await repo.get(tripId);
+    const region2 = current(after, 'region', regionId)!;
+    expect(region2.kind === 'region' && region2.payload.guideIds).toEqual([firstGuide, secondGuide]);
+    expect(after.contents.find((c) => c.revisionId === oldRegion.revisionId)).toEqual(oldRegion);
+  });
+
+  it('장소의 다른 필드만 바꾸는 갱신은 기존 본문 연결을 유지한 채 허용한다', async () => {
+    const { repo, tripId, regionId, placeId, guideId, revision } = await withPlace();
+    const oldPlace = current(await repo.get(tripId), 'place', placeId)!;
+    const renamed = place(tripId, placeId, [regionId], guideId);
+    (renamed.payload as { name: string }).name = '이름만 바뀐 장소';
+    await repo.execute(
+      batch(
+        tripId,
+        revision,
+        [region(tripId, uuid())],
+        [{ expectedRevisionId: oldPlace.revisionId, content: { ...renamed, previousRevisionId: oldPlace.revisionId } }],
+      ),
+    );
+    const after = current(await repo.get(tripId), 'place', placeId)!;
+    expect(after.kind === 'place' && after.payload.guideId).toBe(guideId);
+  });
+});
