@@ -113,7 +113,7 @@ export function ContentApp() {
     };
   }, []);
   const meta = useLiveQuery(() => (ready ? repo.meta() : undefined), [ready]),
-    // 목록이 읽히기 전(undefined)에는 여행 보관함을 열린 채로 그리지 않는다. 열렸다가 곧 닫히는 깜박임을 막는다.
+    // 목록이 읽히기 전(undefined)에는 여행 보관함을 그리지 않는다. 열린 채 나타났다 닫히는 깜박임(과 시험 경쟁)을 막는다.
     loadedHeaders = useLiveQuery(() => (ready ? repo.list() : undefined), [ready]),
     headers = loadedHeaders ?? [];
   const tripId = selected || headers[0]?.tripId,
@@ -330,49 +330,51 @@ export function ContentApp() {
           </button>
         </nav>
       </header>
-      <details className="journey-library" open={loadedHeaders !== undefined && !header}>
-        <summary>여행 선택·가져오기</summary>
-        {header ? (
-          <p className="muted">
-            {header.startDate} — {header.endDate} · 이 브라우저에 저장됨
-          </p>
-        ) : null}
-        <nav className="trip-list" aria-label="여행 선택">
-          {headers.map((h) => (
-            <button
-              className={`trip-item ${h.tripId === tripId ? 'selected' : ''}`}
-              key={h.tripId}
-              onClick={() => select(h.tripId)}
-            >
-              {h.name}
+      {loadedHeaders !== undefined ? (
+        <details className="journey-library" open={!header}>
+          <summary>여행 선택·가져오기</summary>
+          {header ? (
+            <p className="muted">
+              {header.startDate} — {header.endDate} · 이 브라우저에 저장됨
+            </p>
+          ) : null}
+          <nav className="trip-list" aria-label="여행 선택">
+            {headers.map((h) => (
+              <button
+                className={`trip-item ${h.tripId === tripId ? 'selected' : ''}`}
+                key={h.tripId}
+                onClick={() => select(h.tripId)}
+              >
+                {h.name}
+              </button>
+            ))}
+          </nav>
+          <div className="sidebar-actions">
+            <button onClick={() => setNewTrip(true)} disabled={meta?.mode !== 'v2'}>
+              새 여행
             </button>
-          ))}
-        </nav>
-        <div className="sidebar-actions">
-          <button onClick={() => setNewTrip(true)} disabled={meta?.mode !== 'v2'}>
-            새 여행
-          </button>
-          <button onClick={() => setSample(true)} disabled={busy || meta?.mode !== 'v2'}>
-            가상 여행 둘러보기
-          </button>
-        </div>
-        <label className="file-picker">
-          여행 패키지 선택
-          <input
-            type="file"
-            accept=".zip,application/zip"
-            disabled={busy || meta?.mode !== 'v2'}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                void load(file);
-              }
-              e.target.value = '';
-            }}
-          />
-        </label>
-        <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
-      </details>
+            <button onClick={() => setSample(true)} disabled={busy || meta?.mode !== 'v2'}>
+              가상 여행 둘러보기
+            </button>
+          </div>
+          <label className="file-picker">
+            여행 패키지 선택
+            <input
+              type="file"
+              accept=".zip,application/zip"
+              disabled={busy || meta?.mode !== 'v2'}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  void load(file);
+                }
+                e.target.value = '';
+              }}
+            />
+          </label>
+          <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
+        </details>
+      ) : null}
       <main className="main" id="content-main">
         {reviewWorkspace(location.search) ? (
           <p className="notice">검증용 저장소 · 평소 사용하는 여행 저장소와 분리되어 있습니다.</p>
