@@ -1,6 +1,8 @@
 # T-05 Codex 독립 검토
 
-2026-10-29 · 코드 `7aa04b5`·결과 `f4e6f1d` · **수정 요청 / main 병합·배포·사용자 사본 적용 대기**
+2026-10-29 · 최종 코드 `568b745`·결과 `767f68f` · **R2 독립 검토 통과 / main 병합·배포·사용자 사본 적용·사용자 확인 대기**
+
+아래 최초/R1 검토는 발견·보완 이력이다. 최종 판정은 마지막 R2 절을 따른다.
 
 ## 판정
 
@@ -63,3 +65,26 @@ prepareImport는 기준 불일치로 거부해야 하지만 실제로 허용했�
 
 계획 재가져오기 UI의 동일 입력/실제 변경/보류 PC·모바일 검사가 미제출이다.
 가이드 본문 E2E 통과를 계획 UI 증거로 대체하지 않는다. [R2 지시서](claude-task-05-r2.md)에서 작은 보완으로 마무리한다.
+
+## R2 최종 검토 · 2026-10-29
+
+대상 코드 `568b745`·결과 `767f68f`. **T-05 지정 범위 독립 검토 통과**.
+
+- `canonicalPlanValue`가 최상위 추가 필드를 보존하고 네 배열만 복사/정렬하는 것을 diff로 확인했다.
+  구버전 비교 기준 호환을 유지하면서 최상위/행 추가 필드·실제 값 불일치는 거부하는 회귀를 확인했다.
+  any[]를 기존 계획 row 타입으로 교체했으며 저장 bytes/digest·DB 기준·과거 계획·현장 기록을 다시 쓰는 변경은 없다.
+- Codex 직접 실행: `pnpm exec vitest run tests/reimport-legacy-baseline.test.ts tests/reimport-order.test.ts tests/reimport.test.ts tests/spfr-reg01-reimport.test.ts tests/content-repository.test.ts`
+  → **5파일·27검사 통과**, exit 0, 15:30:44, 6.40초.
+- Codex 직접 실행: `pnpm run build` → 타입 검사·빌드·PWA 생성 exit 0.
+- Codex 직접 실행: `pnpm run test:e2e tests/e2e/plan-reimport.spec.ts`
+  → **desktop 3·mobile 3, 총 6검사 통과**, exit 0, 13.0초.
+  동일 입력 0개 차이, 실제 원천 변경 선택 적용, 양쪽 충돌/defer 후 앱 수정 보존을 화면에서 검증했다.
+- 최초 기본 환경에서는 미리보기 서버가 응답하지 않아 실행을 중단했다. 권한 검토를 거친 로컬 서버/브라우저 실행으로 다시 실행해 통과했다.
+  Browser plugin/browser 스킬 미제공으로 프로젝트 Playwright 회귀를 사용했다. 기존 개인 브라우저 프로필은 사용하지 않았다.
+- Claude 전체 검사 `.cache/verification/2026-10-29T06-21-53-480Z/results.json`의 check/E2E/pilot exit 0을 확인했다.
+  전체 회귀를 독립 반복하지 않았으며 원격 CI는 독립 확인하지 않았다.
+
+R1 P1·R2 P2는 해결됐고 요구한 계획 UI 검사 증거가 충족됐다. 추가 수정 지시는 없다.
+구 baseline DB의 UI 복합 경로는 저장소 호환 검사와 신규 UI 검사로 나누어 확인했으며 별도 조합 E2E는 미실행이다.
+모바일은 브라우저 에뮬레이션으로 실제 iPhone 검증이 아니다. 실제 ZIP/사용자 DB·기기 적용·main 병합·배포는 실행하지 않았다.
+사용자 상태는 **검토 준비**다. 전체 B 이행/G2/G2′·C 기능·AI 완료로 확대하지 않는다.
