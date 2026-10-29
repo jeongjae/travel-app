@@ -4,8 +4,9 @@
 
 ## 진행 중인 작업
 
-- [T-04 결과](claude-task-04-result.md)·[Codex 검증](claude-task-04-review.md): REG-01 하루 지역·야간 숙박 분리, 검토 통과. main 병합·사본 적용은 사용자 결정.
-- [C단계 설계서](phase-c-design.md)·[C단계 개발계획](phase-c-plan.md): 별도 여행 작성·현장 기록·회고. 작성자 제안, 사용자 미확정.
+- [T-04 결과](claude-task-04-result.md)·[검증 기록](claude-task-04-review.md): Codex 대상 30개 통과. main 병합·사본 적용 대기.
+- [T-05 지시서](claude-task-05-reimport-order.md): 재가져오기 항목 순서 오탐 재현·수정, Sonnet 전달 준비.
+- [C단계 설계서](phase-c-design.md)·[C단계 개발계획](phase-c-plan.md): 별도 여행 작성·현장 기록·회고. Claude 초안, [Codex 검토](phase-c-review.md) 후 [R1 보완](phase-c-r1.md) 요청. 사용자 미확정.
 - [T-03 결과](claude-task-03-result.md)·[Codex 검증](claude-task-03-review.md): 원천/지역 ZIP 대조와 도구 보호 보완.
 - [이행 잔여 목록](deferred-verification.md): REG-01·원천 콘텐츠·실기기·사용자 확인.
 - [iPhone 확인 절차](phase-2-prime-runbook.md): 백업 파일 재선택·빈 공간 복원 등.

@@ -1,6 +1,8 @@
 # C단계 설계서 · 별도 여행의 작성·현장 기록·회고
 
-2026-10-28 · 상태: **제안(사용자 미확정)** · 작성: Codex 역할(검토 실행: Claude 세션) · 근거: [실행계획](development-plan.md) §6, [요구사항](product-requirements.md), [최종 목표/이행 기준](goal-and-migration-criteria.md) S-01~S-07·G-01/02/08·M-09, [데이터 모델](data-model.md), `src/contracts/v2/*`, `src/storage/schema.ts`
+2026-10-28 · 상태: **Codex 수정 요청 / 사용자 미확정** · 초안: Claude(10/28) · 근거: [실행계획](development-plan.md) §6, [요구사항](product-requirements.md), [최종 목표/이행 기준](goal-and-migration-criteria.md) S-01~S-07·G-01/02/08·M-09, [데이터 모델](data-model.md), `src/contracts/v2/*`, `src/storage/schema.ts`
+
+2026-10-29 Codex [검토 결과](phase-c-review.md)·[문서 보완 R1](phase-c-r1.md)을 우선 적용한다. 아래 본문은 보완 전 초안이며 구현 기준으로 확정하지 않았다.
 
 이 문서는 C단계의 사용자 시나리오·화면 흐름·저장 규칙·완료 조건을 정한다. 구현 단위와 검증 순서는 [C단계 개발계획](phase-c-plan.md)에 둔다. **확정 요구**는 사용자가 이미 밝힌 것, **제안**은 작성자의 설계안, **미결정**은 사용자 결정이 필요한 항목이다. 제안을 사용자 합의로 기록하지 않는다.
 

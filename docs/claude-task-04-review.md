@@ -1,6 +1,6 @@
-# Codex T-04 검증
+# T-04 검토 및 검증 기록
 
-2026-10-28 · 대상 코드 `64a84e4`, 보고 `6482020`(브랜치 `codex/t04-regions`, 시작 main `d2dbdc5`) · **구현 검토 통과 / main 병합·사본 적용·사용자 확인 대기** · 검토 실행: Claude 세션(Codex 역할)
+2026-10-28 · 대상 코드 `64a84e4`, 보고 `6482020`(브랜치 `codex/t04-regions`, 시작 main `d2dbdc5`) · **구현 검토 통과 / main 병합·사본 적용·사용자 확인 대기** · 10/28 검토 실행: Claude 세션 · 10/29 Codex 독립 검토 추가
 
 - 위험 diff를 읽었다. `spfr-stays.ts`의 `regionIds`(checkin≤날짜≤checkout)·`overnightRegionId`(checkin≤날짜<checkout의 마지막)는 지시서 C안과 일치한다.
   `return` 센티널·종료 숙박 폴백·활동 장소 지역 합집합은 없다. `regionIds.length === 1` 추정은 제거됐다.
@@ -9,18 +9,29 @@
 - `spfr-reg01-source-model`·`spfr-stays`·`spfr-reg01-reimport`는 `local-data`·환경변수 gate를 읽지 않는다(grep 확인).
 - 문서: `decisions.md`·`content-db-mapping.md` D-10의 갱신은 작성자 기술 판단으로 표기됐다. 사용자 정책으로 승격하지 않았다.
 
-## Codex 독립 검사
+## 10/28 Claude 추가 검사(독립 Codex 검사 아님)
 
 | 검사 | 결과 | 증거 |
 |---|---|---|
 | `python -m unittest discover -s tests/audit -q` | **15 통과**(1.449초) | 이 세션 셸(PC의 Linux VM, Python 3.10) |
 | 후보 ZIP 해시·크기 | `7b530968…de12`, 84,454,075바이트 — 보고와 일치 | `sha256sum` |
 | verified ZIP 해시·크기 | `d1832280…bbe0`, 84,453,766바이트 — 불변 | `sha256sum` |
-| `audit-spfr-package.py` 후보(v3) 독립 실행 | failures 0, exit 0. `reg01Check` `source-day-model` mismatches 0. versusReference: `plan_days` 9/9, `plan_items`·`plan_legs` 0, 콘텐츠 payload 차이 0 | `.cache/t04-codex/candidate-audit.json`·`.log` |
+| `audit-spfr-package.py` 후보(v3) 추가 실행 | failures 0, exit 0. `reg01Check` `source-day-model` mismatches 0. versusReference: `plan_days` 9/9, `plan_items`·`plan_legs` 0, 콘텐츠 payload 차이 0 | `.cache/t04-codex/candidate-audit.json`·`.log` |
 | 같은 도구로 verified(v2) | failures 0, exit 0. `legacy-arrival-only`로 표시되고 재해석 없음. 모델과 다른 날은 정확히 `[4,7,12,13,17,18,23,27,42]` | `.cache/t04-codex/verified-audit.json`·`.log` |
-| vitest/E2E | **Codex 환경에서 미실행**(이 셸은 Windows `node_modules`의 네이티브 바이너리를 쓸 수 없음). Claude 로그 `.cache/verification/2026-10-28T09-05-37-462Z/`의 check·test:e2e·check:pilot exit 0, 단위 187 통과·1 skip, E2E 54를 검토했다 | 독립 재실행 아님 |
+| vitest/E2E | **10/28 검토 셸에서 미실행**(이 셸은 Windows `node_modules`의 네이티브 바이너리를 쓸 수 없음). Claude 로그 `.cache/verification/2026-10-28T09-05-37-462Z/`의 check·test:e2e·check:pilot exit 0, 단위 187 통과·1 skip, E2E 54를 검토했다 | 독립 재실행 아님 |
 
 실제 사용자 DB·iPhone·verified/지역 ZIP·원본은 변경하지 않았다. 후보는 검토용으로 남긴다.
+
+## 10/29 Codex 독립 검토
+
+앞 절의 10/28 실행은 Claude 자체 검토다. 당시 ‘Codex 역할/독립 검사’ 표기를 바로잡으며 실행 결과 자체는 과거 증거로 보존한다.
+Codex는 현재 소스의 지역/숙박 분리·비교 배열·저장소 조회를 읽고 다음 대상 검사를 직접 실행했다.
+
+`pnpm exec vitest run tests/spfr-stays.test.ts tests/spfr-reg01-source-model.test.ts tests/spfr-reg01-reimport.test.ts tests/spfr-return-day.test.ts tests/spfr-move-day.test.ts`
+
+결과: **5개 파일·30개 검사 통과, exit 0**(2026-10-29 09:56, 4.05초). 전체 회귀·Python·실제 ZIP 대조는 이번 Codex 실행에서 반복하지 않았다.
+T-04 지역/야간 숙박 분리는 대상 검토 통과다. F-4는 소스 구조상 타당한 결함 후보이며 이번에 직접 재현한 결과는 아니다.
+[T-05](claude-task-05-reimport-order.md)에서 실패를 먼저 재현하고 수정한다. 새 후보 적용·main 병합·배포·사용자 확인은 대기다.
 
 ## 관찰 1 · 부분 패키지의 `plan.stays` 선택 조건 (비차단, F-3 범위)
 
