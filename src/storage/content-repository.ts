@@ -20,7 +20,7 @@ import {
 import { storesV2, type Stored, type Workspace } from './schema';
 import { convertLegacy, legacyId, legacyCanonical } from './legacy';
 import type { Trip } from '../domain';
-import { comparablePlan, comparableTrip } from '../transfer/comparable';
+import { canonicalPlanValue, comparablePlan, comparableTrip } from '../transfer/comparable';
 import {
   compareReimport,
   localPayload,
@@ -512,7 +512,11 @@ export class ContentRepository {
             ? comparableTrip(dataset.header)
             : row?.payload;
       must(
-        value && canonicalJson(value) === canonicalJson(mapping.baselineValue),
+        value &&
+          canonicalJson(value) ===
+            canonicalJson(
+              mapping.targetKind === 'plan' ? canonicalPlanValue(mapping.baselineValue) : mapping.baselineValue,
+            ),
         'INVALID_INPUT',
         '기준 B가 대상 콘텐츠와 다릅니다.',
       );

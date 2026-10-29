@@ -1,6 +1,6 @@
 import { canonicalJson, type TripDataset, type ContentRevision } from '../contracts/v2/index.ts';
 import type { ImportMapping } from '../storage/content-repository.ts';
-import { comparablePlan, comparableTrip } from './comparable.ts';
+import { canonicalPlanValue, comparablePlan, comparableTrip } from './comparable.ts';
 export type Choice = 'remote' | 'local' | 'defer';
 export type Slot = { present: false } | { present: true; value: unknown };
 export type ReviewUnit = {
@@ -74,9 +74,10 @@ export function compareReimport(
     if (bm && rm && (bm.targetKind !== rm.targetKind || bm.entityId !== rm.entityId)) {
       throw new Error('원천 대응 대상이 바뀌었습니다. 자동 병합하지 않았습니다.');
     }
-    const base = slot(bm?.baselineValue === null ? undefined : bm?.baselineValue),
+    const normalize = (value: unknown) => (m.targetKind === 'plan' ? canonicalPlanValue(value) : value);
+    const base = slot(bm?.baselineValue === null ? undefined : normalize(bm?.baselineValue)),
       l = slot(current(local, m)),
-      rr = slot(rm?.baselineValue);
+      rr = slot(normalize(rm?.baselineValue));
     const atomic = !base.present || !l.present || !rr.present || m.targetKind === 'plan';
     const bf = atomic ? new Map([['[]', base]]) : fields(base.value, m.targetKind),
       lf = atomic ? new Map([['[]', l]]) : fields(l.value, m.targetKind),
