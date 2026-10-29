@@ -4,7 +4,8 @@
 
 ## 진행 중인 작업
 
-- [T-06 지시서](claude-task-06-booking-region.md): 예약 지역 배치 의존 추정(F-2) 제거·후보 검증, Sonnet 전달 준비.
+- [C-01 지시서](claude-task-c01-authoring.md): 새 여행→지역/장소·설명 작성→일정 연결 우선 구현.
+- [후속 변경 목록](change-log.md): T-06/F-2·F-3 등 보류 항목과 재개 조건, 별도 확인 관문.
 - [T-04 결과](claude-task-04-result.md)·[검증 기록](claude-task-04-review.md): Codex 대상 30개 통과. main 병합·사본 적용 대기.
 - [T-05 R2 결과](claude-task-05-r2-result.md)·[독립 검토](claude-task-05-review.md): 27검사·빌드·계획 UI PC/모바일 6검사 통과. main 병합·적용·사용자 확인 대기.
 - [C단계 설계서](phase-c-design.md)·[C단계 개발계획](phase-c-plan.md): 별도 여행 작성·현장 기록·회고. Claude 초안을 Codex가 [검토](phase-c-review.md)·[R1 보완](phase-c-r1.md) 완료. 사용자 검토 준비, 기능 미구현.

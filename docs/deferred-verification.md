@@ -1,7 +1,7 @@
 # 후속 일괄 검증 목록
 
 2026-10-29 현재: [T-04](claude-task-04-review.md) REG-01 대상 검토와 [T-05](claude-task-05-review.md) 재가져오기 비교 검토는 통과했다.
-다음 [T-06](claude-task-06-booking-region.md)은 예약 지역 배치 의존 추정(F-2) 수정 지시다. F-3·원천 잔여·사용자/실기기 확인은 대기다.
+우선순위 변경으로 [T-06](claude-task-06-booking-region.md)·F-3은 [후속 목록](change-log.md)으로 보류하고 [C-01](claude-task-c01-authoring.md)을 먼저 진행한다. 원천 잔여·사용자/실기기 확인은 미완료로 유지한다.
 아래 과거 시점별 검사 기록은 당시 상태를 보존하며 최신 판정은 위 링크와 handoff를 따른다.
 
 2026-10-28 · **R1 검토 통과 / REG-01·iPhone 복원·전체 확인 대기**

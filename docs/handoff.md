@@ -1,13 +1,13 @@
 # travel-app 현재 상태
 
-2026-10-29 · **T-04/T-05 독립 검토 통과 / T-06 전달 준비 / C 문서 R1 검토 준비**
+2026-10-29 · **C-01 작성 흐름 우선 / 경미한 잔여 보류 / T-04/T-05 검토 통과**
 
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
 - [T-04](claude-task-04-review.md) `64a84e4`: 지역/야간 숙박 분리 대상 통과. 새 사본 사용자 DB·iPhone 미적용.
 - [T-05 R2 결과](claude-task-05-r2-result.md) `568b745`·[독립 검토](claude-task-05-review.md): 구 기준 호환·추가 필드 검증·계획 UI 검토 통과. 추가 수정 지시 없음.
-- [C 설계](phase-c-design.md)·[계획](phase-c-plan.md): Codex [R1 보완](phase-c-r1.md) 완료. 사용자 검토 준비·기능 미구현.
+- [C 설계](phase-c-design.md)·[계획](phase-c-plan.md): 경미한 B 잔여를 후순위로 두고 C-01 우선 지시. 기능 미착수·상세 UI 미확인.
 - G0·G1·기존 B-01 확인 완료. G2/G2′/G3/G4·전체 PC·T-01 사용자 확인은 대기.
 - 브랜치 `codex/t05-reimport-order`, T-04/T-05 main 미병합. 최근 배포 기록 `ac09ca0`([T-02](claude-task-02-review.md)); 이번 배포 없음.
 - 기존 verified ZIP·원본·백업·프로필 보존. 검토 후보 `local-data/phase2/t04-candidate/package/pilot.zip` 미적용.
@@ -26,10 +26,9 @@
 
 ## 다음 작업·명령
 
-1. Sonnet에 [T-06](claude-task-06-booking-region.md) 전달: 예약 지역 배치 의존 추정(F-2) 재현·제거·검사·새 비공개 후보 대조. 아직 구현 미착수.
-2. B [잔여 목록](deferred-verification.md): 지역 ZIP(F-3) 사용 여부·원천/의미·권리·별도 매체 백업·전체 PC 확인 유지.
-3. T-04/T-05 main 병합·배포 시점과 새 후보 사본 적용은 별도 결정 후 진행한다. 검토 통과를 배포 승인으로 해석하지 않는다.
-4. iPhone `?workspace=content&review=iphone-restore-20261027` 빈 공간 전체 복원·재실행 확인. 비어 있지 않으면 중단.
-5. C 문서 R1 사용자 검토. C 기능 구현은 B 마감 뒤 별도 지시한다.
+1. Sonnet에 [C-01](claude-task-c01-authoring.md) 전달: 원자 콘텐츠 생성→빈 여행/날짜→지역/장소·설명→일정 연결. 아직 구현 미착수.
+2. T-06/F-2·F-3·부분 패키지 경계는 [후속 목록](change-log.md)으로 보류. 저장/복원·충돌·격리·보안 결함은 보류하지 않는다.
+3. B/G2/G2′는 미완료를 유지하며 C 착수와 분리한다. iPhone 빈 공간 복원·전체 PC 확인·운영 항목은 후속 추적한다.
+4. main 병합·배포·새 후보 사용자 적용은 별도 결정 대기. 기존 여행/사용자 공간은 변경하지 않는다.
 - 기존 여행 삭제 금지. pnpm12.14.0/Node24.13.1/`.venv`, 캐시 `.cache/corepack`·`.cache/ms-playwright`.
 - UI `pnpm run dev:ui` 5173, 빌드 후 `preview:ui` 4173, 회귀 `check:deferred`. 포트 소유 먼저 확인.
