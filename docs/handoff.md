@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-10-29 · **T-04/T-05 독립 검토 통과 / C 문서 R1 검토 준비 / B 잔여 확인 대기**
+2026-10-29 · **T-04/T-05 독립 검토 통과 / T-06 전달 준비 / C 문서 R1 검토 준비**
 
 ## 현재 기준
 
@@ -26,9 +26,10 @@
 
 ## 다음 작업·명령
 
-1. B [잔여 목록](deferred-verification.md)의 예약 regionId(F-2)·지역 ZIP(F-3)·원천/의미·권리·별도 매체 백업·전체 PC 확인을 순차 마감한다.
-2. T-04/T-05 main 병합·배포 시점과 새 후보 사본 적용은 별도 결정 후 진행한다. 검토 통과를 배포 승인으로 해석하지 않는다.
-3. iPhone `?workspace=content&review=iphone-restore-20261027` 빈 공간 전체 복원·재실행 확인. 비어 있지 않으면 중단.
-4. C 문서 R1 사용자 검토. C 기능 구현은 B 마감 뒤 별도 지시한다.
+1. Sonnet에 [T-06](claude-task-06-booking-region.md) 전달: 예약 지역 배치 의존 추정(F-2) 재현·제거·검사·새 비공개 후보 대조. 아직 구현 미착수.
+2. B [잔여 목록](deferred-verification.md): 지역 ZIP(F-3) 사용 여부·원천/의미·권리·별도 매체 백업·전체 PC 확인 유지.
+3. T-04/T-05 main 병합·배포 시점과 새 후보 사본 적용은 별도 결정 후 진행한다. 검토 통과를 배포 승인으로 해석하지 않는다.
+4. iPhone `?workspace=content&review=iphone-restore-20261027` 빈 공간 전체 복원·재실행 확인. 비어 있지 않으면 중단.
+5. C 문서 R1 사용자 검토. C 기능 구현은 B 마감 뒤 별도 지시한다.
 - 기존 여행 삭제 금지. pnpm12.14.0/Node24.13.1/`.venv`, 캐시 `.cache/corepack`·`.cache/ms-playwright`.
 - UI `pnpm run dev:ui` 5173, 빌드 후 `preview:ui` 4173, 회귀 `check:deferred`. 포트 소유 먼저 확인.

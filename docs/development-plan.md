@@ -1,10 +1,10 @@
 # travel-app 개발 실행계획 개정안
 
-2026-10-29 · v1.9 · **T-04 대상 검토 통과 / T-05 R2 독립 검토 통과 / C 문서 R1 검토 준비**
+2026-10-29 · v1.10 · **T-04 대상 검토 통과 / T-05 R2 독립 검토 통과 / T-06 전달 준비 / C 문서 R1 검토 준비**
 
 T-04 `64a84e4`의 지역/야간 숙박 분리를 Codex가 검토하고 대상 30개 검사를 직접 통과했다([검증 기록](claude-task-04-review.md)). 10/28의 추가 검사·ZIP 대조는 Claude 수행이며 독립 Codex 검사로 구분하지 않는다. main 병합·새 사본 적용은 대기다.
 
-[T-05](claude-task-05-reimport-order.md)는 R2 `568b745`의 [독립 검토](claude-task-05-review.md)를 통과했다. 구 기준 호환·검증 보존 관련 27검사, 타입/빌드, 계획 재가져오기 PC/모바일 6검사를 Codex가 직접 통과했다. main 병합·배포·실제 후보 적용은 별도 결정 대기다. 다음은 B 잔여 원천/의미(F-2/F-3)·iPhone 빈 공간 복원·사용자 확인을 마감하는 것이다. [C 설계](phase-c-design.md)·[개발계획](phase-c-plan.md)은 Codex [R1](phase-c-r1.md) 보완 후 사용자 검토 준비이며 C 기능 구현은 아직 착수하지 않는다.
+[T-05](claude-task-05-reimport-order.md)는 R2 `568b745`의 [독립 검토](claude-task-05-review.md)를 통과했다. 구 기준 호환·검증 보존 관련 27검사, 타입/빌드, 계획 재가져오기 PC/모바일 6검사를 Codex가 직접 통과했다. main 병합·배포·실제 후보 적용은 별도 결정 대기다. 다음은 [T-06](claude-task-06-booking-region.md)에서 예약 지역의 배치 의존 추정(F-2)을 제거하고 새 비공개 후보 차이를 검증하는 것이다. F-3 지역 ZIP 사용/재발행·iPhone 빈 공간 복원·사용자 확인은 별도 잔여로 유지한다. [C 설계](phase-c-design.md)·[개발계획](phase-c-plan.md)은 Codex [R1](phase-c-r1.md) 보완 후 사용자 검토 준비이며 C 기능 구현은 아직 착수하지 않는다.
 
 T-01/T-03의 기존 검증 기록은 유지한다. T-02는 사용자 승인으로 main `ac09ca0`에 반영·배포한 당시 증거다([기록](claude-task-02-review.md)). 예약 지역 추정·지역 ZIP 재발행·사용자 화면 확인·전체 이행은 잔여로 유지한다.
 

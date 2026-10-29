@@ -1,5 +1,9 @@
 # 후속 일괄 검증 목록
 
+2026-10-29 현재: [T-04](claude-task-04-review.md) REG-01 대상 검토와 [T-05](claude-task-05-review.md) 재가져오기 비교 검토는 통과했다.
+다음 [T-06](claude-task-06-booking-region.md)은 예약 지역 배치 의존 추정(F-2) 수정 지시다. F-3·원천 잔여·사용자/실기기 확인은 대기다.
+아래 과거 시점별 검사 기록은 당시 상태를 보존하며 최신 판정은 위 링크와 handoff를 따른다.
+
 2026-10-28 · **R1 검토 통과 / REG-01·iPhone 복원·전체 확인 대기**
 
 실행 순서와 역할은 [계획 개정안](development-plan.md)을 따른다. T-01-R1은 [Codex 검증](claude-task-01-review.md)을 통과했고 REG-01·사용자 확인·전체 이행은 대기다. T-02는 사용자 승인 후 main 반영·필수 검사·Pages 배포·공개 SHA 일치를 확인했다([기록](claude-task-02-review.md)). 실패 주입 런타임은 미검증이다. [T-03 결과](claude-task-03-result.md)는 원천 잔여·REG-01 권고·지역 ZIP 13개 독립 대조를 제출했고 Codex 검토 대기다(Fact65·렌더러 전수 분류·실기기는 미완료). 과거 검사를 새 작업 성공으로 재사용하지 않는다.
