@@ -7,6 +7,7 @@ import type { Review } from '../transfer/reimport';
 import type { ContentRevision, FieldRecord, PlanVersion, RevisionRef, TimeSpec, TripDataset } from '../contracts/v2';
 import { GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
+import { PlaceAuthoring, RegionAuthoring } from './Authoring';
 import { DayDetails } from './DayDetails';
 import {
   clockLabel,
@@ -66,7 +67,8 @@ export function ContentApp() {
     [online, setOnline] = useState(navigator.onLine),
     [busy, setBusy] = useState(false),
     [sample, setSample] = useState(false),
-    [newTrip, setNewTrip] = useState(false);
+    [newTrip, setNewTrip] = useState(false),
+    [authoring, setAuthoring] = useState<'region' | 'place' | null>(null);
   const [backTrail, setBackTrail] = useState<{ tab: Tab; target: Target | null; context?: RevisionRef[] }[]>([]);
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof readPackage>> | null>(null),
     [review, setReview] = useState<Review | null>(null),
@@ -175,6 +177,32 @@ export function ContentApp() {
     } finally {
       setBusy(false);
     }
+  }
+  /** 같은 날 이웃 항목과 순서를 맞바꾼다. 새 계획 버전 하나로 저장하며 이전 버전은 그대로다. */
+  async function moveItem(item: PlanVersion['items'][number], offset: -1 | 1) {
+    const neighbor = dayItems[dayItems.findIndex((i) => i.activityId === item.activityId) + offset];
+    if (!plan || !header || !neighbor) {
+      return;
+    }
+    await action(
+      () =>
+        repo.execute(
+          command(
+            header.tripId,
+            'ChangePlan',
+            {
+              currentPlanVersionId: plan.planVersionId,
+              operations: [
+                { type: 'upsert-item', item: { ...item, order: neighbor.order } },
+                { type: 'upsert-item', item: { ...neighbor, order: item.order } },
+              ],
+              reason: '사용자가 일정 순서 변경',
+            },
+            header.domainRevision,
+          ),
+        ),
+      '일정 순서를 바꿨습니다.',
+    );
   }
   function select(id: string) {
     setSelected(id);
@@ -482,6 +510,20 @@ export function ContentApp() {
                           일정 수정
                         </button>
                         <button
+                          aria-label={`${i.title} 위로`}
+                          disabled={historical || busy || i.activityId === dayItems[0]?.activityId}
+                          onClick={() => void moveItem(i, -1)}
+                        >
+                          위로
+                        </button>
+                        <button
+                          aria-label={`${i.title} 아래로`}
+                          disabled={historical || busy || i.activityId === dayItems.at(-1)?.activityId}
+                          onClick={() => void moveItem(i, 1)}
+                        >
+                          아래로
+                        </button>
+                        <button
                           disabled={historical || busy}
                           onClick={() =>
                             void action(() =>
@@ -585,6 +627,17 @@ export function ContentApp() {
               ) : (
                 <section>
                   <h2>가이드</h2>
+                  <div className="button-row">
+                    <button disabled={historical} onClick={() => setAuthoring('region')}>
+                      지역 작성
+                    </button>
+                    <button disabled={historical} onClick={() => setAuthoring('place')}>
+                      장소 작성
+                    </button>
+                  </div>
+                  {catalog.every((c) => c.kind !== 'place' && c.kind !== 'region') ? (
+                    <p className="notice">아직 지역이나 장소가 없습니다. 위 버튼으로 첫 장소를 작성해 보세요.</p>
+                  ) : null}
                   <label>
                     이름·지역 검색
                     <input value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -935,9 +988,35 @@ export function ContentApp() {
           }}
         />
       ) : null}
+      {authoring === 'region' && header ? (
+        <RegionAuthoring
+          repo={repo}
+          header={{ ...header }}
+          onClose={() => setAuthoring(null)}
+          onSaved={(regionId) => {
+            setAuthoring(null);
+            setNotice('지역을 저장했습니다.');
+            navigate('region', regionId);
+          }}
+        />
+      ) : null}
+      {authoring === 'place' && header ? (
+        <PlaceAuthoring
+          repo={repo}
+          header={{ ...header }}
+          regions={catalog.filter((c): c is Extract<ContentRevision, { kind: 'region' }> => c.kind === 'region')}
+          onClose={() => setAuthoring(null)}
+          onSaved={(placeId) => {
+            setAuthoring(null);
+            setNotice('장소와 설명을 저장했습니다.');
+            navigate('place', placeId);
+          }}
+        />
+      ) : null}
       {planEditor ? (
         <PlanEditor
           repo={repo}
+          places={catalog.filter((c): c is Extract<ContentRevision, { kind: 'place' }> => c.kind === 'place')}
           editor={planEditor}
           onClose={() => setPlanEditor(null)}
           onSaved={() => {
@@ -1076,11 +1155,13 @@ function Booking({
 }
 function PlanEditor({
   repo,
+  places,
   editor,
   onClose,
   onSaved,
 }: {
   repo: ContentRepository;
+  places: Extract<ContentRevision, { kind: 'place' }>[];
   editor: { header: TripDataset['header']; plan: PlanVersion; item?: PlanVersion['items'][number] };
   onClose: () => void;
   onSaved: () => void;
@@ -1088,6 +1169,7 @@ function PlanEditor({
   const [title, setTitle] = useState(editor.item?.title ?? ''),
     [day, setDay] = useState(editor.item?.dayId ?? editor.plan.days[0]?.dayId ?? ''),
     [time, setTime] = useState<TimeSpec>(editor.item?.time.start ?? { precision: 'unspecified' }),
+    [placeId, setPlaceId] = useState(editor.item?.placeLinks[0]?.placeId ?? ''),
     [error, setError] = useState('');
   return (
     <Modal title={editor.item ? '일정 수정' : '활동 추가'} onClose={onClose}>
@@ -1112,7 +1194,12 @@ function PlanEditor({
               executionMarkers: [],
               sourceFlags: [],
             };
-            const item = { ...base, dayId: day, title, time: { start: time } };
+            const originalLinks = editor.item?.placeLinks ?? [];
+            // 첫 장소 링크만 이 화면에서 바꾼다. 나머지 연결은 그대로 둔다.
+            const placeLinks = placeId
+              ? [{ placeId, relation: originalLinks[0]?.relation ?? ('visit' as const) }, ...originalLinks.slice(1)]
+              : originalLinks.slice(1);
+            const item = { ...base, dayId: day, title, time: { start: time }, placeLinks };
             if (editor.item && editor.item.dayId !== day) {
               item.order = Math.max(-1, ...editor.plan.items.filter((i) => i.dayId === day).map((i) => i.order)) + 1;
             }
@@ -1137,6 +1224,26 @@ function PlanEditor({
         <label>
           활동 제목
           <input required value={title} onChange={(e) => setTitle(e.target.value)} />
+        </label>
+        <label>
+          연결할 장소
+          <select
+            value={placeId}
+            onChange={(e) => {
+              setPlaceId(e.target.value);
+              const chosen = places.find((place) => place.entityId === e.target.value);
+              if (chosen && !title.trim()) {
+                setTitle(chosen.payload.name);
+              }
+            }}
+          >
+            <option value="">장소 없음</option>
+            {places.map((place) => (
+              <option key={place.entityId} value={place.entityId}>
+                {place.payload.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           계획 날짜
