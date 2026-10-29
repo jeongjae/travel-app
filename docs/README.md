@@ -4,11 +4,11 @@
 
 ## 진행 중인 작업
 
-- [C-01 지시서](claude-task-c01-authoring.md): 새 여행→지역/장소·설명 작성→일정 연결 우선 구현.
+- [C-01 결과](claude-task-c01-result.md)·[독립 검토](claude-task-c01-review.md): 주요 흐름 검증 통과, [소유 연결 R1](claude-task-c01-r1.md) 보완 요청.
 - [후속 변경 목록](change-log.md): T-06/F-2·F-3 등 보류 항목과 재개 조건, 별도 확인 관문.
 - [T-04 결과](claude-task-04-result.md)·[검증 기록](claude-task-04-review.md): Codex 대상 30개 통과. main 병합·사본 적용 대기.
 - [T-05 R2 결과](claude-task-05-r2-result.md)·[독립 검토](claude-task-05-review.md): 27검사·빌드·계획 UI PC/모바일 6검사 통과. main 병합·적용·사용자 확인 대기.
-- [C단계 설계서](phase-c-design.md)·[C단계 개발계획](phase-c-plan.md): 별도 여행 작성·현장 기록·회고. Claude 초안을 Codex가 [검토](phase-c-review.md)·[R1 보완](phase-c-r1.md) 완료. 사용자 검토 준비, 기능 미구현.
+- [C단계 설계서](phase-c-design.md)·[C단계 개발계획](phase-c-plan.md): 별도 여행 작성·현장 기록·회고. Claude 초안을 Codex가 [검토](phase-c-review.md)·[R1 보완](phase-c-r1.md) 완료. 사용자 미확인. C-01 구현/검토 상태는 위 결과·검토 기록을 따른다.
 - [T-03 결과](claude-task-03-result.md)·[Codex 검증](claude-task-03-review.md): 원천/지역 ZIP 대조와 도구 보호 보완.
 - [이행 잔여 목록](deferred-verification.md): REG-01·원천 콘텐츠·실기기·사용자 확인.
 - [iPhone 확인 절차](phase-2-prime-runbook.md): 백업 파일 재선택·빈 공간 복원 등.
