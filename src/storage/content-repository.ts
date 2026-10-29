@@ -323,7 +323,7 @@ export class ContentRepository {
           ).map(clean);
         return {
           ...clean(p),
-          days: await children<PlanVersion['days'][number]>('plan_days'),
+          days: (await children<PlanVersion['days'][number]>('plan_days')).sort((a, b) => a.ordinal - b.ordinal),
           items: await children<PlanVersion['items'][number]>('plan_items'),
           legs: await children<PlanVersion['legs'][number]>('plan_legs'),
           stays: await children<PlanVersion['stays'][number]>('plan_stays'),
