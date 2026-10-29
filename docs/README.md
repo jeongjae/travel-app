@@ -4,7 +4,7 @@
 
 ## 진행 중인 작업
 
-- [C-01 결과](claude-task-c01-result.md)·[독립 검토](claude-task-c01-review.md): 주요 흐름 검증 통과, [소유 연결 R1](claude-task-c01-r1.md) 보완 요청.
+- [C-01 결과](claude-task-c01-result.md)·[독립 검토](claude-task-c01-review.md): 소유 연결 R1 포함 독립 검토 통과, 사용자 검토 준비. 다음은 T-C3.2 숙박·이동 편집.
 - [후속 변경 목록](change-log.md): T-06/F-2·F-3 등 보류 항목과 재개 조건, 별도 확인 관문.
 - [T-04 결과](claude-task-04-result.md)·[검증 기록](claude-task-04-review.md): Codex 대상 30개 통과. main 병합·사본 적용 대기.
 - [T-05 R2 결과](claude-task-05-r2-result.md)·[독립 검토](claude-task-05-review.md): 27검사·빌드·계획 UI PC/모바일 6검사 통과. main 병합·적용·사용자 확인 대기.
