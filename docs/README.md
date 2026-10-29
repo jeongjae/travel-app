@@ -5,7 +5,7 @@
 ## 진행 중인 작업
 
 - [T-04 결과](claude-task-04-result.md)·[검증 기록](claude-task-04-review.md): Codex 대상 30개 통과. main 병합·사본 적용 대기.
-- [T-05 지시서](claude-task-05-reimport-order.md): 재가져오기 항목 순서 오탐 재현·수정, 관련 코드 변경 관찰, 완료 제출·검증 대기.
+- [T-05 지시서](claude-task-05-reimport-order.md): 재가져오기 항목 순서 오탐 재현·수정, [독립 검토](claude-task-05-review.md)에서 구 기준 호환 결함 확인, [R1](claude-task-05-r1.md) 전달 준비.
 - [C단계 설계서](phase-c-design.md)·[C단계 개발계획](phase-c-plan.md): 별도 여행 작성·현장 기록·회고. Claude 초안을 Codex가 [검토](phase-c-review.md)·[R1 보완](phase-c-r1.md) 완료. 사용자 검토 준비, 기능 미구현.
 - [T-03 결과](claude-task-03-result.md)·[Codex 검증](claude-task-03-review.md): 원천/지역 ZIP 대조와 도구 보호 보완.
 - [이행 잔여 목록](deferred-verification.md): REG-01·원천 콘텐츠·실기기·사용자 확인.
