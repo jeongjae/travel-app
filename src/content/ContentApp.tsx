@@ -113,7 +113,9 @@ export function ContentApp() {
     };
   }, []);
   const meta = useLiveQuery(() => (ready ? repo.meta() : undefined), [ready]),
-    headers = useLiveQuery(() => (ready ? repo.list() : []), [ready], []);
+    // 목록이 읽히기 전(undefined)에는 여행 보관함을 열린 채로 그리지 않는다. 열렸다가 곧 닫히는 깜박임을 막는다.
+    loadedHeaders = useLiveQuery(() => (ready ? repo.list() : undefined), [ready]),
+    headers = loadedHeaders ?? [];
   const tripId = selected || headers[0]?.tripId,
     header = headers.find((h) => h.tripId === tripId),
     currentPlanId = planId || header?.currentPlanVersionId;
@@ -328,7 +330,7 @@ export function ContentApp() {
           </button>
         </nav>
       </header>
-      <details className="journey-library" open={!header}>
+      <details className="journey-library" open={loadedHeaders !== undefined && !header}>
         <summary>여행 선택·가져오기</summary>
         {header ? (
           <p className="muted">
