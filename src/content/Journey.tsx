@@ -198,7 +198,15 @@ export function DayStrip({
   );
 }
 
-export function ScheduleOverview({ plan, onSelect }: { plan: PlanVersion; onSelect: (id: string) => void }) {
+export function ScheduleOverview({
+  plan,
+  onSelect,
+  regionName,
+}: {
+  plan: PlanVersion;
+  onSelect: (id: string) => void;
+  regionName?: (regionId: string) => string;
+}) {
   return (
     <section className="schedule-overview">
       <h2>전체 일정</h2>
@@ -215,6 +223,19 @@ export function ScheduleOverview({ plan, onSelect }: { plan: PlanVersion; onSele
                 <button onClick={() => onSelect(day.dayId)}>{day.cityText || day.title}</button>
               </h3>
               <p>{day.title}</p>
+              {regionName && (day.regionIds.length || plan.legs.some((leg) => leg.dayId === day.dayId)) ? (
+                <p className="muted">
+                  {[
+                    day.regionIds.length ? `지역 ${day.regionIds.map(regionName).join(', ')}` : '',
+                    day.overnightRegionId ? `숙박 지역 ${regionName(day.overnightRegionId)}` : '',
+                    plan.legs.some((leg) => leg.dayId === day.dayId)
+                      ? `이동 ${plan.legs.filter((leg) => leg.dayId === day.dayId).length}개`
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              ) : null}
               <p className="muted">
                 {[day.durationText, day.distanceText, day.fatigueText ? `피로도 ${day.fatigueText}` : '']
                   .filter(Boolean)

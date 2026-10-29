@@ -7,7 +7,9 @@ import type { Review } from '../transfer/reimport';
 import type { ContentRevision, FieldRecord, PlanVersion, RevisionRef, TimeSpec, TripDataset } from '../contracts/v2';
 import { GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
+import { isProblem, stayRange } from '../plan/manual-stays';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
+import { LegEditor, StayEditor, type LegEditorState, type StayEditorState } from './StayLegEditors';
 import { DayDetails } from './DayDetails';
 import {
   clockLabel,
@@ -68,7 +70,9 @@ export function ContentApp() {
     [busy, setBusy] = useState(false),
     [sample, setSample] = useState(false),
     [newTrip, setNewTrip] = useState(false),
-    [authoring, setAuthoring] = useState<'region' | 'place' | null>(null);
+    [authoring, setAuthoring] = useState<'region' | 'place' | null>(null),
+    [stayEditor, setStayEditor] = useState<StayEditorState | null>(null),
+    [legEditor, setLegEditor] = useState<LegEditorState | null>(null);
   const [backTrail, setBackTrail] = useState<{ tab: Tab; target: Target | null; context?: RevisionRef[] }[]>([]);
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof readPackage>> | null>(null),
     [review, setReview] = useState<Review | null>(null),
@@ -155,6 +159,10 @@ export function ContentApp() {
     context = recordContext ?? (historical ? plan?.contextRefs : undefined);
   const dayItems =
     plan?.items.filter((item) => item.dayId === activeDay?.dayId).toSorted((a, b) => a.order - b.order) ?? [];
+  const regionName = (regionId: string) => {
+    const region = catalog.find((c) => c.kind === 'region' && c.entityId === regionId);
+    return region?.kind === 'region' ? region.payload.name : regionId;
+  };
   function openTab(next: Tab) {
     setTab(next);
     setTarget(null);
@@ -438,7 +446,9 @@ export function ContentApp() {
               </details>
             </details>
             {historical ? <p className="notice">과거 계획 · 당시 콘텐츠를 고정해 조회합니다.</p> : null}
-            {tab === '전체 일정' && plan ? <ScheduleOverview plan={plan} onSelect={openDay} /> : null}
+            {tab === '전체 일정' && plan ? (
+              <ScheduleOverview plan={plan} onSelect={openDay} regionName={regionName} />
+            ) : null}
             {tab === '일정' && plan ? (
               <section className="day-page">
                 <DayStrip plan={plan} dayId={activeDay?.dayId} onSelect={openDay} />
@@ -561,6 +571,19 @@ export function ContentApp() {
                           메모
                         </button>
                       </div>
+                      {plan.legs.some(
+                        (leg) => leg.fromActivityId === i.activityId || leg.toActivityId === i.activityId,
+                      ) ? (
+                        <p className="muted">
+                          연결된 이동{' '}
+                          {
+                            plan.legs.filter(
+                              (leg) => leg.fromActivityId === i.activityId || leg.toActivityId === i.activityId,
+                            ).length
+                          }
+                          개 — 이 활동을 제거하거나 다른 날로 옮기면 함께 제거됩니다.
+                        </p>
+                      ) : null}
                       <SavedNotes
                         notes={notesForTarget(records, {
                           tripId: header.tripId,
@@ -602,6 +625,65 @@ export function ContentApp() {
                       숙박: {s.baseText} · {timeLabel(s.time.start)}
                     </p>
                   ))}
+                {activeDay ? (
+                  <section className="stay-leg-editing" aria-label="지역·숙박·이동">
+                    <h3 className="editorial-heading">지역·숙박·이동</h3>
+                    <p className="muted">
+                      하루 지역 {activeDay.regionIds.map((id) => regionName(id)).join(', ') || '없음'} · 밤을 보내는
+                      지역 {activeDay.overnightRegionId ? regionName(activeDay.overnightRegionId) : '없음'}
+                    </p>
+                    <div className="button-row">
+                      <button
+                        disabled={historical}
+                        onClick={() => setStayEditor({ header: { ...header }, plan, date: activeDay.date })}
+                      >
+                        숙박 추가
+                      </button>
+                      <button
+                        disabled={historical || dayItems.length < 2}
+                        onClick={() => setLegEditor({ header: { ...header }, plan, dayId: activeDay.dayId })}
+                      >
+                        이동 추가
+                      </button>
+                    </div>
+                    {plan.stays
+                      .filter((stay) => {
+                        const range = stayRange(stay);
+                        return !isProblem(range) && range.checkin <= activeDay.date && activeDay.date <= range.checkout;
+                      })
+                      .map((stay) => (
+                        <p key={stay.stayId} className="content-row">
+                          {stay.baseText} · {stay.time.start.date} ~ {stay.time.end?.date}
+                          {stay.regionId ? ` · ${regionName(stay.regionId)}` : ''}{' '}
+                          <button
+                            aria-label={`${stay.baseText} 수정`}
+                            disabled={historical}
+                            onClick={() => setStayEditor({ header: { ...header }, plan, stay })}
+                          >
+                            수정
+                          </button>
+                        </p>
+                      ))}
+                    {plan.legs
+                      .filter((leg) => leg.dayId === activeDay.dayId)
+                      .map((leg) => {
+                        const label = `${plan.items.find((item) => item.activityId === leg.fromActivityId)?.title} → ${plan.items.find((item) => item.activityId === leg.toActivityId)?.title}`;
+                        return (
+                          <p key={leg.legId} className="content-row">
+                            이동 {label} · {leg.mode}
+                            {leg.durationText ? ` · ${leg.durationText}` : ''}{' '}
+                            <button
+                              aria-label={`이동 ${label} 수정`}
+                              disabled={historical}
+                              onClick={() => setLegEditor({ header: { ...header }, plan, dayId: activeDay.dayId, leg })}
+                            >
+                              수정
+                            </button>
+                          </p>
+                        );
+                      })}
+                  </section>
+                ) : null}
               </section>
             ) : null}
             {tab === '장소·지역' ? (
@@ -1013,6 +1095,29 @@ export function ContentApp() {
           }}
         />
       ) : null}
+      {stayEditor ? (
+        <StayEditor
+          repo={repo}
+          editor={stayEditor}
+          regions={catalog.filter((c): c is Extract<ContentRevision, { kind: 'region' }> => c.kind === 'region')}
+          onClose={() => setStayEditor(null)}
+          onSaved={(message) => {
+            setStayEditor(null);
+            setNotice(message);
+          }}
+        />
+      ) : null}
+      {legEditor ? (
+        <LegEditor
+          repo={repo}
+          editor={legEditor}
+          onClose={() => setLegEditor(null)}
+          onSaved={(message) => {
+            setLegEditor(null);
+            setNotice(message);
+          }}
+        />
+      ) : null}
       {planEditor ? (
         <PlanEditor
           repo={repo}
@@ -1171,6 +1276,11 @@ function PlanEditor({
     [time, setTime] = useState<TimeSpec>(editor.item?.time.start ?? { precision: 'unspecified' }),
     [placeId, setPlaceId] = useState(editor.item?.placeLinks[0]?.placeId ?? ''),
     [error, setError] = useState('');
+  const connectedLegs = editor.item
+    ? editor.plan.legs.filter(
+        (leg) => leg.fromActivityId === editor.item!.activityId || leg.toActivityId === editor.item!.activityId,
+      ).length
+    : 0;
   return (
     <Modal title={editor.item ? '일정 수정' : '활동 추가'} onClose={onClose}>
       <form
@@ -1245,6 +1355,9 @@ function PlanEditor({
             ))}
           </select>
         </label>
+        {editor.item && editor.item.dayId !== day && connectedLegs > 0 ? (
+          <p className="notice">날짜를 바꾸면 이 활동에 연결된 이동 {connectedLegs}개가 함께 제거됩니다.</p>
+        ) : null}
         <label>
           계획 날짜
           <select value={day} onChange={(e) => setDay(e.target.value)}>
