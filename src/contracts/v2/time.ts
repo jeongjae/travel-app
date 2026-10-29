@@ -93,3 +93,33 @@ export const timeRangeSchema = z
       ctx.addIssue({ code: 'custom', path: ['end'], message: '종료가 시작보다 이릅니다.' });
     }
   });
+
+const wallClock = (spec: TimeSpec) =>
+  spec.precision === 'local' || spec.precision === 'instant'
+    ? Temporal.PlainDateTime.from(`${spec.date}T${spec.localTime}`)
+    : undefined;
+const zoneKey = (spec: TimeSpec) =>
+  spec.precision === 'local' ? (spec.timeZone ?? 'unknown') : spec.precision === 'instant' ? spec.timeZone : undefined;
+
+/**
+ * 새 쓰기에서만 쓰는 시작/종료 비교. 같은 시간대(또는 둘 다 미확인)로 읽을 수 있는 쪽끼리만 비교하고
+ * 서로 다른 시간대는 변환하지 않는다. 이미 저장된 자료를 읽을 때는 호출하지 않는다.
+ */
+export function timeRangeReversal(range: { start: TimeSpec; end?: TimeSpec }): string | undefined {
+  const { start, end } = range;
+  if (!end) {
+    return undefined;
+  }
+  const startWall = wallClock(start);
+  const endWall = wallClock(end);
+  if (startWall && endWall) {
+    if (zoneKey(start) !== zoneKey(end)) {
+      return undefined;
+    }
+    return Temporal.PlainDateTime.compare(endWall, startWall) < 0 ? '종료가 시작보다 이릅니다.' : undefined;
+  }
+  if (start.date && end.date && end.date < start.date) {
+    return '종료 날짜가 시작 날짜보다 이릅니다.';
+  }
+  return undefined;
+}

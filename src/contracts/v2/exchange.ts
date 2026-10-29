@@ -21,6 +21,7 @@ import {
   tripHeaderSchema,
 } from './planning.ts';
 import { canonicalJson, digestBytes, parseStrictJson } from './json.ts';
+import { timeRangeReversal } from './time.ts';
 
 const packageInput = z.strictObject({ packageId: id, packageDigest: sha256 });
 const update = { expectedDomainRevision: uint };
@@ -141,6 +142,11 @@ export function validateCommand(raw: unknown): Command {
       return;
     }
     const obj = v as Record<string, unknown>;
+    // 가져온 원천의 시간 범위가 든 다른 명령(예약 상태 등)은 막지 않고, 계획 편집만 새 규칙으로 검사한다.
+    if (c.kind === 'ChangePlan' && obj.time && typeof obj.time === 'object' && 'start' in obj.time) {
+      const reversed = timeRangeReversal(obj.time as Parameters<typeof timeRangeReversal>[0]);
+      ensure(!reversed, 'command.time', reversed ?? '', 'INVALID_INPUT');
+    }
     if ('tripId' in obj) {
       ensure(obj.tripId === c.tripId, 'command.payload.tripId', '다른 여행의 입력입니다.', 'BROKEN_REFERENCE');
     }

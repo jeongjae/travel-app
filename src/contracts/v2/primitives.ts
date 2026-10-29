@@ -39,6 +39,8 @@ export const timeZone = z.string().refine((value) => {
     return false;
   }
 }, '확인된 IANA 시간대가 필요합니다.');
+/** 새 입력과 화면이 공용 스키마와 같은 기준으로 시간대 이름을 판정한다. */
+export const isKnownTimeZone = (value: string) => timeZone.safeParse(value).success;
 export const webUrl = z.string().refine((value) => {
   try {
     const url = new URL(value);
