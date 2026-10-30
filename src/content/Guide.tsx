@@ -7,6 +7,9 @@ import type { ContentRevision, RevisionRef, TripDataset } from '../contracts/v2'
 import { command, ErrorText, Modal, errorText } from './ui';
 import { literalHtml } from './markdown';
 import { PhraseContext } from './PhraseContext';
+import { GuideAuthoring } from './GuideAuthoring';
+import { GuideTitleEditor, PlaceInfoEditor, RegionInfoEditor } from './InfoEditors';
+import { isEditableGuide } from './guide-rules';
 
 export function AssetImage({
   repo,
@@ -149,6 +152,7 @@ export function GuideDetail({
   header,
   target,
   context,
+  regions,
   onNavigate,
   onSaved,
 }: {
@@ -156,8 +160,9 @@ export function GuideDetail({
   header: TripDataset['header'];
   target: { kind: ContentRevision['kind']; id: string };
   context?: RevisionRef[];
+  regions: Extract<ContentRevision, { kind: 'region' }>[];
   onNavigate: (kind: ContentRevision['kind'], id: string) => void;
-  onSaved: () => void;
+  onSaved: (message?: string) => void;
 }) {
   const owner = useLiveQuery(
     () =>
@@ -194,6 +199,7 @@ export function GuideDetail({
     section: Extract<ContentRevision, { kind: 'guide' }>['payload']['sections'][number];
     expected: number;
   } | null>(null);
+  const [dialog, setDialog] = useState<'info' | 'title' | 'new-guide' | null>(null);
   const linkedGuides = useLiveQuery(
     async () => {
       const candidates =
@@ -252,6 +258,17 @@ export function GuideDetail({
             : owner.entityId}
       </h2>
       <p className="muted">{context ? '당시 고정 내용' : '현재 내용'}</p>
+      {!context && (owner.kind === 'place' || owner.kind === 'region') ? (
+        <div className="button-row">
+          <button onClick={() => setDialog('info')}>기본정보 수정</button>
+          {owner.kind === 'region' ? <button onClick={() => setDialog('new-guide')}>지역 가이드 작성</button> : null}
+        </div>
+      ) : null}
+      {!context && owner.kind === 'guide' && isEditableGuide(owner) ? (
+        <div className="button-row">
+          <button onClick={() => setDialog('title')}>가이드 제목 수정</button>
+        </div>
+      ) : null}
       {owner.kind === 'place' ? (
         <>
           <p>{owner.payload.summary}</p>
@@ -299,6 +316,14 @@ export function GuideDetail({
       ) : null}
       {guide?.kind === 'guide' ? (
         <>
+          {owner.kind === 'region' ? (
+            <div className="section-heading">
+              <h3 className="guide-title">{guide.payload.title}</h3>
+              {!context && isEditableGuide(guide) ? (
+                <button onClick={() => setDialog('title')}>가이드 제목 수정</button>
+              ) : null}
+            </div>
+          ) : null}
           <nav className="guide-toc" aria-label="본문 목차">
             {guide.payload.sections
               .toSorted((a, b) => a.order - b.order)
@@ -323,7 +348,7 @@ export function GuideDetail({
                   <h3 id={`guide-section-${guide.entityId}-${s.key}`} tabIndex={-1}>
                     {s.title}
                   </h3>
-                  {!context && guide.payload.documentKind === 'place-guide' ? (
+                  {!context && isEditableGuide(guide) ? (
                     <button onClick={() => setEditor({ guide, section: s, expected: header.domainRevision })}>
                       {s.title} 편집
                     </button>
@@ -361,6 +386,56 @@ export function GuideDetail({
       ) : (
         <p>연결된 본문이 없습니다.</p>
       )}
+      {dialog === 'info' && owner.kind === 'region' ? (
+        <RegionInfoEditor
+          repo={repo}
+          header={header}
+          region={owner}
+          onClose={() => setDialog(null)}
+          onSaved={() => {
+            setDialog(null);
+            onSaved('지역 기본정보를 저장했습니다.');
+          }}
+        />
+      ) : null}
+      {dialog === 'info' && owner.kind === 'place' ? (
+        <PlaceInfoEditor
+          repo={repo}
+          header={header}
+          place={owner}
+          regions={regions}
+          onClose={() => setDialog(null)}
+          onSaved={() => {
+            setDialog(null);
+            onSaved('장소 기본정보를 저장했습니다.');
+          }}
+        />
+      ) : null}
+      {dialog === 'title' && (owner.kind === 'guide' || guide?.kind === 'guide') ? (
+        <GuideTitleEditor
+          repo={repo}
+          header={header}
+          guide={owner.kind === 'guide' ? owner : (guide as Extract<ContentRevision, { kind: 'guide' }>)}
+          onClose={() => setDialog(null)}
+          onSaved={() => {
+            setDialog(null);
+            onSaved('가이드 제목을 저장했습니다.');
+          }}
+        />
+      ) : null}
+      {dialog === 'new-guide' && owner.kind === 'region' ? (
+        <GuideAuthoring
+          repo={repo}
+          header={header}
+          region={owner}
+          onClose={() => setDialog(null)}
+          onSaved={(guideId) => {
+            setDialog(null);
+            onSaved('지역 가이드를 저장했습니다.');
+            onNavigate('guide', guideId);
+          }}
+        />
+      ) : null}
       {editor ? (
         <SectionEditor
           repo={repo}
@@ -490,6 +565,7 @@ function SectionEditor({
   onNavigate: (kind: ContentRevision['kind'], id: string) => void;
 }) {
   const [body, setBody] = useState(editor.section.bodyMd),
+    [sectionTitle, setSectionTitle] = useState(editor.section.title),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   return (
@@ -505,7 +581,7 @@ function SectionEditor({
                 'EditContentSection',
                 {
                   target: { targetKind: 'guide', entityId: editor.guide.entityId, revisionId: editor.guide.revisionId },
-                  section: { ...editor.section, bodyMd: body },
+                  section: { ...editor.section, title: sectionTitle.trim() || editor.section.title, bodyMd: body },
                 },
                 editor.expected,
               ),
@@ -518,6 +594,10 @@ function SectionEditor({
           }
         }}
       >
+        <label>
+          섹션 제목
+          <input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} />
+        </label>
         <label>
           본문 Markdown
           <textarea rows={10} value={body} onChange={(e) => setBody(e.target.value)} />

@@ -65,3 +65,26 @@ export function ErrorText({ error }: { error: string }) {
   ) : null;
 }
 export const errorText = (e: unknown) => (e instanceof Error ? e.message : '작업을 완료하지 못했습니다.');
+
+type Request = ReturnType<typeof command>;
+export type RequestAttempt = { key: string; request: Request } | undefined;
+/**
+ * 같은 입력의 재시도는 같은 요청 ID를 다시 보내 저장소가 replay로 처리하게 한다(중복 revision·가이드 방지).
+ * 입력이 바뀌면 새 요청 ID를 만든다. 호출하는 쪽은 payload 안의 새 ID도 폼을 연 시점에 한 번만 만들어야 한다.
+ */
+export function reuseRequest(
+  attempt: { current: RequestAttempt },
+  tripId: string,
+  kind: string,
+  payload: unknown,
+  expectedDomainRevision: number,
+): Request {
+  const key = JSON.stringify([kind, payload, expectedDomainRevision]);
+  const existing = attempt.current;
+  if (existing?.key === key) {
+    return existing.request;
+  }
+  const request = command(tripId, kind, payload, expectedDomainRevision);
+  attempt.current = { key, request };
+  return request;
+}

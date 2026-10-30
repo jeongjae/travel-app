@@ -9,6 +9,8 @@ import { GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
 import { isProblem, stayRange } from '../plan/manual-stays';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
+import { GuideAuthoring } from './GuideAuthoring';
+import { isReadingGuide } from './guide-rules';
 import { LegEditor, StayEditor, type LegEditorState, type StayEditorState } from './StayLegEditors';
 import { DayDetails } from './DayDetails';
 import {
@@ -44,16 +46,6 @@ const tabs = [
   '가져오기 기록',
 ] as const;
 type Tab = (typeof tabs)[number];
-function isReadingGuide(content: ContentRevision) {
-  return (
-    content.kind === 'guide' &&
-    content.payload.documentKind !== 'place-guide' &&
-    (content.payload.documentKind !== 'preparation' ||
-      content.entityId.startsWith('source-common-prose-') ||
-      content.entityId.startsWith('source-document-') ||
-      content.payload.sections.some((section) => section.assetRefs.length > 0))
-  );
-}
 export function ContentApp() {
   const [recovery, setRecovery] = useState(false);
   const [ready, setReady] = useState(false),
@@ -70,7 +62,7 @@ export function ContentApp() {
     [busy, setBusy] = useState(false),
     [sample, setSample] = useState(false),
     [newTrip, setNewTrip] = useState(false),
-    [authoring, setAuthoring] = useState<'region' | 'place' | null>(null),
+    [authoring, setAuthoring] = useState<'region' | 'place' | 'guide' | null>(null),
     [stayEditor, setStayEditor] = useState<StayEditorState | null>(null),
     [legEditor, setLegEditor] = useState<LegEditorState | null>(null);
   const [backTrail, setBackTrail] = useState<{ tab: Tab; target: Target | null; context?: RevisionRef[] }[]>([]);
@@ -706,8 +698,11 @@ export function ContentApp() {
                     header={header}
                     target={target}
                     context={context}
+                    regions={catalog.filter(
+                      (c): c is Extract<ContentRevision, { kind: 'region' }> => c.kind === 'region',
+                    )}
                     onNavigate={navigate}
-                    onSaved={() => setNotice('본문을 저장했습니다.')}
+                    onSaved={(message) => setNotice(message ?? '본문을 저장했습니다.')}
                   />
                 </>
               ) : (
@@ -837,6 +832,11 @@ export function ContentApp() {
             {tab === '준비·회화' ? (
               <section>
                 <h2>준비·회화</h2>
+                <div className="button-row">
+                  <button disabled={historical} onClick={() => setAuthoring('guide')}>
+                    여행 가이드 작성
+                  </button>
+                </div>
                 <nav className="button-row preparation-links" aria-label="여행 자료">
                   {guides.filter(isReadingGuide).map((content) => (
                     <button key={content.entityId} onClick={() => navigate('guide', content.entityId)}>
@@ -1096,6 +1096,18 @@ export function ContentApp() {
             setAuthoring(null);
             setNotice('장소와 설명을 저장했습니다.');
             navigate('place', placeId);
+          }}
+        />
+      ) : null}
+      {authoring === 'guide' && header ? (
+        <GuideAuthoring
+          repo={repo}
+          header={{ ...header }}
+          onClose={() => setAuthoring(null)}
+          onSaved={(guideId) => {
+            setAuthoring(null);
+            setNotice('여행 가이드를 저장했습니다.');
+            navigate('guide', guideId);
           }}
         />
       ) : null}
