@@ -40,9 +40,13 @@ export async function dump(page: Page, review: string): Promise<Dump> {
       }
     }
     db.close();
+    const assets: Dump['assets'] = [];
+    if (!blobs.length) {
+      // 첨부가 없는 공간에는 OPFS 첨부 폴더도 아직 없다.
+      return { tables, assets };
+    }
     const origin = await navigator.storage.getDirectory();
     const root = await origin.getDirectoryHandle('travel-app-assets-v1');
-    const assets = [];
     for (const row of blobs as {
       tripId: string;
       sha256: string;
