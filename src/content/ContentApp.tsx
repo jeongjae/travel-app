@@ -24,6 +24,8 @@ import {
   ScheduleOverview,
 } from './Journey';
 import { reviewWorkspace, workspaceUrl } from '../storage/workspace-name';
+import { Retrospective } from './Retrospective';
+import { retrospectiveDates, UNKNOWN_DATE } from './retro-rules';
 import { ActualEditor, ActualTimeline, TimeEditor, type RecordDraft, type RecordEditor } from './Field';
 import { notesForTarget, SavedNotes } from './Notes';
 import { ProposalPanel, ReimportReview } from './Workflows';
@@ -71,6 +73,9 @@ export function ContentApp() {
     [legacy, setLegacy] = useState<Awaited<ReturnType<ContentRepository['prepareLegacy']>> | null>(null),
     [actualEditor, setActualEditor] = useState<RecordEditor | null>(null),
     [placeDraft, setPlaceDraft] = useState<RecordDraft | null>(null),
+    [retroOpen, setRetroOpen] = useState(false),
+    [retroDate, setRetroDate] = useState(''),
+    [retroPlanId, setRetroPlanId] = useState(''),
     [planEditor, setPlanEditor] = useState<{
       header: TripDataset['header'];
       plan: PlanVersion;
@@ -150,6 +155,11 @@ export function ContentApp() {
       [tripId, tab],
       [],
     );
+  // 회고는 저장소를 읽기만 한다. 회고를 열었을 때만 전체 여행 데이터를 읽는다.
+  const retroTrip = useLiveQuery(
+    () => (tripId && tab === '실제 기록' && retroOpen ? repo.get(tripId) : undefined),
+    [tripId, tab, retroOpen, records, history],
+  );
   // 기록에 연결한 장소 이름은 기록 당시 고정한 revision에서 읽는다(현재 이름과 다를 수 있다).
   const recordedPlaces = useLiveQuery(
     async () => {
@@ -179,11 +189,23 @@ export function ContentApp() {
     const region = catalog.find((c) => c.kind === 'region' && c.entityId === regionId);
     return region?.kind === 'region' ? region.payload.name : regionId;
   };
+  /** 선택한 회고 날짜. 목록에 없으면(다른 여행 등) 실제 기록이 있는 첫 날짜, 없으면 여행 시작일. */
+  function retroDateFor(trip: NonNullable<typeof retroTrip>) {
+    const { dates, hasUnknown } = retrospectiveDates(trip);
+    if (retroDate === UNKNOWN_DATE ? hasUnknown : dates.includes(retroDate)) {
+      return retroDate;
+    }
+    const withRecords = trip.records.flatMap((r) =>
+      r.kind === 'actual' && r.payload.time.start.date ? [r.payload.time.start.date] : [],
+    );
+    return withRecords.toSorted()[0] ?? dates[0] ?? trip.header.startDate;
+  }
   function openTab(next: Tab) {
     setTab(next);
     setTarget(null);
     setRecordContext(undefined);
     setBackTrail([]);
+    setRetroOpen(false);
     window.scrollTo(0, 0);
   }
   function openDay(id: string) {
@@ -233,6 +255,9 @@ export function ContentApp() {
     setTarget(null);
     setRecordContext(undefined);
     setPlanId('');
+    setRetroOpen(false);
+    setRetroDate('');
+    setRetroPlanId('');
     setDayId('');
     setSearch('');
     setTab('일정');
@@ -926,24 +951,54 @@ export function ContentApp() {
             ) : null}
             {tab === '실제 기록' ? (
               <section>
-                <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
-                <button
-                  onClick={() =>
-                    setNoteTarget({
-                      header: { ...header },
-                      label: header.name,
-                      ref: { tripId: header.tripId, targetKind: 'trip', entityId: header.tripId },
-                    })
-                  }
-                >
-                  여행 메모 쓰기
-                </button>
-                <ActualTimeline
-                  records={records}
-                  placeNames={recordedPlaces}
-                  onCorrect={(r) => void record(r.payload.outcome, undefined, r)}
-                  onContext={(r) => void openRecordedPlace(r)}
-                />
+                {retroOpen ? (
+                  <>
+                    <button onClick={() => setRetroOpen(false)}>실제 기록 목록으로</button>
+                    {retroTrip && retroTrip.header.tripId === header.tripId ? (
+                      <Retrospective
+                        repo={repo}
+                        trip={retroTrip}
+                        date={retroDateFor(retroTrip)}
+                        planVersionId={retroPlanId}
+                        onDate={setRetroDate}
+                        onPlanVersion={setRetroPlanId}
+                        onOpenPlace={(r) => void openRecordedPlace(r)}
+                        onOpenPlanPlace={(placeId, refs) => {
+                          setRecordContext(refs);
+                          navigate('place', placeId);
+                        }}
+                        onOpenEvidence={(ref) => {
+                          setRecordContext([ref]);
+                          navigate('evidence', ref.entityId);
+                        }}
+                      />
+                    ) : (
+                      <p>회고를 읽는 중입니다.</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => setRetroOpen(true)}>날짜별 회고 보기</button>
+                    <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
+                    <button
+                      onClick={() =>
+                        setNoteTarget({
+                          header: { ...header },
+                          label: header.name,
+                          ref: { tripId: header.tripId, targetKind: 'trip', entityId: header.tripId },
+                        })
+                      }
+                    >
+                      여행 메모 쓰기
+                    </button>
+                    <ActualTimeline
+                      records={records}
+                      placeNames={recordedPlaces}
+                      onCorrect={(r) => void record(r.payload.outcome, undefined, r)}
+                      onContext={(r) => void openRecordedPlace(r)}
+                    />
+                  </>
+                )}
               </section>
             ) : null}
             {tab === '변경안' && plan ? (
