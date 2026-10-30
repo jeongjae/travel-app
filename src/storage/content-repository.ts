@@ -33,6 +33,7 @@ import {
 import * as recovery from './recovery';
 import { applyContentBatch } from './content-batch';
 import { guardContentUpdate } from './content-update';
+import { guardActualRecord } from './field-guard';
 import { dayRegionsFromStays, isProblem, stayRange, type StayRange } from '../plan/manual-stays';
 import { prepareAssetRecord, readAssetRecord, discardPreparedFiles, type AssetRecord } from './asset-files.ts';
 
@@ -1009,6 +1010,12 @@ export class ContentRepository {
             'CONFLICT',
             '정정 대상이 이미 변경되었습니다.',
           );
+        }
+        if (row.kind === 'actual') {
+          const previous = t.records.find((r) => r.recordId === row.supersedes);
+          guardActualRecord(t, row, previous?.kind === 'actual' ? previous : undefined, (code, message) => {
+            throw new RepositoryError(code, message);
+          });
         }
         t.records.push(row);
         refs.push({ kind: 'record', id: row.recordId });
