@@ -4,7 +4,7 @@
 
 ## 진행 중인 작업
 
-- [C-04〔T-C5〕지시서](claude-task-c04-field-records.md): 예정 외 활동 장소 선택·추가식 정정·당시 맥락/오프라인/복원 보강, Sonnet 전달 준비.
+- [C-04〔T-C5〕결과](claude-task-c04-result.md)·[독립 검토](claude-task-c04-review.md): 22검사·빌드·UI 12개 통과, 사용자 검토 준비. 다음 C-05〔T-C6〕.
 - [C-03〔T-C4〕결과](claude-task-c03-result.md)·[독립 검토](claude-task-c03-review.md): 40검사·빌드·UI 10개 통과, 사용자 검토 준비. 다음 C-04〔T-C5〕.
 - [C-02〔T-C3.2〕결과](claude-task-c02-result.md)·[독립 검토](claude-task-c02-review.md): 38검사·빌드·UI 8개 통과, DST 경계는 CL-08 후속. 다음 C-03〔T-C4〕.
 - [C-01 결과](claude-task-c01-result.md)·[독립 검토](claude-task-c01-review.md): 소유 연결 R1 포함 독립 검토 통과, 사용자 검토 준비. 다음은 T-C3.2 숙박·이동 편집.
