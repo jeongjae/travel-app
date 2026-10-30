@@ -5,7 +5,7 @@
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
-- [D 설계](phase-d-design.md)·[D 계획](phase-d-plan.md): 문서 제안·검토 준비. 구현/유료 호출/배포 미착수.
+- [D 설계](phase-d-design.md)·[D 계획](phase-d-plan.md): 초안 v0.2 — 10/30 [벤치마킹](design/여행계획앱%20벤치마킹%20Triple%20vs%20Wanderlog.md) 반영(BM-1~8, U-D5 추가). 사용자 검토 대기. 구현/유료 호출/배포 미착수.
 - [T-04](claude-task-04-review.md) `64a84e4`: 지역/야간 숙박 분리 대상 통과. 새 사본 사용자 DB·iPhone 미적용.
 - [T-05 R2 결과](claude-task-05-r2-result.md) `568b745`·[독립 검토](claude-task-05-review.md): 구 기준 호환·추가 필드 검증·계획 UI 검토 통과. 추가 수정 지시 없음.
 - [C-05 검토](claude-task-c05-review.md): 회고 주요 검토 통과. 표시 CL-14 후속·근거 본문 UI는 T-C7에 남김. 사용자 검토 준비.
