@@ -1,74 +1,100 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Temporal } from '@js-temporal/polyfill';
 import type { ContentRepository } from '../repository';
 import {
   timeSpecSchema,
+  type ContentRevision,
   type FieldRecord,
   type PlanVersion,
   type RevisionRef,
   type TimeSpec,
   type TripDataset,
 } from '../contracts/v2';
-import { command, errorText, ErrorText, Modal, timeLabel } from './ui';
+import { actualPayload, correctionLinks, type ChainLink } from './field-rules';
+import { errorText, ErrorText, Modal, reuseRequest, timeLabel, type RequestAttempt } from './ui';
 export type RecordEditor = {
   header: TripDataset['header'];
   plan?: PlanVersion;
   item?: PlanVersion['items'][number];
   original?: Extract<FieldRecord, { kind: 'actual' }>;
   outcome: 'visited' | 'skipped' | 'unplanned';
+  /** 새 기록은 계획 항목 또는 현재 맥락, 정정은 원본의 당시 맥락. */
   context: RevisionRef[];
+  /** 폼을 연 시점의 현재 맥락. 정정에서 장소를 바꿀 때만 쓴다. */
+  current: RevisionRef[];
+  /** 새 장소를 먼저 저장하고 돌아올 때 이어서 쓰는 입력. */
+  draft?: RecordDraft;
 };
+export type RecordDraft = {
+  title: string;
+  note: string;
+  outcome: RecordEditor['outcome'];
+  time: TimeSpec;
+  placeId: string;
+};
+type Place = Extract<ContentRevision, { kind: 'place' }>;
 export function ActualEditor({
   repo,
   editor,
+  places,
   onClose,
   onSaved,
+  onNewPlace,
 }: {
   repo: ContentRepository;
   editor: RecordEditor;
+  /** 이 여행의 활성 장소. 기존에 연결된 비활성 장소는 목록에 없어도 유지된다. */
+  places: Place[];
   onClose: () => void;
   onSaved: () => void;
+  onNewPlace: (draft: RecordDraft) => void;
 }) {
   const original = editor.original;
-  const [title, setTitle] = useState(original?.payload.title ?? editor.item?.title ?? ''),
-    [note, setNote] = useState(original?.payload.note ?? ''),
-    [outcome, setOutcome] = useState(editor.outcome),
-    [time, setTime] = useState<TimeSpec>(original?.payload.time.start ?? { precision: 'unspecified' }),
+  const linkedToPlan = Boolean(editor.item || original?.payload.activityId);
+  const [recordId] = useState(() => crypto.randomUUID()),
+    attempt = useRef<RequestAttempt>(undefined),
+    [title, setTitle] = useState(editor.draft?.title ?? original?.payload.title ?? editor.item?.title ?? ''),
+    [note, setNote] = useState(editor.draft?.note ?? original?.payload.note ?? ''),
+    [outcome, setOutcome] = useState(editor.draft?.outcome ?? editor.outcome),
+    [time, setTime] = useState<TimeSpec>(
+      editor.draft?.time ?? original?.payload.time.start ?? { precision: 'unspecified' },
+    ),
+    [placeId, setPlaceId] = useState(editor.draft?.placeId ?? original?.payload.placeRef?.entityId ?? ''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
+  const originalPlaceId = original?.payload.placeRef?.entityId;
+  const inactivePlace = originalPlaceId && !places.some((place) => place.entityId === originalPlaceId);
   return (
     <Modal title={original ? '실제 기록 정정' : '실제 활동 기록'} onClose={onClose}>
       <form
+        aria-busy={busy}
         onSubmit={async (e) => {
           e.preventDefault();
+          if (busy) {
+            return;
+          }
           setBusy(true);
           try {
+            const payload = actualPayload(
+              original,
+              { title, outcome, note, start: timeSpecSchema.parse(time), placeId, tripId: editor.header.tripId },
+              editor.context,
+              editor.current,
+              editor.item && editor.plan
+                ? { planVersionId: editor.plan.planVersionId, activityId: editor.item.activityId }
+                : undefined,
+            );
             const record = {
               tripId: editor.header.tripId,
-              recordId: crypto.randomUUID(),
+              recordId,
               kind: 'actual',
-              sourceRefs: [],
+              sourceRefs: original?.sourceRefs ?? [],
               ...(original ? { supersedes: original.recordId } : {}),
-              payload: {
-                title,
-                targetSummary: original?.payload.targetSummary ?? editor.item?.title ?? title,
-                outcome,
-                time: { start: timeSpecSchema.parse(time) },
-                note,
-                contextRefs: editor.context,
-                ...(original?.payload.planVersionId
-                  ? {
-                      planVersionId: original.payload.planVersionId,
-                      ...(original.payload.activityId ? { activityId: original.payload.activityId } : {}),
-                    }
-                  : editor.item && editor.plan
-                    ? { planVersionId: editor.plan.planVersionId, activityId: editor.item.activityId }
-                    : {}),
-                ...(original?.payload.placeRef ? { placeRef: original.payload.placeRef } : {}),
-              },
+              payload,
             };
             await repo.execute(
-              command(
+              reuseRequest(
+                attempt,
                 editor.header.tripId,
                 original ? 'CorrectActual' : 'RecordActual',
                 original ? { supersedes: original.recordId, record } : { record },
@@ -95,12 +121,43 @@ export function ActualEditor({
             <option value="unplanned">예정 외 활동</option>
           </select>
         </label>
+        {linkedToPlan ? null : (
+          <fieldset>
+            <legend>장소 (선택)</legend>
+            <label>
+              기록할 장소
+              <select value={placeId} onChange={(e) => setPlaceId(e.target.value)}>
+                <option value="">장소 없음</option>
+                {inactivePlace ? <option value={originalPlaceId}>연결된 장소 (현재 비활성)</option> : null}
+                {places.map((place) => (
+                  <option key={place.entityId} value={place.entityId}>
+                    {place.payload.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {original ? null : (
+              <p className="muted">
+                목록에 없으면 장소를 먼저 저장한 뒤 기록하세요. 장소 저장과 기록 저장은 별개이며, 기록을 저장하지 못해도
+                저장한 장소는 남습니다.
+                <button type="button" onClick={() => onNewPlace({ title, note, outcome, time, placeId })}>
+                  새 장소 먼저 저장
+                </button>
+              </p>
+            )}
+          </fieldset>
+        )}
         <TimeEditor value={time} onChange={setTime} />
         <label>
           기록 메모
           <textarea value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
         <ErrorText error={error} />
+        {original && /변경|정정 대상/.test(error) ? (
+          <p className="muted">
+            입력한 내용은 그대로 남아 있습니다. 창을 닫고 최신 실제 기록을 확인한 뒤 다시 정정하세요.
+          </p>
+        ) : null}
         <button className="primary" disabled={busy}>
           실제 기록 저장
         </button>
@@ -251,13 +308,17 @@ export function TimeEditor({ value, onChange }: { value: TimeSpec; onChange: (va
 }
 export function ActualTimeline({
   records,
+  placeNames,
   onCorrect,
   onContext,
 }: {
   records: FieldRecord[];
+  /** 기록 ID별로, 기록 당시 고정한 revision에서 읽은 장소 이름. */
+  placeNames: Map<string, string>;
   onCorrect: (record: Extract<FieldRecord, { kind: 'actual' }>) => void;
   onContext: (record: Extract<FieldRecord, { kind: 'actual' }>) => void;
 }) {
+  const links = correctionLinks(records);
   const superseded = new Set(records.flatMap((r) => (r.supersedes ? [r.supersedes] : [])));
   const actuals = records.filter((r): r is Extract<FieldRecord, { kind: 'actual' }> => r.kind === 'actual');
   const exact = actuals
@@ -298,12 +359,14 @@ export function ActualTimeline({
                       : '예정 외 활동'}{' '}
                   · {timeLabel(r.payload.time.start)}
                 </p>
+                {placeNames.has(r.recordId) ? <p>장소 · {placeNames.get(r.recordId)} (기록 당시 이름)</p> : null}
                 <p>{r.payload.note}</p>
                 {superseded.has(r.recordId) ? (
                   <p className="muted">정정된 기록 · 원본 보존</p>
                 ) : (
                   <button onClick={() => onCorrect(r)}>정정</button>
                 )}
+                <CorrectionTrail link={links.get(r.recordId)} />
                 <button onClick={() => onContext(r)}>기록 당시 내용</button>
                 <details>
                   <summary>저장 정보</summary>
@@ -328,5 +391,19 @@ export function ActualTimeline({
           <p key={r.recordId}>{r.payload.body}</p>
         ))}
     </>
+  );
+}
+
+/** 정정 체인에서 이 기록의 위치와 앞뒤 기록을 보여 준다. 정정하지 않은 기록에는 아무것도 표시하지 않는다. */
+function CorrectionTrail({ link }: { link: ChainLink | undefined }) {
+  if (!link || link.length < 2) {
+    return null;
+  }
+  return (
+    <p className="muted">
+      정정 {link.position}/{link.length}단계 · {link.after ? '이후 정정본 있음' : '최신 정정본'}
+      {link.before ? ` · 정정한 이전 기록: ${link.before.payload.title}` : ' · 원본'}
+      {link.after ? ` · 이후 기록: ${link.after.payload.title}` : ''}
+    </p>
   );
 }

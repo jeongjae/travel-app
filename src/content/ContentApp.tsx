@@ -24,7 +24,7 @@ import {
   ScheduleOverview,
 } from './Journey';
 import { reviewWorkspace, workspaceUrl } from '../storage/workspace-name';
-import { ActualEditor, ActualTimeline, TimeEditor, type RecordEditor } from './Field';
+import { ActualEditor, ActualTimeline, TimeEditor, type RecordDraft, type RecordEditor } from './Field';
 import { notesForTarget, SavedNotes } from './Notes';
 import { ProposalPanel, ReimportReview } from './Workflows';
 import { command, errorText, ErrorText, Modal, timeLabel } from './ui';
@@ -70,6 +70,7 @@ export function ContentApp() {
     [review, setReview] = useState<Review | null>(null),
     [legacy, setLegacy] = useState<Awaited<ReturnType<ContentRepository['prepareLegacy']>> | null>(null),
     [actualEditor, setActualEditor] = useState<RecordEditor | null>(null),
+    [placeDraft, setPlaceDraft] = useState<RecordDraft | null>(null),
     [planEditor, setPlanEditor] = useState<{
       header: TripDataset['header'];
       plan: PlanVersion;
@@ -131,6 +132,7 @@ export function ContentApp() {
     [tripId],
     [] as ContentRevision[],
   );
+  const activePlaces = catalog.filter((c): c is Extract<ContentRevision, { kind: 'place' }> => c.kind === 'place');
   const guides = useLiveQuery(
     () => (tripId && tab === '준비·회화' ? repo.catalog(tripId, 'guide') : []),
     [tripId, tab],
@@ -148,6 +150,26 @@ export function ContentApp() {
       [tripId, tab],
       [],
     );
+  // 기록에 연결한 장소 이름은 기록 당시 고정한 revision에서 읽는다(현재 이름과 다를 수 있다).
+  const recordedPlaces = useLiveQuery(
+    async () => {
+      const names = new Map<string, string>();
+      for (const row of records) {
+        if (row.kind !== 'actual' || !row.payload.placeRef) {
+          continue;
+        }
+        const placeId = row.payload.placeRef.entityId;
+        const pinned = row.payload.contextRefs.find((ref) => ref.targetKind === 'place' && ref.entityId === placeId);
+        const place = await repo.content(row.tripId, 'place', placeId, pinned?.revisionId);
+        if (place?.kind === 'place') {
+          names.set(row.recordId, place.payload.name);
+        }
+      }
+      return names;
+    },
+    [records],
+    new Map<string, string>(),
+  );
   const activeDay = plan?.days.find((d) => d.dayId === dayId) ?? plan?.days[0],
     historical = Boolean(planId),
     context = recordContext ?? (historical ? plan?.contextRefs : undefined);
@@ -239,21 +261,48 @@ export function ContentApp() {
     outcome: RecordEditor['outcome'],
     item?: PlanVersion['items'][number],
     original?: Extract<FieldRecord, { kind: 'actual' }>,
+    draft?: RecordDraft,
   ) {
     if (!header) {
       return;
     }
     await action(async () => {
+      // 새 장소를 방금 저장했을 수 있으므로 기준 revision과 맥락은 저장소의 최신 값을 읽는다.
+      const latest = (await repo.list()).find((row) => row.tripId === header.tripId) ?? header;
+      const current = await repo.currentContext(header.tripId);
       setActualEditor({
-        header: { ...header },
+        header: { ...latest },
         outcome,
         ...(plan ? { plan } : {}),
         ...(item ? { item } : {}),
         ...(original ? { original } : {}),
-        context:
-          original?.payload.contextRefs ?? (item && plan ? plan.contextRefs : await repo.currentContext(header.tripId)),
+        ...(draft ? { draft } : {}),
+        current,
+        context: original?.payload.contextRefs ?? (item && plan ? plan.contextRefs : current),
       });
     }, '');
+  }
+  /**
+   * 기록 당시 연결된 장소를 당시 고정 revision으로 연다. 장소는 기록에 직접 연결했거나 기록한 계획 항목이 연결한 장소만 쓴다.
+   * 맥락(contextRefs)에 우연히 들어 있는 다른 장소를 대신 열지 않는다.
+   */
+  async function openRecordedPlace(row: Extract<FieldRecord, { kind: 'actual' }>) {
+    setError('');
+    try {
+      let placeId = row.payload.placeRef?.entityId;
+      if (!placeId && row.payload.planVersionId && row.payload.activityId) {
+        const linked = await repo.plan(row.tripId, row.payload.planVersionId);
+        placeId = linked?.items.find((item) => item.activityId === row.payload.activityId)?.placeLinks[0]?.placeId;
+      }
+      if (!placeId) {
+        setNotice('이 기록에는 연결된 장소 본문이 없습니다.');
+        return;
+      }
+      setRecordContext(row.payload.contextRefs);
+      navigate('place', placeId);
+    } catch (e) {
+      setError(errorText(e));
+    }
   }
   async function toggleTask(task: Extract<ContentRevision, { kind: 'task' }>) {
     if (!header) {
@@ -688,9 +737,11 @@ export function ContentApp() {
                   <button onClick={goBack}>
                     {backTrail.at(-1)?.tab === '일정'
                       ? '일정으로 돌아가기'
-                      : backTrail.at(-1)?.target
-                        ? '이전 안내로'
-                        : '목록으로'}
+                      : backTrail.at(-1)?.tab === '실제 기록'
+                        ? '실제 기록으로 돌아가기'
+                        : backTrail.at(-1)?.target
+                          ? '이전 안내로'
+                          : '목록으로'}
                   </button>
                   <GuideDetail
                     key={`${header.tripId}-${target.kind}-${target.id}`}
@@ -889,18 +940,9 @@ export function ContentApp() {
                 </button>
                 <ActualTimeline
                   records={records}
+                  placeNames={recordedPlaces}
                   onCorrect={(r) => void record(r.payload.outcome, undefined, r)}
-                  onContext={(r) => {
-                    const place =
-                      r.payload.placeRef?.entityId ??
-                      r.payload.contextRefs.find((c) => c.targetKind === 'place')?.entityId;
-                    if (place) {
-                      setRecordContext(r.payload.contextRefs);
-                      navigate('place', place);
-                    } else {
-                      setNotice('이 기록에는 연결된 장소 본문이 없습니다.');
-                    }
-                  }}
+                  onContext={(r) => void openRecordedPlace(r)}
                 />
               </section>
             ) : null}
@@ -1067,7 +1109,13 @@ export function ContentApp() {
         <ActualEditor
           repo={repo}
           editor={actualEditor}
+          places={activePlaces}
           onClose={() => setActualEditor(null)}
+          onNewPlace={(draft) => {
+            setActualEditor(null);
+            setPlaceDraft(draft);
+            setAuthoring('place');
+          }}
           onSaved={() => {
             setActualEditor(null);
             setNotice('실제 기록을 저장했습니다.');
@@ -1091,10 +1139,23 @@ export function ContentApp() {
           repo={repo}
           header={{ ...header }}
           regions={catalog.filter((c): c is Extract<ContentRevision, { kind: 'region' }> => c.kind === 'region')}
-          onClose={() => setAuthoring(null)}
+          onClose={() => {
+            setAuthoring(null);
+            if (placeDraft) {
+              const draft = placeDraft;
+              setPlaceDraft(null);
+              void record(draft.outcome, undefined, undefined, draft);
+            }
+          }}
           onSaved={(placeId) => {
             setAuthoring(null);
             setNotice('장소와 설명을 저장했습니다.');
+            if (placeDraft) {
+              const draft = { ...placeDraft, placeId };
+              setPlaceDraft(null);
+              void record(draft.outcome, undefined, undefined, draft);
+              return;
+            }
             navigate('place', placeId);
           }}
         />
