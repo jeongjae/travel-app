@@ -76,6 +76,10 @@ function Modal({
       ref={ref}
       aria-labelledby="dialog-title"
       onCancel={(event) => {
+        // 파일 입력의 cancel 이벤트도 대화상자까지 거품처럼 올라오므로 대화상자 자신의 취소(Esc)만 처리한다.
+        if (event.target !== event.currentTarget) {
+          return;
+        }
         event.preventDefault();
         if (!busy) {
           onClose();

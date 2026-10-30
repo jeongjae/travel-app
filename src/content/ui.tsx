@@ -43,6 +43,10 @@ export function Modal({ title, children, onClose }: { title: string; children: R
     <dialog
       ref={ref}
       onCancel={(e) => {
+        // 파일 입력의 cancel 이벤트도 거품처럼 올라오므로 대화상자 자신의 취소(Esc)만 처리한다.
+        if (e.target !== e.currentTarget) {
+          return;
+        }
         e.preventDefault();
         onClose();
       }}
