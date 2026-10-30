@@ -4,7 +4,7 @@
 
 ## 진행 중인 작업
 
-- [C-03〔T-C4〕지시서](claude-task-c03-guides.md): 지역·여행 가이드 작성/수정·기본정보 편집, Sonnet 전달 준비.
+- [C-03〔T-C4〕결과](claude-task-c03-result.md)·[독립 검토](claude-task-c03-review.md): 40검사·빌드·UI 10개 통과, 사용자 검토 준비. 다음 C-04〔T-C5〕.
 - [C-02〔T-C3.2〕결과](claude-task-c02-result.md)·[독립 검토](claude-task-c02-review.md): 38검사·빌드·UI 8개 통과, DST 경계는 CL-08 후속. 다음 C-03〔T-C4〕.
 - [C-01 결과](claude-task-c01-result.md)·[독립 검토](claude-task-c01-review.md): 소유 연결 R1 포함 독립 검토 통과, 사용자 검토 준비. 다음은 T-C3.2 숙박·이동 편집.
 - [후속 변경 목록](change-log.md): T-06/F-2·F-3 등 보류 항목과 재개 조건, 별도 확인 관문.
