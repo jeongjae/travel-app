@@ -4,6 +4,7 @@
 
 ## 진행 중인 작업
 
+- [C-05〔T-C6〕지시서](claude-task-c05-retrospective.md): 날짜별 계획/실제·정정·변경 이유/근거를 연결하는 읽기 전용 회고, Sonnet 전달 준비.
 - [C-04〔T-C5〕결과](claude-task-c04-result.md)·[독립 검토](claude-task-c04-review.md): 22검사·빌드·UI 12개 통과, 사용자 검토 준비. 다음 C-05〔T-C6〕.
 - [C-03〔T-C4〕결과](claude-task-c03-result.md)·[독립 검토](claude-task-c03-review.md): 40검사·빌드·UI 10개 통과, 사용자 검토 준비. 다음 C-04〔T-C5〕.
 - [C-02〔T-C3.2〕결과](claude-task-c02-result.md)·[독립 검토](claude-task-c02-review.md): 38검사·빌드·UI 8개 통과, DST 경계는 CL-08 후속. 다음 C-03〔T-C4〕.
