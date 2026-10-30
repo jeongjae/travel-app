@@ -8,7 +8,7 @@
 
 ## 준비
 
-1. 터미널에서 `pnpm run build && pnpm run preview:ui` 를 실행합니다(4173 포트).
+1. PowerShell에서 저장소 폴더로 이동해 `pnpm run build; if ($?) { pnpm run preview:ui }` 를 실행합니다(4173 포트). Windows PowerShell 5.1은 `&&`를 지원하지 않습니다. 서버가 뜬 창은 수행이 끝날 때까지 열어 둡니다.
 2. PC 브라우저에서 **검토 공간**을 엽니다. 평소 쓰는 공간을 쓰지 않습니다. 이름은 새로 정합니다.
    `http://127.0.0.1:4173/?workspace=content&review=sapporo-2026`
 3. 화면 안내 문구 "검증용 저장소"가 보이면 비어 있는 검토 공간입니다. 이미 여행이 있으면 `review=` 이름을 바꿔 다시 엽니다.
