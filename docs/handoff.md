@@ -1,10 +1,11 @@
 # travel-app 현재 상태
 
-2026-10-30 · **C-05〔T-C6〕주요 검토 통과 / C-06〔T-C7〕전달 준비 / 경미한 잔여 후속**
+2026-10-30 · **C-06〔T-C7〕진행 관찰 / D 설계·계획 검토 준비**
 
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md).
+- [D 설계](phase-d-design.md)·[D 계획](phase-d-plan.md): 문서 제안·검토 준비. 구현/유료 호출/배포 미착수.
 - [T-04](claude-task-04-review.md) `64a84e4`: 지역/야간 숙박 분리 대상 통과. 새 사본 사용자 DB·iPhone 미적용.
 - [T-05 R2 결과](claude-task-05-r2-result.md) `568b745`·[독립 검토](claude-task-05-review.md): 구 기준 호환·추가 필드 검증·계획 UI 검토 통과. 추가 수정 지시 없음.
 - [C-05 검토](claude-task-c05-review.md): 회고 주요 검토 통과. 표시 CL-14 후속·근거 본문 UI는 T-C7에 남김. 사용자 검토 준비.
@@ -12,7 +13,7 @@
 - [C-02 검토](claude-task-c02-review.md): 숙박·이동/오프라인/복원 주요 검토 통과. DST 특수 입력 오탐은 CL-08 후속, 사용자 검토 준비.
 - [C-01 결과](claude-task-c01-result.md)·[독립 검토](claude-task-c01-review.md): R1 소유 연결 보존 포함 통과(f3f7fef). 추가 수정 지시 없음, 사용자 검토 준비.
 - G0·G1·기존 B-01 확인 완료. G2/G2′/G3/G4·전체 PC·T-01 사용자 확인은 대기.
-- 브랜치 `codex/c05-retrospective`, T-04/T-05/C-01~05 main 미병합. 최근 배포 기록 `ac09ca0`([T-02](claude-task-02-review.md)); 이번 배포 없음.
+- 브랜치 `codex/c06-integration`, T-04/T-05/C-01~05 main 미병합. 최근 배포 기록 `ac09ca0`([T-02](claude-task-02-review.md)); 이번 배포 없음.
 - 기존 verified ZIP·원본·백업·프로필 보존. 검토 후보 `local-data/phase2/t04-candidate/package/pilot.zip` 미적용.
 - 기존 ZIP 84,453,766바이트 `d1832280…bbe0`, 후보 84,454,075바이트 `7b530968…de12`. 전체 해시는 T-04 결과에 있다.
 - 미추적 `docs/status-review-2026-10-26.md`는 커밋 제외.
@@ -29,7 +30,7 @@
 
 ## 다음 작업·명령
 
-1. Sonnet에 [C-06〔T-C7〕](claude-task-c06-integration.md) 전달: 두 여행 전체 복원/재가져오기 보존·회고 고정 근거 UI·격리 실사본 대조. 아직 검증 미착수.
+1. C-06〔T-C7〕테스트 작성 관찰. 완료 결과 제출 뒤 독립 검토. D 문서는 사용자 검토 준비이며 실행 지시는 별도로 발행한다.
 2. T-06/F-2·F-3·부분 패키지 경계는 [후속 목록](change-log.md)으로 보류. 저장/복원·충돌·격리·보안 결함은 보류하지 않는다.
 3. B/G2/G2′는 미완료를 유지하며 C 착수와 분리한다. iPhone 빈 공간 복원·전체 PC 확인·운영 항목은 후속 추적한다.
 4. main 병합·배포·새 후보 사용자 적용은 별도 결정 대기. 기존 여행/사용자 공간은 변경하지 않는다.

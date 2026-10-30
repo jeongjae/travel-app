@@ -4,7 +4,8 @@
 
 ## 진행 중인 작업
 
-- [C-06〔T-C7〕지시서](claude-task-c06-integration.md): 두 여행 전체 복원·재가져오기 보존·고정 근거 UI·격리 실사본 통합 검증, Sonnet 전달 준비.
+- [D 설계서](phase-d-design.md)·[D 개발계획](phase-d-plan.md): 실제 v2 AI·모바일 인증/접근·비용/전송·복구 설계 제안. 사용자 검토 준비, 구현/실제 호출 미착수.
+- [C-06〔T-C7〕지시서](claude-task-c06-integration.md): 두 여행 전체 복원·재가져오기 보존·고정 근거 UI·격리 실사본 통합 검증, C-06 테스트 작성 관찰, 완료 제출·검토 대기.
 - [C-05〔T-C6〕결과](claude-task-c05-result.md)·[독립 검토](claude-task-c05-review.md): 주요 32검사·빌드·UI 6개 통과. 표시 CL-14 후속·근거 본문 UI는 T-C7 검증. 다음 C-06〔T-C7〕.
 - [C-04〔T-C5〕결과](claude-task-c04-result.md)·[독립 검토](claude-task-c04-review.md): 22검사·빌드·UI 12개 통과, 사용자 검토 준비. 다음 C-05〔T-C6〕.
 - [C-03〔T-C4〕결과](claude-task-c03-result.md)·[독립 검토](claude-task-c03-review.md): 40검사·빌드·UI 10개 통과, 사용자 검토 준비. 다음 C-04〔T-C5〕.
