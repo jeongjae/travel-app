@@ -1,11 +1,11 @@
 # C단계 개발계획 · 별도 여행의 작성·현장 기록·회고
 
-2026-10-29 · 개정 R2: Codex · 초안: Claude(10/28) · **C-01 R1 독립 검토 통과 / C-02 전달 준비 / 사용자 미확인**
+2026-10-30 · 개정 R3: Codex · 초안: Claude(10/28) · **C-02〔T-C3.2〕주요 검토 통과 / 다음 C-03〔T-C4〕 / 사용자 미확인**
 
 [설계서](phase-c-design.md)를 구현·검증 가능한 단위로 나눈다. [실행계획](development-plan.md)·[요구](product-requirements.md)·[결정](decisions.md)이 상위 기준이다.
 역할은 Codex 계획/검토·Claude Sonnet 구현/자체 검사·사용자 실제 확인이다. 이번 R1 문서는 사용자 요청에 따라 Codex가 직접 보완했다.
 
-현재 제출의 [Codex 검토](claude-task-c01-review.md): T-C1/T-C2/T-C3.1은 소유 관계 R1 보완 후 독립 검토 통과했다. 사용자 검토 준비이며 C 전체 완료로 확대하지 않는다. 다음 [C-02](claude-task-c02-stays-legs.md)는 T-C3.2와 CL-05 시간대 검증이다. 지시 준비·구현 미착수다.
+현재 제출의 [Codex 검토](claude-task-c01-review.md): T-C1/T-C2/T-C3.1은 소유 관계 R1 보완 후 독립 검토 통과했다. 사용자 검토 준비이며 C 전체 완료로 확대하지 않는다. [C-02〔T-C3.2〕](claude-task-c02-review.md)도 주요 기능 검토 통과했다. CL-05는 잘못된 추론을 정정하고 역전 검증을 보강했으며 DST 경계 오탐은 CL-08에 남겼다. 다음은 C-03〔T-C4〕다.
 
 ## 1. 착수와 범위
 
