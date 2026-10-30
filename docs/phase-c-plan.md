@@ -1,11 +1,11 @@
 # C단계 개발계획 · 별도 여행의 작성·현장 기록·회고
 
-2026-10-30 · 개정 R6: Codex · 초안: Claude(10/28) · **C-05〔T-C6〕주요 검토 통과 / 다음 C-06〔T-C7〕 / 사용자 미확인**
+2026-10-30 · 개정 R6: Codex · 초안: Claude(10/28) · **C-05〔T-C6〕주요 검토 통과 / C-06〔T-C7〕전달 준비 / 사용자 미확인**
 
 [설계서](phase-c-design.md)를 구현·검증 가능한 단위로 나눈다. [실행계획](development-plan.md)·[요구](product-requirements.md)·[결정](decisions.md)이 상위 기준이다.
 역할은 Codex 계획/검토·Claude Sonnet 구현/자체 검사·사용자 실제 확인이다. 이번 R1 문서는 사용자 요청에 따라 Codex가 직접 보완했다.
 
-현재 제출의 [Codex 검토](claude-task-c01-review.md): T-C1/T-C2/T-C3.1은 소유 관계 R1 보완 후 독립 검토 통과했다. 사용자 검토 준비이며 C 전체 완료로 확대하지 않는다. [C-02〔T-C3.2〕](claude-task-c02-review.md)도 주요 기능 검토 통과했다. CL-05는 잘못된 추론을 정정하고 역전 검증을 보강했으며 DST 경계 오탐은 CL-08에 남겼다. [C-03〔T-C4〕](claude-task-c03-review.md) 가이드·기본정보 편집도 독립 검토 통과했다. [C-04〔T-C5〕](claude-task-c04-review.md) 현장 기록·정정도 독립 검토 통과했다. [C-05〔T-C6〕](claude-task-c05-review.md) 회고도 주요 검토 통과했다. 날짜 변화 표시는 CL-14 후속, 근거 본문 UI는 미검증이다. 다음 C-06〔T-C7〕통합 검증에 근거 이동/복원 증거를 포함한다. 사용자 확인/전체 C 완료와 구분한다.
+현재 제출의 [Codex 검토](claude-task-c01-review.md): T-C1/T-C2/T-C3.1은 소유 관계 R1 보완 후 독립 검토 통과했다. 사용자 검토 준비이며 C 전체 완료로 확대하지 않는다. [C-02〔T-C3.2〕](claude-task-c02-review.md)도 주요 기능 검토 통과했다. CL-05는 잘못된 추론을 정정하고 역전 검증을 보강했으며 DST 경계 오탐은 CL-08에 남겼다. [C-03〔T-C4〕](claude-task-c03-review.md) 가이드·기본정보 편집도 독립 검토 통과했다. [C-04〔T-C5〕](claude-task-c04-review.md) 현장 기록·정정도 독립 검토 통과했다. [C-05〔T-C6〕](claude-task-c05-review.md) 회고도 주요 검토 통과했다. 날짜 변화 표시는 CL-14 후속, 근거 본문 UI는 미검증이다. 다음 [C-06〔T-C7〕통합 검증](claude-task-c06-integration.md)에 근거 이동/복원 증거와 격리 실사본 대조를 포함한다. 전달 준비·검증 미착수다. 사용자 확인/전체 C 완료와 구분한다.
 
 ## 1. 착수와 범위
 
