@@ -144,8 +144,18 @@ export function applyContentBatch(
           'BROKEN_REFERENCE',
           '지역이 이 가이드를 가리키지 않습니다.',
         );
+      } else if (row.payload.documentKind === 'preparation') {
+        // 여행 공통 가이드: 소유자는 이 여행 자체여야 하고 다른 소유자에는 연결하지 않는다.
+        must(
+          owner.targetKind === 'trip' && owner.entityId === t.header.tripId && !owner.planVersionId,
+          'BROKEN_REFERENCE',
+          '여행 공통 가이드의 소유자는 이 여행이어야 합니다.',
+        );
       } else {
         must(false, 'INVALID_INPUT', '이 작성 흐름에서 만들 수 없는 가이드 종류입니다.');
+      }
+      if (row.payload.documentKind !== 'place-guide') {
+        must(row.payload.sections.length > 0, 'INVALID_INPUT', '가이드에는 섹션이 하나 이상 필요합니다.');
       }
     }
   }

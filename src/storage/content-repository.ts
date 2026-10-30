@@ -32,6 +32,7 @@ import {
 } from '../transfer/reimport';
 import * as recovery from './recovery';
 import { applyContentBatch } from './content-batch';
+import { guardContentUpdate } from './content-update';
 import { dayRegionsFromStays, isProblem, stayRange, type StayRange } from '../plan/manual-stays';
 import { prepareAssetRecord, readAssetRecord, discardPreparedFiles, type AssetRecord } from './asset-files.ts';
 
@@ -950,12 +951,26 @@ export class ContentRepository {
         putContent(next, a.revisionId);
         break;
       }
-      case 'UpdateContent':
-        putContent(
-          contentRevisionSchema.parse({ ...c.payload.content, commitSeq: seq, recordedAt: now(), actor: 'user' }),
-          c.payload.expectedRevisionId,
+      case 'UpdateContent': {
+        const next = contentRevisionSchema.parse({
+          ...c.payload.content,
+          commitSeq: seq,
+          recordedAt: now(),
+          actor: 'user',
+        });
+        const previous = t.contents.find(
+          (r) => r.kind === next.kind && r.entityId === next.entityId && r.revisionId === c.payload.expectedRevisionId,
         );
+        const head = t.heads.find((h) => h.targetKind === next.kind && h.entityId === next.entityId);
+        // 기준 revision이 현재 head가 아니면 아래 putContent가 CONFLICT로 거부한다.
+        if (previous && head?.revisionId === previous.revisionId) {
+          guardContentUpdate(t, previous, next, (code, message) => {
+            throw new RepositoryError(code, message);
+          });
+        }
+        putContent(next, c.payload.expectedRevisionId);
         break;
+      }
       case 'SetBookingState':
         putContent(
           contentRevisionSchema.parse({ ...c.payload.booking, commitSeq: seq, recordedAt: now(), actor: 'user' }),
