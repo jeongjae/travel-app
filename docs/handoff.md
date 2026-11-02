@@ -32,7 +32,7 @@
 
 ## 다음 작업·명령
 
-1. [C-08〔U1〕지시](claude-task-c08-ui-u1.md) → [결과](claude-task-c08-result.md) 제출(`codex/c08-ui-u1`, Claude 자체 검사만). 다음 Codex 검토 → 사용자 시제품 확인(Q-U1) → U2 폼 → U3 회고/기록/가이드 → U4. [UI 정리 계획](ui-polish-plan.md).
+1. [C-08〔U1〕검토 통과](claude-task-c08-review.md) → **사용자 시제품 확인(Q-U1)**: `codex/c08-ui-u1`에서 빌드·미리보기 후 삿포로 대본 S1~S4를 [결과](claude-task-c08-result.md)의 버튼 대응표로 수행. 확인 뒤 U2 폼 → U3 회고/기록/가이드 → U4. [UI 정리 계획](ui-polish-plan.md).
 2. T-06/F-2·F-3·부분 패키지 경계는 [후속 목록](change-log.md)으로 보류. 저장/복원·충돌·격리·보안 결함은 보류하지 않는다.
 3. B/G2/G2′는 미완료를 유지하며 C 착수와 분리한다. iPhone 빈 공간 복원·전체 PC 확인·운영 항목은 후속 추적한다.
 4. main 병합·배포·새 후보 사용자 적용은 별도 결정 대기. 기존 여행/사용자 공간은 변경하지 않는다.
