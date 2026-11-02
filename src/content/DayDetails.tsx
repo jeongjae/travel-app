@@ -36,23 +36,22 @@ export function DayDetails({
     [repo, day.tripId, day.planVersionId, day.dayId, context],
     [],
   );
+  // 날짜·도시·하루 유형·거리·피로도는 날짜 머리(DayLead)에 한 번만 쓴다. 여기서는 시각이 있을 때만 시각을 보인다.
+  const hasClock = ['local', 'instant', 'text'].includes(day.time.start.precision);
   return (
     <div className="day-details">
-      <p className="muted">
-        {day.cityText} · {timeLabel(day.time.start)}
-        {day.time.end ? ` ~ ${timeLabel(day.time.end)}` : ''}
-      </p>
+      {hasClock ? (
+        <p className="muted">
+          {timeLabel(day.time.start)}
+          {day.time.end ? ` ~ ${timeLabel(day.time.end)}` : ''}
+        </p>
+      ) : null}
       {day.assetRefs.slice(0, 1).map((asset) => (
         <figure key={asset.assetId}>
           <AssetImage repo={repo} tripId={day.tripId} assetId={asset.assetId} context={context} alt={asset.caption} />
           <figcaption>{asset.caption}</figcaption>
         </figure>
       ))}
-      <p>
-        {[day.dayType, day.durationText, day.distanceText, day.fatigueText ? `피로도 ${day.fatigueText}` : '']
-          .filter(Boolean)
-          .join(' · ')}
-      </p>
       {day.highlights.length ? (
         <p>
           <strong>오늘의 핵심</strong> · {day.highlights.join(' · ')}

@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Temporal } from '@js-temporal/polyfill';
 import type { ContentRevision, PlanVersion, RevisionRef, TimeSpec } from '../contracts/v2';
 import type { ContentRepository } from '../repository';
 import { AssetImage } from './Guide';
 import { timeLabel } from './ui';
 
+/** 하단 탭: 사용 단계 순서(지금 → 훑기 → 찾기 → 남기기 → 나머지). 나머지 기능은 모두 더보기 아래에 있다. */
 export const journeyTabs = [
   { label: '오늘', tab: '일정', icon: 'today' },
-  { label: '전체 일정', tab: '전체 일정', icon: 'list' },
+  { label: '일정', tab: '전체 일정', icon: 'list' },
   { label: '가이드', tab: '장소·지역', icon: 'guide' },
-  { label: '지도', tab: '지도', icon: 'map' },
-  { label: '준비', tab: '준비·회화', icon: 'check' },
+  { label: '기록', tab: '실제 기록', icon: 'record' },
+  { label: '더보기', tab: '더보기', icon: 'more' },
 ] as const;
 
 export function JourneyIcon({ name }: { name: string }) {
@@ -20,6 +21,8 @@ export function JourneyIcon({ name }: { name: string }) {
     guide: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm3 4-2 6-4 4 2-6 4-4Z',
     map: 'm3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16',
     check: 'M5 3h14v18H5V3Zm3 8 3 3 5-6',
+    record: 'M5 3h14v18H5V3Zm3 5h8M8 12h8M8 16h5',
+    more: 'M5 12h.01M12 12h.01M19 12h.01',
   };
   return (
     <svg
@@ -49,6 +52,17 @@ export function dateLabel(date: string) {
   }).format(new Date(`${date}T12:00:00Z`));
 }
 
+/** 하루 머리의 날짜는 한 번만 쓴다. 예) 12월 31일 (목) · 1일차 */
+export function dayHeading(date: string, dayNumber: number) {
+  const label = new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T12:00:00Z`));
+  return `${label} · ${dayNumber}일차`;
+}
+
 export function MapLink({ target }: { target?: ContentRevision }) {
   if (target?.kind !== 'map-target') {
     return null;
@@ -67,15 +81,32 @@ export function MapLink({ target }: { target?: ContentRevision }) {
   ) : null;
 }
 
+const dayTypeLabels: Record<string, string> = {
+  city: '도시 일정',
+  transfer: '이동일',
+  driving: '운전일',
+  living: '생활일',
+};
+
+/**
+ * 하루 머리: 날짜는 한 번(제목), 지역·숙박은 그 아래 한 줄. 지금/다음 카드는 여행 중 오늘일 때만 보인다.
+ * 예약 목록은 타임라인 아래({@link DayBookings})에 둔다.
+ */
 export function DayLead({
   day,
+  dayNumber,
   items,
   catalog,
+  regionText,
+  stays,
   onNavigate,
 }: {
   day: PlanVersion['days'][number];
+  dayNumber: number;
   items: PlanVersion['items'];
   catalog: ContentRevision[];
+  regionText: string;
+  stays: ReactNode;
   onNavigate: (kind: ContentRevision['kind'], id: string) => void;
 }) {
   const [now, setNow] = useState(() => Temporal.Now.instant());
@@ -100,38 +131,34 @@ export function DayLead({
           Temporal.PlainDateTime.compare(`${boundary.date}T${boundary.localTime}`, local.toPlainDateTime()) >= 0
         );
       })
-    : (timed[0] ?? items[0]);
-  const reservations = items.filter((item) => item.reservationText || item.bookingIds.length);
-  const dayTypes: Record<string, string> = {
-    city: 'CITY DAY',
-    transfer: 'TRANSFER DAY',
-    driving: 'DRIVING DAY',
-    living: 'LIVING DAY',
-  };
+    : undefined;
+  const city = day.cityText && day.cityText !== day.title ? day.cityText : '';
+  const title = day.title && day.title !== day.date ? day.title : '';
+  const detail = [
+    day.dayType ? (dayTypeLabels[day.dayType] ?? day.dayType) : '',
+    day.durationText,
+    day.distanceText,
+    day.fatigueText ? `피로도 ${day.fatigueText}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <>
       <header className="day-intro">
-        <p className="day-meta">
-          <span>{dateLabel(day.date)}</span>
-        </p>
-        <h2>{day.cityText || day.title}</h2>
-        <p className="day-summary">{day.title}</p>
-        <p className="muted">
-          {[
-            day.dayType ? (dayTypes[day.dayType] ?? day.dayType) : '',
-            day.fatigueText ? `피로도 ${day.fatigueText}` : '',
-            day.distanceText,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
+        <h2>{dayHeading(day.date, dayNumber)}</h2>
+        {city ? <p className="day-city">{city}</p> : null}
+        {title ? <p className="day-summary">{title}</p> : null}
+        {detail ? <p className="muted">{detail}</p> : null}
+        <p className="day-regions muted">{regionText}</p>
+        {stays}
       </header>
       {next ? (
-        <section className="next-action" aria-label="다음 일정">
-          <span className="journey-label">{isToday ? 'NEXT · 다음 일정' : 'FIRST · 첫 일정'}</span>
-          <p className="action-time">{clockLabel(next.time.start)}</p>
-          <p className="action-title">{next.title}</p>
-          <p>{next.summary}</p>
+        <section className="next-action" aria-label="지금·다음 일정">
+          <span className="journey-label">지금·다음</span>
+          <p className="action-line">
+            <span className="action-time">{clockLabel(next.time.start)}</span>
+            <span className="action-title">{next.title}</span>
+          </p>
           <div className="button-row">
             <MapLink
               target={catalog.find((content) => content.kind === 'map-target' && content.entityId === next.mapTargetId)}
@@ -148,27 +175,35 @@ export function DayLead({
             ) : null}
           </div>
         </section>
-      ) : items.length === 0 ? (
-        <p className="notice">이 날에는 아직 일정이 없습니다. 아래 '활동 추가'로 장소나 활동을 넣어 보세요.</p>
-      ) : (
+      ) : isToday && items.length > 0 ? (
         <p className="notice">오늘 계획된 시간표의 마지막 시각이 지났습니다. 아래에서 전체 일정을 확인하세요.</p>
-      )}
-      {reservations.length ? (
-        <section className="day-bookings" aria-label="오늘 예약">
-          <h3>오늘 예약</h3>
-          {reservations.map((item) => (
-            <p key={item.activityId}>
-              <strong>
-                {clockLabel(item.time.start)} · {item.title}
-              </strong>
-              <br />
-              {item.reservationText || '예약·할 일에서 상세 내용을 확인하세요.'}
-            </p>
-          ))}
-        </section>
       ) : null}
-      <h3 className="editorial-heading">오늘 일정</h3>
+      {items.length === 0 ? (
+        <p className="notice">이 날에는 아직 일정이 없습니다. '활동 추가'로 장소나 활동을 넣어 보세요.</p>
+      ) : null}
+      <h3 className="sr-only">하루 일정</h3>
     </>
+  );
+}
+
+export function DayBookings({ items }: { items: PlanVersion['items'] }) {
+  const reservations = items.filter((item) => item.reservationText || item.bookingIds.length);
+  if (!reservations.length) {
+    return null;
+  }
+  return (
+    <section className="day-bookings" aria-label="오늘 예약">
+      <h3>오늘 예약</h3>
+      {reservations.map((item) => (
+        <p key={item.activityId}>
+          <strong>
+            {clockLabel(item.time.start)} · {item.title}
+          </strong>
+          <br />
+          {item.reservationText || '예약·할 일에서 상세 내용을 확인하세요.'}
+        </p>
+      ))}
+    </section>
   );
 }
 
@@ -181,6 +216,10 @@ export function DayStrip({
   dayId?: string;
   onSelect: (id: string) => void;
 }) {
+  const activeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'center' });
+  }, [dayId]);
   return (
     <nav className="day-strip" aria-label="날짜별 일정">
       {plan.days
@@ -188,6 +227,8 @@ export function DayStrip({
         .map((day) => (
           <button
             key={day.dayId}
+            ref={dayId === day.dayId ? activeRef : undefined}
+            data-date={day.date}
             aria-current={dayId === day.dayId ? 'date' : undefined}
             onClick={() => onSelect(day.dayId)}
           >

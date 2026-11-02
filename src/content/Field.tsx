@@ -369,8 +369,8 @@ export function ActualTimeline({
                 <CorrectionTrail link={links.get(r.recordId)} />
                 <button onClick={() => onContext(r)}>기록 당시 내용</button>
                 <details>
-                  <summary>저장 정보</summary>
-                  <p>저장 시각 {r.recordedAt} · 발생 시각과 구분</p>
+                  <summary>앱에 남긴 시각</summary>
+                  <p>앱에 남긴 시각 {r.recordedAt} · 실제로 한 시각과 따로 보관</p>
                 </details>
               </article>
             ))}

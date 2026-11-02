@@ -7,14 +7,15 @@ import type { Review } from '../transfer/reimport';
 import type { ContentRevision, FieldRecord, PlanVersion, RevisionRef, TimeSpec, TripDataset } from '../contracts/v2';
 import { GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
-import { isProblem, stayRange } from '../plan/manual-stays';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
 import { GuideAuthoring } from './GuideAuthoring';
 import { isReadingGuide } from './guide-rules';
 import { LegEditor, StayEditor, type LegEditorState, type StayEditorState } from './StayLegEditors';
 import { DayDetails } from './DayDetails';
+import { ActionMenu } from './ActionMenu';
 import {
   clockLabel,
+  DayBookings,
   DayLead,
   DayStrip,
   GuideCard,
@@ -46,8 +47,13 @@ const tabs = [
   '실제 기록',
   '변경안',
   '가져오기 기록',
+  '더보기',
+  '계획 버전',
 ] as const;
 type Tab = (typeof tabs)[number];
+/** 하단 탭 `더보기` 아래에 모인 화면. 이 화면들을 보는 동안 `더보기` 탭이 선택 상태로 표시된다. */
+const moreTabs: readonly Tab[] = ['더보기', '준비·회화', '예약·할 일', '변경안', '지도', '계획 버전', '가져오기 기록'];
+const moreItems = ['준비·회화', '예약·할 일', '변경안', '지도', '계획 버전', '가져오기 기록'] as const;
 export function ContentApp() {
   const [recovery, setRecovery] = useState(false);
   const [ready, setReady] = useState(false),
@@ -66,7 +72,9 @@ export function ContentApp() {
     [newTrip, setNewTrip] = useState(false),
     [authoring, setAuthoring] = useState<'region' | 'place' | 'guide' | null>(null),
     [stayEditor, setStayEditor] = useState<StayEditorState | null>(null),
-    [legEditor, setLegEditor] = useState<LegEditorState | null>(null);
+    [legEditor, setLegEditor] = useState<LegEditorState | null>(null),
+    [tripMenu, setTripMenu] = useState(false),
+    [removeTarget, setRemoveTarget] = useState<PlanVersion['items'][number] | null>(null);
   const [backTrail, setBackTrail] = useState<{ tab: Tab; target: Target | null; context?: RevisionRef[] }[]>([]);
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof readPackage>> | null>(null),
     [review, setReview] = useState<Review | null>(null),
@@ -250,6 +258,26 @@ export function ContentApp() {
       '일정 순서를 바꿨습니다.',
     );
   }
+  /** 확인 대화상자에서 누른 뒤에만 호출한다. 연결된 이동은 저장소가 함께 제거하고 이전 계획 버전에는 남는다. */
+  async function removeItem(item: PlanVersion['items'][number]) {
+    if (!plan || !header) {
+      return;
+    }
+    await action(() =>
+      repo.execute(
+        command(
+          header.tripId,
+          'ChangePlan',
+          {
+            currentPlanVersionId: plan.planVersionId,
+            operations: [{ type: 'remove-item', activityId: item.activityId }],
+            reason: '사용자가 활동을 일정에서 제거',
+          },
+          header.domainRevision,
+        ),
+      ),
+    );
+  }
   function select(id: string) {
     setSelected(id);
     setTarget(null);
@@ -262,6 +290,7 @@ export function ContentApp() {
     setSearch('');
     setTab('일정');
     setBackTrail([]);
+    setTripMenu(false);
   }
   function navigate(kind: ContentRevision['kind'], id: string) {
     setBackTrail((trail) => [...trail, { tab, target, context: recordContext }]);
@@ -386,19 +415,31 @@ export function ContentApp() {
           travel-app
         </a>
         {header ? (
-          <h1 className="journey-location">{header.name}</h1>
+          <h1 className="journey-location">
+            <button
+              type="button"
+              className="trip-switch"
+              aria-expanded={tripMenu}
+              aria-controls="trip-library"
+              onClick={() => setTripMenu((open) => !open)}
+            >
+              {header.name}
+              <span className="trip-caret" aria-hidden="true">
+                ▾
+              </span>
+            </button>
+          </h1>
         ) : (
           <span className="journey-location">여행 가이드</span>
         )}
-        <nav className="sidebar-tools" aria-label="저장소 도구">
-          <button disabled={!ready} onClick={() => setRecovery(true)}>
-            저장소·백업
-          </button>
-        </nav>
+        {reviewWorkspace(location.search) ? (
+          <span className="review-badge" title="평소 사용하는 여행 저장소와 분리된 검토 공간입니다.">
+            검토 공간
+          </span>
+        ) : null}
       </header>
-      {loadedHeaders !== undefined ? (
-        <details className="journey-library" open={!header}>
-          <summary>여행 선택·가져오기</summary>
+      {loadedHeaders !== undefined && (tripMenu || !header) ? (
+        <section className="journey-library" id="trip-library" aria-label="여행 전환·새 여행·가져오기">
           {header ? (
             <p className="muted">
               {header.startDate} — {header.endDate} · 이 브라우저에 저장됨
@@ -431,20 +472,17 @@ export function ContentApp() {
               disabled={busy || meta?.mode !== 'v2'}
               onChange={(e) => {
                 const file = e.target.files?.[0];
+                e.target.value = '';
                 if (file) {
                   void load(file);
                 }
-                e.target.value = '';
               }}
             />
           </label>
           <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
-        </details>
+        </section>
       ) : null}
       <main className="main" id="content-main">
-        {reviewWorkspace(location.search) ? (
-          <p className="notice">검증용 저장소 · 평소 사용하는 여행 저장소와 분리되어 있습니다.</p>
-        ) : null}
         <ErrorText error={error} />
         {notice ? (
           <p role="status" className="success">
@@ -473,20 +511,231 @@ export function ContentApp() {
           <section className="empty-start">
             <h1>어느 여행을 열까요?</h1>
             <p>여행 패키지를 선택하거나 가상 여행으로 가이드와 기록 흐름을 둘러보세요.</p>
+            <div className="button-row">
+              <button disabled={!ready} onClick={() => setRecovery(true)}>
+                저장소·백업
+              </button>
+            </div>
           </section>
         ) : (
           <>
-            <details className="journey-extras">
-              <summary>예약·기록·계획 도구</summary>
-              <nav className="journey-tools" aria-label="여행 도구">
-                {(['예약·할 일', '실제 기록', '변경안'] as const).map((t) => (
-                  <button aria-pressed={tab === t} key={t} onClick={() => openTab(t)}>
-                    {t}
+            {historical ? <p className="notice">과거 계획 · 당시 콘텐츠를 고정해 조회합니다.</p> : null}
+            {tab === '전체 일정' && plan ? (
+              <ScheduleOverview plan={plan} onSelect={openDay} regionName={regionName} />
+            ) : null}
+            {tab === '일정' && plan ? (
+              <section className="day-page">
+                <DayStrip plan={plan} dayId={activeDay?.dayId} onSelect={openDay} />
+                {activeDay ? (
+                  <DayLead
+                    day={activeDay}
+                    dayNumber={plan.days.toSorted((a, b) => a.ordinal - b.ordinal).indexOf(activeDay) + 1}
+                    items={dayItems}
+                    catalog={catalog}
+                    regionText={`하루 지역 ${activeDay.regionIds.map((id) => regionName(id)).join(', ') || '없음'} · 밤을 보내는 지역 ${activeDay.overnightRegionId ? regionName(activeDay.overnightRegionId) : '없음'}`}
+                    stays={plan.stays
+                      .filter(
+                        (stay) =>
+                          stay.time.start.date &&
+                          stay.time.start.date <= activeDay.date &&
+                          (!stay.time.end?.date || activeDay.date < stay.time.end.date),
+                      )
+                      .map((stay) => (
+                        <p key={stay.stayId} className="day-stay">
+                          숙박: {stay.baseText}
+                          {stayClock(stay.time.start)}
+                          <button
+                            aria-label={`${stay.baseText} 수정`}
+                            disabled={historical}
+                            onClick={() => setStayEditor({ header: { ...header }, plan, stay })}
+                          >
+                            수정
+                          </button>
+                        </p>
+                      ))}
+                    onNavigate={navigate}
+                  />
+                ) : null}
+                <div className="day-toolbar">
+                  <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
+                  <button disabled={historical} onClick={() => setPlanEditor({ header: { ...header }, plan })}>
+                    활동 추가
                   </button>
-                ))}
-              </nav>
-              <details className="journey-settings">
-                <summary>계획 버전·이행 점검</summary>
+                </div>
+                <div className="day-timeline">
+                  {dayItems.map((i) => {
+                    const placeId = i.placeLinks[0]?.placeId;
+                    const placeName =
+                      catalog.find(
+                        (c): c is Extract<ContentRevision, { kind: 'place' }> =>
+                          c.kind === 'place' && c.entityId === placeId,
+                      )?.payload.name ?? placeId;
+                    return (
+                      <article className="content-row timeline-stop" key={i.activityId}>
+                        <p className="timeline-time" title={timeLabel(i.time.start)}>
+                          {clockLabel(i.time.start)}
+                          {i.time.end ? ` ~ ${clockLabel(i.time.end)}` : ''}
+                        </p>
+                        <h3>{i.title}</h3>
+                        <p>{i.summary}</p>
+                        {i.menuText ? <p>식사·메뉴: {i.menuText}</p> : null}
+                        {i.reservationText ? <p>예약 안내: {i.reservationText}</p> : null}
+                        {i.executionNote ? <p>{i.executionNote}</p> : null}
+                        {i.executionMarkers.map((marker, index) => (
+                          <p key={index} className="muted">
+                            {marker.label} · {marker.detail}
+                          </p>
+                        ))}
+                        {i.optional ? <p className="muted">선택 활동</p> : null}
+                        {i.officialUrl ? (
+                          <a href={i.officialUrl} target="_blank" rel="noreferrer">
+                            공식 안내
+                          </a>
+                        ) : null}
+                        <div className="button-row activity-actions">
+                          <button className="primary" onClick={() => void record('visited', i)}>
+                            방문 기록
+                          </button>
+                          {placeId ? (
+                            <button aria-label={`장소 안내 · ${placeName}`} onClick={() => navigate('place', placeId)}>
+                              장소
+                            </button>
+                          ) : null}
+                          <ActionMenu
+                            label={`${i.title} 더보기 메뉴`}
+                            actions={[
+                              { label: '건너뜀 기록', onSelect: () => void record('skipped', i) },
+                              {
+                                label: '일정 수정',
+                                disabled: historical,
+                                onSelect: () => setPlanEditor({ header: { ...header }, plan, item: i }),
+                              },
+                              {
+                                label: '위로',
+                                ariaLabel: `${i.title} 위로`,
+                                disabled: historical || busy || i.activityId === dayItems[0]?.activityId,
+                                onSelect: () => void moveItem(i, -1),
+                              },
+                              {
+                                label: '아래로',
+                                ariaLabel: `${i.title} 아래로`,
+                                disabled: historical || busy || i.activityId === dayItems.at(-1)?.activityId,
+                                onSelect: () => void moveItem(i, 1),
+                              },
+                              {
+                                label: '메모',
+                                onSelect: () =>
+                                  setNoteTarget({
+                                    header: { ...header },
+                                    label: i.title,
+                                    ref: {
+                                      tripId: header.tripId,
+                                      targetKind: 'activity',
+                                      entityId: i.activityId,
+                                      planVersionId: plan.planVersionId,
+                                    },
+                                  }),
+                              },
+                              {
+                                label: '일정에서 제거',
+                                danger: true,
+                                disabled: historical || busy,
+                                onSelect: () => setRemoveTarget(i),
+                              },
+                            ]}
+                          >
+                            <MapLink
+                              target={catalog.find(
+                                (content) => content.kind === 'map-target' && content.entityId === i.mapTargetId,
+                              )}
+                            />
+                          </ActionMenu>
+                        </div>
+                        <SavedNotes
+                          notes={notesForTarget(records, {
+                            tripId: header.tripId,
+                            targetKind: 'activity',
+                            entityId: i.activityId,
+                          })}
+                        />
+                        {plan.legs
+                          .filter((leg) => leg.dayId === activeDay?.dayId && leg.fromActivityId === i.activityId)
+                          .map((leg) => {
+                            const label = `${i.title} → ${plan.items.find((item) => item.activityId === leg.toActivityId)?.title}`;
+                            return (
+                              <div className="timeline-leg" key={leg.legId}>
+                                <p>
+                                  이동 {label} ·{' '}
+                                  {[leg.mode, leg.durationText, leg.distanceText, leg.lineText]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </p>
+                                <div className="button-row">
+                                  <MapLink
+                                    target={catalog.find(
+                                      (content) =>
+                                        content.kind === 'map-target' && content.entityId === leg.mapTargetId,
+                                    )}
+                                  />
+                                  <button
+                                    aria-label={`이동 ${label} 수정`}
+                                    disabled={historical}
+                                    onClick={() => setLegEditor({ header: { ...header }, plan, dayId: leg.dayId, leg })}
+                                  >
+                                    수정
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </article>
+                    );
+                  })}
+                </div>
+                <DayBookings items={dayItems} />
+                {activeDay ? <DayDetails repo={repo} day={activeDay} context={context} onNavigate={navigate} /> : null}
+                {activeDay ? (
+                  <div className="button-row stay-leg-actions" role="group" aria-label="숙박·이동 추가">
+                    <button
+                      disabled={historical}
+                      onClick={() => setStayEditor({ header: { ...header }, plan, date: activeDay.date })}
+                    >
+                      숙박 추가
+                    </button>
+                    <button
+                      disabled={historical || dayItems.length < 2}
+                      onClick={() => setLegEditor({ header: { ...header }, plan, dayId: activeDay.dayId })}
+                    >
+                      이동 추가
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+            {tab === '더보기' ? (
+              <section className="more-page">
+                <h2>더보기</h2>
+                <nav className="more-list" aria-label="더보기 메뉴">
+                  {moreItems.map((item) => (
+                    <button key={item} onClick={() => openTab(item)}>
+                      {item}
+                    </button>
+                  ))}
+                  <button disabled={!ready} onClick={() => setRecovery(true)}>
+                    저장소·백업
+                  </button>
+                </nav>
+              </section>
+            ) : null}
+            {tab === '계획 버전' ? (
+              <section className="more-page">
+                <button className="back-to-more" onClick={() => openTab('더보기')}>
+                  더보기로
+                </button>
+                <h2>계획 버전</h2>
+                <p className="muted">
+                  이전 버전을 고르면 당시 일정과 콘텐츠를 그대로 조회합니다. 기록은 바꾸지 않습니다.
+                </p>
                 <div className="version-controls">
                   <label>
                     계획 버전
@@ -510,250 +759,8 @@ export function ContentApp() {
                         ))}
                     </select>
                   </label>
-                  <button onClick={() => openTab('가져오기 기록')}>가져오기 기록</button>
                   <span className="muted">revision {header.domainRevision}</span>
                 </div>
-              </details>
-            </details>
-            {historical ? <p className="notice">과거 계획 · 당시 콘텐츠를 고정해 조회합니다.</p> : null}
-            {tab === '전체 일정' && plan ? (
-              <ScheduleOverview plan={plan} onSelect={openDay} regionName={regionName} />
-            ) : null}
-            {tab === '일정' && plan ? (
-              <section className="day-page">
-                <DayStrip plan={plan} dayId={activeDay?.dayId} onSelect={openDay} />
-                {activeDay ? (
-                  <DayLead day={activeDay} items={dayItems} catalog={catalog} onNavigate={navigate} />
-                ) : null}
-                <div className="day-toolbar">
-                  <label>
-                    날짜
-                    <select aria-label="날짜" value={activeDay?.dayId ?? ''} onChange={(e) => setDayId(e.target.value)}>
-                      {plan.days.map((d) => (
-                        <option key={d.dayId} value={d.dayId}>
-                          {d.date} · {d.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="button-row">
-                    <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
-                    <button disabled={historical} onClick={() => setPlanEditor({ header: { ...header }, plan })}>
-                      활동 추가
-                    </button>
-                  </div>
-                </div>
-                <div className="day-timeline">
-                  {dayItems.map((i) => (
-                    <article className="content-row timeline-stop" key={i.activityId}>
-                      <p className="timeline-time" title={timeLabel(i.time.start)}>
-                        {clockLabel(i.time.start)}
-                        {i.time.end ? ` ~ ${clockLabel(i.time.end)}` : ''}
-                      </p>
-                      <h3>{i.title}</h3>
-                      <p>{i.summary}</p>
-                      {i.menuText ? <p>식사·메뉴: {i.menuText}</p> : null}
-                      {i.reservationText ? <p>예약 안내: {i.reservationText}</p> : null}
-                      {i.executionNote ? <p>{i.executionNote}</p> : null}
-                      {i.executionMarkers.map((marker, index) => (
-                        <p key={index} className="muted">
-                          {marker.label} · {marker.detail}
-                        </p>
-                      ))}
-                      {i.optional ? <p className="muted">선택 활동</p> : null}
-                      {i.officialUrl ? (
-                        <a href={i.officialUrl} target="_blank" rel="noreferrer">
-                          공식 안내
-                        </a>
-                      ) : null}
-                      <div className="button-row">
-                        <MapLink
-                          target={catalog.find(
-                            (content) => content.kind === 'map-target' && content.entityId === i.mapTargetId,
-                          )}
-                        />
-                        {i.placeLinks.map((l) => (
-                          <button key={`${l.placeId}-${l.relation}`} onClick={() => navigate('place', l.placeId)}>
-                            장소 안내 ·{' '}
-                            {catalog.find(
-                              (c): c is Extract<ContentRevision, { kind: 'place' }> =>
-                                c.kind === 'place' && c.entityId === l.placeId,
-                            )?.payload.name ?? l.placeId}
-                          </button>
-                        ))}
-                        <button onClick={() => void record('visited', i)}>방문 기록</button>
-                        <button onClick={() => void record('skipped', i)}>건너뜀 기록</button>
-                        <button
-                          disabled={historical}
-                          onClick={() => setPlanEditor({ header: { ...header }, plan, item: i })}
-                        >
-                          일정 수정
-                        </button>
-                        <button
-                          aria-label={`${i.title} 위로`}
-                          disabled={historical || busy || i.activityId === dayItems[0]?.activityId}
-                          onClick={() => void moveItem(i, -1)}
-                        >
-                          위로
-                        </button>
-                        <button
-                          aria-label={`${i.title} 아래로`}
-                          disabled={historical || busy || i.activityId === dayItems.at(-1)?.activityId}
-                          onClick={() => void moveItem(i, 1)}
-                        >
-                          아래로
-                        </button>
-                        <button
-                          disabled={historical || busy}
-                          onClick={() =>
-                            void action(() =>
-                              repo.execute(
-                                command(
-                                  header.tripId,
-                                  'ChangePlan',
-                                  {
-                                    currentPlanVersionId: plan.planVersionId,
-                                    operations: [{ type: 'remove-item', activityId: i.activityId }],
-                                    reason: '사용자가 활동을 일정에서 제거',
-                                  },
-                                  header.domainRevision,
-                                ),
-                              ),
-                            )
-                          }
-                        >
-                          일정에서 제거
-                        </button>
-                        <button
-                          onClick={() =>
-                            setNoteTarget({
-                              header: { ...header },
-                              label: i.title,
-                              ref: {
-                                tripId: header.tripId,
-                                targetKind: 'activity',
-                                entityId: i.activityId,
-                                planVersionId: plan.planVersionId,
-                              },
-                            })
-                          }
-                        >
-                          메모
-                        </button>
-                      </div>
-                      {plan.legs.some(
-                        (leg) => leg.fromActivityId === i.activityId || leg.toActivityId === i.activityId,
-                      ) ? (
-                        <p className="muted">
-                          연결된 이동{' '}
-                          {
-                            plan.legs.filter(
-                              (leg) => leg.fromActivityId === i.activityId || leg.toActivityId === i.activityId,
-                            ).length
-                          }
-                          개 — 이 활동을 제거하거나 다른 날로 옮기면 함께 제거됩니다.
-                        </p>
-                      ) : null}
-                      <SavedNotes
-                        notes={notesForTarget(records, {
-                          tripId: header.tripId,
-                          targetKind: 'activity',
-                          entityId: i.activityId,
-                        })}
-                      />
-                      {plan.legs
-                        .filter((leg) => leg.dayId === activeDay?.dayId && leg.fromActivityId === i.activityId)
-                        .map((leg) => (
-                          <div className="timeline-leg" key={leg.legId}>
-                            <p>
-                              {i.title} → {plan.items.find((item) => item.activityId === leg.toActivityId)?.title}
-                            </p>
-                            <p className="muted">
-                              {[leg.mode, leg.durationText, leg.distanceText, leg.lineText].filter(Boolean).join(' · ')}
-                            </p>
-                            <MapLink
-                              target={catalog.find(
-                                (content) => content.kind === 'map-target' && content.entityId === leg.mapTargetId,
-                              )}
-                            />
-                          </div>
-                        ))}
-                    </article>
-                  ))}
-                </div>
-                {activeDay ? <DayDetails repo={repo} day={activeDay} context={context} onNavigate={navigate} /> : null}
-                {plan.stays
-                  .filter(
-                    (stay) =>
-                      !activeDay ||
-                      (stay.time.start.date &&
-                        stay.time.start.date <= activeDay.date &&
-                        (!stay.time.end?.date || activeDay.date < stay.time.end.date)),
-                  )
-                  .map((s) => (
-                    <p key={s.stayId}>
-                      숙박: {s.baseText} · {timeLabel(s.time.start)}
-                    </p>
-                  ))}
-                {activeDay ? (
-                  <section className="stay-leg-editing" aria-label="지역·숙박·이동">
-                    <h3 className="editorial-heading">지역·숙박·이동</h3>
-                    <p className="muted">
-                      하루 지역 {activeDay.regionIds.map((id) => regionName(id)).join(', ') || '없음'} · 밤을 보내는
-                      지역 {activeDay.overnightRegionId ? regionName(activeDay.overnightRegionId) : '없음'}
-                    </p>
-                    <div className="button-row">
-                      <button
-                        disabled={historical}
-                        onClick={() => setStayEditor({ header: { ...header }, plan, date: activeDay.date })}
-                      >
-                        숙박 추가
-                      </button>
-                      <button
-                        disabled={historical || dayItems.length < 2}
-                        onClick={() => setLegEditor({ header: { ...header }, plan, dayId: activeDay.dayId })}
-                      >
-                        이동 추가
-                      </button>
-                    </div>
-                    {plan.stays
-                      .filter((stay) => {
-                        const range = stayRange(stay);
-                        return !isProblem(range) && range.checkin <= activeDay.date && activeDay.date <= range.checkout;
-                      })
-                      .map((stay) => (
-                        <p key={stay.stayId} className="content-row">
-                          {stay.baseText} · {stay.time.start.date} ~ {stay.time.end?.date}
-                          {stay.regionId ? ` · ${regionName(stay.regionId)}` : ''}{' '}
-                          <button
-                            aria-label={`${stay.baseText} 수정`}
-                            disabled={historical}
-                            onClick={() => setStayEditor({ header: { ...header }, plan, stay })}
-                          >
-                            수정
-                          </button>
-                        </p>
-                      ))}
-                    {plan.legs
-                      .filter((leg) => leg.dayId === activeDay.dayId)
-                      .map((leg) => {
-                        const label = `${plan.items.find((item) => item.activityId === leg.fromActivityId)?.title} → ${plan.items.find((item) => item.activityId === leg.toActivityId)?.title}`;
-                        return (
-                          <p key={leg.legId} className="content-row">
-                            이동 {label} · {leg.mode}
-                            {leg.durationText ? ` · ${leg.durationText}` : ''}{' '}
-                            <button
-                              aria-label={`이동 ${label} 수정`}
-                              disabled={historical}
-                              onClick={() => setLegEditor({ header: { ...header }, plan, dayId: activeDay.dayId, leg })}
-                            >
-                              수정
-                            </button>
-                          </p>
-                        );
-                      })}
-                  </section>
-                ) : null}
               </section>
             ) : null}
             {tab === '장소·지역' ? (
@@ -833,6 +840,9 @@ export function ContentApp() {
             ) : null}
             {tab === '예약·할 일' || tab === '지도' ? (
               <section>
+                <button className="back-to-more" onClick={() => openTab('더보기')}>
+                  더보기로
+                </button>
                 {tab === '예약·할 일' ? (
                   <>
                     <h2>예약·할 일</h2>
@@ -907,6 +917,9 @@ export function ContentApp() {
             ) : null}
             {tab === '준비·회화' ? (
               <section>
+                <button className="back-to-more" onClick={() => openTab('더보기')}>
+                  더보기로
+                </button>
                 <h2>준비·회화</h2>
                 <div className="button-row">
                   <button disabled={historical} onClick={() => setAuthoring('guide')}>
@@ -978,6 +991,7 @@ export function ContentApp() {
                   </>
                 ) : (
                   <>
+                    <h2>실제 기록</h2>
                     <button onClick={() => setRetroOpen(true)}>날짜별 회고 보기</button>
                     <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
                     <button
@@ -1002,6 +1016,11 @@ export function ContentApp() {
               </section>
             ) : null}
             {tab === '변경안' && plan ? (
+              <button className="back-to-more" onClick={() => openTab('더보기')}>
+                더보기로
+              </button>
+            ) : null}
+            {tab === '변경안' && plan ? (
               <ProposalPanel
                 repo={repo}
                 header={header}
@@ -1012,6 +1031,9 @@ export function ContentApp() {
             ) : null}
             {tab === '가져오기 기록' ? (
               <section>
+                <button className="back-to-more" onClick={() => openTab('더보기')}>
+                  더보기로
+                </button>
                 <h2>가져오기 기록</h2>
                 <p>새 패키지의 여행 ID가 같으면 차이를 검토한 뒤 적용합니다.</p>
                 {imports.map((p) => (
@@ -1034,7 +1056,7 @@ export function ContentApp() {
           {journeyTabs.map((item) => (
             <button
               key={item.tab}
-              aria-current={tab === item.tab ? 'page' : undefined}
+              aria-current={(item.tab === '더보기' ? moreTabs.includes(tab) : tab === item.tab) ? 'page' : undefined}
               onClick={() => openTab(item.tab)}
             >
               <JourneyIcon name={item.icon} />
@@ -1042,6 +1064,23 @@ export function ContentApp() {
             </button>
           ))}
         </nav>
+      ) : null}
+      {removeTarget && plan ? (
+        <RemoveItemDialog
+          item={removeTarget}
+          connectedLegs={
+            plan.legs.filter(
+              (leg) => leg.fromActivityId === removeTarget.activityId || leg.toActivityId === removeTarget.activityId,
+            ).length
+          }
+          busy={busy}
+          onClose={() => setRemoveTarget(null)}
+          onConfirm={() => {
+            const item = removeTarget;
+            setRemoveTarget(null);
+            void removeItem(item);
+          }}
+        />
       ) : null}
       {recovery ? (
         <Suspense fallback={<p role="status">저장소 도구를 여는 중입니다.</p>}>
@@ -1275,6 +1314,44 @@ export function ContentApp() {
         />
       ) : null}
     </div>
+  );
+}
+/** 숙박 줄의 시각. 날짜는 날짜 머리에 이미 있으므로 체크인 시각이나 원문 표현이 있을 때만 붙인다. */
+function stayClock(time: TimeSpec) {
+  if (time.precision === 'local' || time.precision === 'instant') {
+    return ` · 체크인 ${time.localTime.slice(0, 5)}`;
+  }
+  if (time.precision === 'text') {
+    return ` · ${time.rawText}`;
+  }
+  return '';
+}
+function RemoveItemDialog({
+  item,
+  connectedLegs,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  item: PlanVersion['items'][number];
+  connectedLegs: number;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal title="일정에서 제거할까요?" onClose={onClose}>
+      <p>
+        <strong>{item.title}</strong>을(를) 이 계획에서 제거합니다. 이전 계획 버전과 이미 남긴 기록은 그대로 남습니다.
+      </p>
+      {connectedLegs > 0 ? <p className="notice">연결된 이동 {connectedLegs}개 — 제거하면 함께 제거됩니다.</p> : null}
+      <div className="button-row dialog-actions">
+        <button className="danger" disabled={busy} onClick={onConfirm}>
+          제거 확인
+        </button>
+        <button onClick={onClose}>취소</button>
+      </div>
+    </Modal>
   );
 }
 function Booking({
