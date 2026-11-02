@@ -3,21 +3,16 @@ import { buildPackage } from '../../src/transfer/package';
 import { pilotTrip, fixtureAssets } from '../fixtures/pilot';
 import { digestBytes } from '../../src/contracts/v2';
 import type { TripDataset } from '../../src/contracts/v2';
+import { menuAction, openTripMenu } from './helpers/nav';
 
 /**
  * 계획 단위 재가져오기 화면(가상 fixture만): 같은 입력은 차이가 없고, 실제 원천 변경은 원본 변경,
  * 앱 수정과 겹치면 충돌이며 보류하면 앱 수정이 그대로 남는다.
  */
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
 
 async function seed(page: Page) {
   await page.goto('/?workspace=content');
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '가상 여행 둘러보기', exact: true }).click();
   await page.getByRole('button', { name: '가상 산책 여행 A · 3일', exact: true }).click();
   await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
@@ -39,7 +34,7 @@ async function openReview(page: Page, edit?: (trip: TripDataset) => void) {
     adapterVersion: '1',
     normalizationVersion: 'pilot-v1',
   });
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByLabel('여행 패키지 선택').setInputFiles({
     name: 'plan-source.zip',
     mimeType: 'application/zip',
@@ -55,7 +50,7 @@ const renameFirstSourceActivity = (trip: TripDataset) => {
 
 async function editFirstActivityInApp(page: Page) {
   await page.getByRole('button', { name: '오늘', exact: true }).click();
-  await page.getByRole('button', { name: '일정 수정', exact: true }).first().click();
+  await menuAction(page, '일정 수정');
   await page.getByLabel('활동 제목').fill('앱에서 고친 활동');
   await page.getByRole('button', { name: '계획 저장', exact: true }).click();
   await expect(page.getByRole('heading', { name: '앱에서 고친 활동', exact: true })).toBeVisible();

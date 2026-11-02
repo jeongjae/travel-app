@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { menuAction, openMore, openStorage, openTripMenu, removeActivity } from './helpers/nav';
 
 /**
  * C-05: 날짜별 회고(읽기 전용). 가상 여행에서 계획→기록·정정→계획/장소 변경→회고 날짜 선택→
@@ -24,21 +25,18 @@ test.afterEach(async ({ page }, info) => {
   }
 });
 
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
 async function openTab(page: Page, name: string) {
   await page.getByRole('button', { name, exact: true }).first().click();
 }
 async function openExtra(page: Page, name: string) {
-  await expand(page, '.journey-extras');
-  await page.getByRole('button', { name, exact: true }).click();
+  if (name === '실제 기록') {
+    await page.getByRole('button', { name: '기록', exact: true }).click();
+    return;
+  }
+  await openMore(page, name);
 }
 async function createTrip(page: Page, name: string) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '새 여행', exact: true }).click();
   await page.getByLabel('여행 이름').fill(name);
   await page.getByLabel('시작 날짜').fill('2032-06-01');
@@ -96,7 +94,12 @@ async function correctLatest(page: Page, title: string, edit: { date?: string; n
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
-const revisionText = (page: Page) => page.locator('.journey-settings .version-controls .muted').textContent();
+const revisionText = async (page: Page) => {
+  await openMore(page, '계획 버전');
+  const text = await page.locator('.version-controls .muted').textContent();
+  await page.getByRole('button', { name: '기록', exact: true }).click();
+  return text;
+};
 
 /** 계획 1~5(활동 추가 2, 제거, 변경안 적용), 날짜 이동 정정, 날짜 미상 건너뜀을 만든다. */
 async function buildScenario(page: Page) {
@@ -105,11 +108,11 @@ async function buildScenario(page: Page) {
   await openTab(page, '오늘');
   await addActivity(page, '가상 산책');
   await addActivity(page, '가상 식사');
-  await page.getByRole('button', { name: '건너뜀 기록', exact: true }).first().click();
+  await menuAction(page, '건너뜀 기록');
   await page.getByLabel('기록 메모').fill('비가 와서 건너뜀');
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  await page.getByRole('button', { name: '일정에서 제거', exact: true }).first().click();
+  await removeActivity(page, page);
   await expect(page.getByRole('heading', { name: '가상 산책', exact: true })).toHaveCount(0);
   await openExtra(page, '변경안');
   await page.getByRole('button', { name: '모의 변경안 만들기', exact: true }).click();
@@ -237,7 +240,7 @@ test('두 여행을 전체 백업해 빈 브라우저에 복원하면 같은 회
   await openExtra(page, '실제 기록');
   await recordUnplanned(page, '두 번째 여행 기록', { date: '2032-06-01', note: '다른 여행' });
 
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByText('전체 백업 생성 완료', { exact: false })).toBeVisible();
   const downloaded = page.waitForEvent('download');
@@ -249,14 +252,14 @@ test('두 여행을 전체 백업해 빈 브라우저에 복원하면 같은 회
   const restored = await target.newPage();
   try {
     await restored.goto('http://127.0.0.1:4173/?workspace=content');
-    await restored.getByRole('button', { name: '저장소·백업', exact: true }).click();
+    await openStorage(restored);
     await restored.getByLabel('전체 백업 파일 선택').setInputFiles(path);
     await expect(restored.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
     await expect(restored.getByText('전체 복원 완료.', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '닫기', exact: true }).click();
     await restored.reload();
-    await expand(restored, '.journey-library');
+    await openTripMenu(restored);
     await restored
       .getByRole('navigation', { name: '여행 선택' })
       .getByRole('button', { name: '가상 회고 여행' })
@@ -264,7 +267,7 @@ test('두 여행을 전체 백업해 빈 브라우저에 복원하면 같은 회
     await openRetro(restored);
     await expectRetroContent(restored);
     await expect(restored.getByText('두 번째 여행 기록')).toHaveCount(0);
-    await expand(restored, '.journey-library');
+    await openTripMenu(restored);
     await restored
       .getByRole('navigation', { name: '여행 선택' })
       .getByRole('button', { name: '두 번째 가상 여행' })

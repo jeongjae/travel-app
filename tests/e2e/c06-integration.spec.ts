@@ -4,6 +4,7 @@ import { pilotTrip, fixtureAssets } from '../fixtures/pilot';
 import { canonicalJson, digestBytes } from '../../src/contracts/v2';
 import { dump, domain, counts, tripIdOf, spaceIds, type Dump } from './helpers/space-dump';
 import type { TripDataset } from '../../src/contracts/v2';
+import { openMore, openStorage, openTripMenu } from './helpers/nav';
 
 /**
  * C-06〔T-C7〕 통합 검증(가상 자료만). 가져온 여행 A(계보 있음)와 앱에서 만든 여행 B를 한 검토 공간에 두고
@@ -33,21 +34,18 @@ const EVIDENCE_NOW = '새 원천 근거 본문';
 const A_NAME = '가상 산책 여행 A';
 const B_NAME = '가상 수동 여행 B';
 
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
 async function openTab(page: Page, name: string) {
   await page.getByRole('button', { name, exact: true }).first().click();
 }
 async function openExtra(page: Page, name: string) {
-  await expand(page, '.journey-extras');
-  await page.getByRole('button', { name, exact: true }).click();
+  if (name === '실제 기록') {
+    await page.getByRole('button', { name: '기록', exact: true }).click();
+    return;
+  }
+  await openMore(page, name);
 }
 async function selectTrip(page: Page, name: string) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('navigation', { name: '여행 선택' }).getByRole('button', { name }).click();
   await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible();
 }
@@ -81,7 +79,7 @@ const changeEvidenceAndFirstActivity = (trip: TripDataset) => {
   trip.plans[0].items[0].title = '새 원천 활동 제목';
 };
 async function openReview(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByLabel('여행 패키지 선택').setInputFiles(file);
   await page.getByRole('button', { name: '재가져오기 차이 검토', exact: true }).click();
   await expect(page.getByRole('heading', { name: '재가져오기 차이 검토', exact: true })).toBeVisible();
@@ -107,7 +105,7 @@ async function closeDialog(page: Page) {
 
 // ───────── 시나리오 구성 ─────────
 async function seedA(page: Page) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '가상 여행 둘러보기', exact: true }).click();
   await page.getByRole('button', { name: `${A_NAME} · 3일`, exact: true }).click();
   await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
@@ -167,7 +165,7 @@ async function correctRecord(page: Page, title: string, note: string) {
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
 async function createB(page: Page) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '새 여행', exact: true }).click();
   await page.getByLabel('여행 이름').fill(B_NAME);
   await page.getByLabel('시작 날짜').fill('2032-06-01');
@@ -296,7 +294,7 @@ async function selection(retro: ReturnType<Page['getByRole']>) {
 }
 
 async function backupTo(page: Page, file: string) {
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByText('전체 백업 생성 완료', { exact: false })).toBeVisible();
   const downloaded = page.waitForEvent('download');
@@ -304,7 +302,7 @@ async function backupTo(page: Page, file: string) {
   await (await downloaded).saveAs(file);
 }
 async function restoreFrom(page: Page, file: string) {
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await page.getByLabel('전체 백업 파일 선택').setInputFiles(file);
   await expect(page.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
@@ -317,7 +315,7 @@ async function emptyTarget(browser: Browser, page: Page, review: string) {
   const target = await context.newPage();
   await target.route('**/api/ai/v2/status', (route) => route.fulfill({ json: { configured: false } }));
   await target.goto(`http://127.0.0.1:4173${space(review)}`);
-  await expect(target.getByText('검증용 저장소', { exact: false })).toBeVisible();
+  await expect(target.locator('.review-badge')).toHaveText('검토 공간');
   return { context, target };
 }
 
@@ -376,7 +374,7 @@ test('두 여행(가져온 A·수동 B)을 전체 백업해 빈 검토 공간에
   const { context, target } = await emptyTarget(browser, page, destination);
   try {
     // 비어 있지 않은 공간에는 복원이 거부되고 기존 데이터는 그대로다(원본 공간에서 시도).
-    await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+    await openStorage(page);
     await expect(page.getByLabel('전체 백업 파일 선택')).toBeDisabled();
     const afterRejected = await dump(page, source);
     expect(domain(afterRejected)).toEqual(domain(before));
@@ -386,7 +384,7 @@ test('두 여행(가져온 A·수동 B)을 전체 백업해 빈 검토 공간에
     await restoreFrom(target, file);
     const restored = await dump(target, destination);
     // 복원된 공간도 비어 있지 않으므로 같은 백업을 다시 복원할 수 없다.
-    await target.getByRole('button', { name: '저장소·백업', exact: true }).click();
+    await openStorage(target);
     await expect(target.getByLabel('전체 백업 파일 선택')).toBeDisabled();
     await target.getByRole('button', { name: '닫기', exact: true }).click();
     expect(counts(restored)).toEqual(counts(before));

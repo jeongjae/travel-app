@@ -5,6 +5,7 @@ import { buildPackage } from '../../src/transfer/package';
 import { digestBytes, type TripDataset } from '../../src/contracts/v2';
 import { fixtureAssets, pilotTrip } from '../fixtures/pilot';
 import { factIsolation, factIsolationTrip, factIsolationUpdatedTrip } from '../fixtures/guide-fact-isolation';
+import { openTripMenu, planVersionSelect } from './helpers/nav';
 
 // 가상 전용 검토 공간. 기존 사용자 DB(travel-app)와 다른 이름이며 테스트마다 빈 브라우저 컨텍스트에서 시작한다.
 const reviewUrl = '/?workspace=content&review=fiction-fact-isolation';
@@ -49,22 +50,15 @@ async function packageFile(dataset: TripDataset, lineageId: string, sourceCommit
   };
 }
 
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
-
 async function addPackage(page: Page, file: Awaited<ReturnType<typeof packageFile>>) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByLabel('여행 패키지 선택').setInputFiles(file);
   await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
 
 async function selectTrip(page: Page, name: string) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('navigation', { name: '여행 선택' }).getByRole('button', { name, exact: true }).click();
   await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible();
 }
@@ -125,7 +119,7 @@ test('A의 Fact만 새 revision이 되면 A만 갱신되고 A→B→A·재로드
 
   // 기존 재가져오기 명령(ApplyReimport)으로 A 여행의 Fact만 새 원천 값으로 반영한다.
   await selectTrip(page, factIsolation.tripName);
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByLabel('여행 패키지 선택').setInputFiles(await updatedFactPackage());
   await page.getByRole('button', { name: '재가져오기 차이 검토', exact: true }).click();
   await expect(page.getByRole('heading', { name: '재가져오기 차이 검토', exact: true })).toBeVisible();
@@ -152,14 +146,14 @@ test('A의 Fact만 새 revision이 되면 A만 갱신되고 A→B→A·재로드
   await expectFact(page, factIsolation.valueB, factIsolation.statusB, [factIsolation.valueAUpdated]);
 
   // 과거 계획(plan-1)에 고정된 context는 갱신 전 Fact를 계속 읽고, 선택을 풀면 현재 값으로 돌아온다.
-  await expand(page, '.journey-extras');
-  await expand(page, '.journey-settings');
-  await page.getByLabel('계획 버전').selectOption('plan-1');
+  await (await planVersionSelect(page)).selectOption('plan-1');
+  await page.getByRole('button', { name: '가이드', exact: true }).click();
   await page.getByRole('button', { name: factIsolation.guideA.placeName, exact: true }).click();
   await expect(page.getByText('당시 고정 내용', { exact: false })).toBeVisible();
   await expectFact(page, factIsolation.valueA, factIsolation.statusA, [factIsolation.valueAUpdated]);
   await shoot(page, 'fact-a-past-plan');
-  await page.getByLabel('계획 버전').selectOption('');
+  await (await planVersionSelect(page)).selectOption('');
+  await page.getByRole('button', { name: '가이드', exact: true }).click();
   await page.getByRole('button', { name: factIsolation.guideA.placeName, exact: true }).click();
   await expect(page.getByText('현재 내용', { exact: false })).toBeVisible();
   await expectFact(page, factIsolation.valueAUpdated, factIsolation.statusAUpdated, [factIsolation.valueA]);

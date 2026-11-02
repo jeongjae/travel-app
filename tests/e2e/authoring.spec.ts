@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { menuAction, openStorage, openTripMenu } from './helpers/nav';
 
 /**
  * C-01: 지역 없는 새 여행 → 지역·장소와 설명 작성 → 일정 연결·순서/시간 수정 → 재실행 후 재조회.
@@ -21,15 +22,8 @@ test.afterEach(async ({ page }, info) => {
   }
 });
 
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
-
 async function createTrip(page: Page, name: string, zone = '') {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '새 여행', exact: true }).click();
   await page.getByLabel('여행 이름').fill(name);
   await page.getByLabel('시작 날짜').fill('2032-06-01');
@@ -92,7 +86,7 @@ test('새 여행→지역·장소 작성→일정 연결·순서 변경→재실
   await createTrip(page, '가상 작성 여행', 'Europe/Paris');
   await openTab(page, '오늘');
   await expect(page.getByText('이 날에는 아직 일정이 없습니다.', { exact: false })).toBeVisible();
-  await openTab(page, '전체 일정');
+  await openTab(page, '일정');
   await expect(page.locator('.journey-card')).toHaveCount(3);
 
   await authorRegionAndPlace(page);
@@ -100,7 +94,7 @@ test('새 여행→지역·장소 작성→일정 연결·순서 변경→재실
   await addActivity(page, '', '가상 카페', '09:30');
   await addActivity(page, '가상 산책');
   await expect.poll(() => titles(page)).toEqual(['가상 카페', '가상 산책']);
-  await page.getByRole('button', { name: '가상 산책 위로', exact: true }).click();
+  await menuAction(page.locator('.timeline-stop', { hasText: '가상 산책' }), '가상 산책 위로');
   await expect.poll(() => titles(page)).toEqual(['가상 산책', '가상 카페']);
 
   // 재실행 뒤 같은 순서·연결·본문을 다시 읽는다.
@@ -138,7 +132,7 @@ test('두 여행의 작성 내용은 섞이지 않고, 입력 오류는 입력�
   await expect(page.getByLabel('장소 이름')).toHaveValue('보존될 이름');
   await page.getByRole('button', { name: '닫기', exact: true }).click();
 
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('navigation', { name: '여행 선택' }).getByRole('button', { name: '가상 작성 여행' }).click();
   await openTab(page, '가이드');
   await expect(page.getByRole('button', { name: '가상 카페', exact: true })).toBeVisible();
@@ -152,7 +146,7 @@ test('작성한 여행을 전체 백업해 빈 브라우저에 복원하면 같�
   await authorRegionAndPlace(page);
   await addActivity(page, '', '가상 카페', '10:00');
   await createTrip(page, '두 번째 가상 여행');
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByText('전체 백업 생성 완료', { exact: false })).toBeVisible();
   const downloaded = page.waitForEvent('download');
@@ -167,14 +161,14 @@ test('작성한 여행을 전체 백업해 빈 브라우저에 복원하면 같�
   restored.on('pageerror', (e) => errors.push(e.message));
   try {
     await restored.goto('http://127.0.0.1:4173/?workspace=content');
-    await restored.getByRole('button', { name: '저장소·백업', exact: true }).click();
+    await openStorage(restored);
     await restored.getByLabel('전체 백업 파일 선택').setInputFiles(path);
     await expect(restored.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
     await expect(restored.getByText('전체 복원 완료.', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '닫기', exact: true }).click();
     await restored.reload();
-    await expand(restored, '.journey-library');
+    await openTripMenu(restored);
     await expect(restored.getByRole('navigation', { name: '여행 선택' }).getByRole('button')).toHaveCount(2);
     await restored
       .getByRole('navigation', { name: '여행 선택' })
@@ -183,6 +177,7 @@ test('작성한 여행을 전체 백업해 빈 브라우저에 복원하면 같�
     await expect.poll(() => titles(restored)).toEqual(['가상 카페']);
     await restored.getByRole('button', { name: /장소 안내 · 가상 카페/ }).click();
     await expect(restored.getByText('조용해서 첫 일정으로 좋다', { exact: true })).toBeVisible();
+    await openTripMenu(restored);
     await restored
       .getByRole('navigation', { name: '여행 선택' })
       .getByRole('button', { name: '두 번째 가상 여행' })

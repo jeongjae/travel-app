@@ -6,19 +6,10 @@ import { aiV2Fixture } from '../fixtures/ai-v2';
 import { materializeV2Proposal } from '../../server/ai-v2';
 import type { AiV2Request } from '../../src/ai-v2-contract';
 import type { AiV2Job } from '../../server/ai-v2-jobs';
-
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if (!(await details.getAttribute('open'))) {
-    if (!(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
-      await details.locator(':scope > summary').click();
-    }
-  }
-}
+import { openMore } from './helpers/nav';
 
 async function openProposals(page: Page) {
-  await expand(page, '.journey-extras');
-  await page.getByRole('button', { name: '변경안', exact: true }).click();
+  await openMore(page, '변경안');
 }
 
 async function setup(page: Page, delayed = false) {
@@ -152,8 +143,7 @@ test('v2 조사 중 현장 기록이 추가되면 오래된 결과 자동 저장
   await expect(page.getByRole('heading', { name: fixture.output.reason, exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: '오늘', exact: true }).click();
   await expect(page.getByRole('heading', { name: '가상 활동 1', exact: true }).first()).toBeVisible();
-  await expand(page, '.journey-extras');
-  await page.getByRole('button', { name: '실제 기록', exact: true }).click();
+  await page.getByRole('button', { name: '기록', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'AI 조사 중 가상 현장 기록', exact: true })).toBeVisible();
   expect(fixture.calls()).toBe(1);
   expect(fixture.errors).toEqual([]);

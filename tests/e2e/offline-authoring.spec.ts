@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { menuAction, openTripMenu } from './helpers/nav';
 
 /**
  * C-01: 지역 없는 새 여행 → 지역·장소와 설명 작성 → 일정 연결·순서/시간 수정 → 재실행 후 재조회.
@@ -21,15 +22,8 @@ test.afterEach(async ({ page }, info) => {
   }
 });
 
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
-
 async function createTrip(page: Page, name: string, zone = '') {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '새 여행', exact: true }).click();
   await page.getByLabel('여행 이름').fill(name);
   await page.getByLabel('시작 날짜').fill('2032-06-01');
@@ -94,7 +88,7 @@ test('Codex 오프라인: 새 여행→지역·장소 작성→일정 연결·�
   await createTrip(page, '가상 작성 여행', 'Europe/Paris');
   await openTab(page, '오늘');
   await expect(page.getByText('이 날에는 아직 일정이 없습니다.', { exact: false })).toBeVisible();
-  await openTab(page, '전체 일정');
+  await openTab(page, '일정');
   await expect(page.locator('.journey-card')).toHaveCount(3);
 
   await page.context().setOffline(true);
@@ -103,7 +97,7 @@ test('Codex 오프라인: 새 여행→지역·장소 작성→일정 연결·�
   await addActivity(page, '', '가상 카페', '09:30');
   await addActivity(page, '가상 산책');
   await expect.poll(() => titles(page)).toEqual(['가상 카페', '가상 산책']);
-  await page.getByRole('button', { name: '가상 산책 위로', exact: true }).click();
+  await menuAction(page.locator('.timeline-stop', { hasText: '가상 산책' }), '가상 산책 위로');
   await expect.poll(() => titles(page)).toEqual(['가상 산책', '가상 카페']);
 
   // 재실행 뒤 같은 순서·연결·본문을 다시 읽는다.

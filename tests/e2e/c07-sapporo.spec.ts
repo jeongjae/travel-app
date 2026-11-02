@@ -1,5 +1,8 @@
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { test, expect, type Browser, type Locator, type Page } from '@playwright/test';
 import { dump, domain, counts, tripIdOf, spaceIds, type Dump } from './helpers/space-dump';
+import { menuAction, openMore, openStorage, openTripMenu, selectDayByDate } from './helpers/nav';
 
 /**
  * C-07〔T-C8〕 삿포로 가상 여행 대본 리허설. `docs/c07-sapporo-scenario.md`의 단계 번호(S1~S7)를 그대로 따른다.
@@ -35,39 +38,63 @@ const END = '2027-01-03';
 const ZONE = 'Asia/Tokyo';
 const PRACTICAL = '가상 메모·미확인: 운영 시간과 요금은 확인하지 않음';
 
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
 async function openTab(page: Page, name: string) {
   await page.getByRole('button', { name, exact: true }).first().click();
 }
 async function openExtra(page: Page, name: string) {
-  await expand(page, '.journey-extras');
-  await page.getByRole('button', { name, exact: true }).click();
+  if (name === '실제 기록') {
+    await page.getByRole('button', { name: '기록', exact: true }).click();
+    return;
+  }
+  await openMore(page, name);
 }
 async function selectTrip(page: Page, name: string) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('navigation', { name: '여행 선택' }).getByRole('button', { name, exact: true }).click();
   await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible();
 }
-async function selectDay(page: Page, date: string) {
-  const select = page.getByLabel('날짜', { exact: true });
-  const value = await select
-    .locator('option')
-    .evaluateAll((nodes, wanted) => nodes.find((n) => n.textContent?.startsWith(wanted))?.getAttribute('value'), date);
-  expect(value, `날짜 ${date}`).toBeTruthy();
-  await select.selectOption(value!);
-}
+const selectDay = selectDayByDate;
 const timelineTitles = (page: Page) => page.locator('.day-timeline h3').allTextContents();
 const row = (page: Page, title: string): Locator => page.locator('article.content-row', { hasText: title });
 const space = (name: string) => `/?workspace=content&review=${name}`;
 /** 일정 항목 카드. 이동 안내 문구에 다른 활동 제목이 들어 있으므로 제목(h3)으로 고른다. */
 const stop = (page: Page, title: string): Locator =>
   page.locator('article.timeline-stop').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
-const regionLine = (page: Page) => page.locator('.stay-leg-editing .muted').first();
+const regionLine = (page: Page) => page.locator('.day-regions');
+
+/** C-08〔U1〕 시제품 장면: 오늘·일정·가이드·기록·더보기·활동 ⋯ 메뉴·제거 확인(취소로 닫는다). */
+async function captureU1(page: Page) {
+  const directory = resolve('docs/design/ui-u1');
+  await mkdir(directory, { recursive: true });
+  const project = test.info().project.name;
+  const shot = async (name: string) => {
+    await page.screenshot({ path: resolve(directory, `${project}-${name}.png`), fullPage: false });
+  };
+  const tab = (name: string) =>
+    page.getByRole('navigation', { name: '주요 메뉴' }).getByRole('button', { name, exact: true }).click();
+  await tab('오늘');
+  await selectDay(page, START);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot('1-today');
+  await tab('일정');
+  await shot('2-schedule');
+  await tab('가이드');
+  await shot('3-guide');
+  await tab('기록');
+  await shot('4-records');
+  await tab('더보기');
+  await shot('5-more');
+  await tab('오늘');
+  const first = page.locator('article.timeline-stop').first();
+  await first.scrollIntoViewIfNeeded();
+  await first.locator('.menu-toggle').click();
+  await shot('6-activity-menu');
+  await first.getByRole('button', { name: '일정에서 제거', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await shot('7-remove-confirm');
+  await page.getByRole('dialog').getByRole('button', { name: '취소', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+}
 
 /** 시각 입력 상자: 현지 시각 + 도쿄 시간대. */
 async function setLocalTime(page: Page, date: string, time: string) {
@@ -83,7 +110,7 @@ async function setDateOnly(page: Page, date: string) {
 
 // ───────── S1 ─────────
 async function createTrip(page: Page) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '새 여행', exact: true }).click();
   await page.getByLabel('여행 이름').fill(TRIP);
   await page.getByLabel('시작 날짜').fill(START);
@@ -174,7 +201,11 @@ const SCHEDULE: [string, string, { place?: string; date: string; time?: string }
 
 // ───────── S4 ─────────
 async function recordFor(page: Page, button: '방문 기록' | '건너뜀 기록', title: string) {
-  await stop(page, title).getByRole('button', { name: button, exact: true }).click();
+  if (button === '방문 기록') {
+    await stop(page, title).getByRole('button', { name: button, exact: true }).click();
+    return;
+  }
+  await menuAction(stop(page, title), button);
 }
 async function saveRecord(page: Page) {
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
@@ -241,7 +272,7 @@ async function expectRetroContent(page: Page) {
 
 // ───────── S6 ─────────
 async function seedOther(page: Page) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '가상 여행 둘러보기', exact: true }).click();
   await page.getByRole('button', { name: `${OTHER} · 3일`, exact: true }).click();
   await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
@@ -249,7 +280,7 @@ async function seedOther(page: Page) {
   await expect(page.getByRole('heading', { name: OTHER, exact: true, level: 1 })).toBeVisible();
 }
 async function backupTo(page: Page, file: string) {
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByText('전체 백업 생성 완료', { exact: false })).toBeVisible();
   const downloaded = page.waitForEvent('download');
@@ -262,11 +293,11 @@ async function emptyTarget(browser: Browser, page: Page, review: string) {
   const target = await context.newPage();
   await target.route('**/api/ai/v2/status', (route) => route.fulfill({ json: { configured: false } }));
   await target.goto(`http://127.0.0.1:4173${space(review)}`);
-  await expect(target.getByText('검증용 저장소', { exact: false })).toBeVisible();
+  await expect(target.locator('.review-badge')).toHaveText('검토 공간');
   return { context, target };
 }
 async function restoreFrom(page: Page, file: string) {
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await page.getByLabel('전체 백업 파일 선택').setInputFiles(file);
   await expect(page.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
@@ -305,13 +336,13 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
   await test.step('S1 · C-S1 지역 없는 새 여행 만들기', async () => {
     await page.goto(space(source));
     await createTrip(page);
-    await openTab(page, '전체 일정');
+    await openTab(page, '일정');
     await expect(page.locator('.journey-card')).toHaveCount(4);
     await openTab(page, '가이드');
     await expect(page.getByText('아직 지역이나 장소가 없습니다.', { exact: false })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('heading', { name: TRIP, exact: true, level: 1 })).toBeVisible();
-    await openTab(page, '전체 일정');
+    await openTab(page, '일정');
     await expect(page.locator('.journey-card')).toHaveCount(4);
     await expect(page.locator('.journey-card').first()).toContainText(START);
     await expect(page.locator('.journey-card').last()).toContainText(END);
@@ -361,7 +392,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     await expect(regionLine(page)).toContainText('하루 지역 삿포로 · 밤을 보내는 지역 없음');
     await addLeg(page, START, '공항 도착', '호텔 체크인', 'JR 쾌속 에어포트', '약 40분', '공항에서 시내로 이동(가상)');
     await addLeg(page, THIRD, '삿포로역 출발', '오타루 운하 산책', 'JR 쾌속', '약 40분', '근교 당일치기 이동(가상)');
-    await openTab(page, '전체 일정');
+    await openTab(page, '일정');
     await expect(page.getByText('지역 삿포로 · 숙박 지역 삿포로', { exact: false }).first()).toBeVisible();
   });
 
@@ -372,7 +403,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
   await test.step('S3 · 계획 변경 1회(연휴 휴무 가정으로 방문일 이동)와 이전 버전 보존', async () => {
     await openTab(page, '오늘');
     await selectDay(page, NEW_YEAR);
-    await row(page, '시계탑 방문').getByRole('button', { name: '일정 수정', exact: true }).click();
+    await menuAction(row(page, '시계탑 방문'), '일정 수정');
     await page.getByLabel('계획 날짜').selectOption({ label: THIRD });
     await page.getByRole('button', { name: '계획 저장', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -380,7 +411,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     await selectDay(page, THIRD);
     await expect.poll(() => timelineTitles(page)).toEqual(['삿포로역 출발', '오타루 운하 산책', '시계탑 방문']);
     // 가상 사유는 활동 메모로 남긴다(일정 수정의 변경 이유는 화면에서 입력하지 않는다).
-    await stop(page, '시계탑 방문').getByRole('button', { name: '메모', exact: true }).click();
+    await menuAction(stop(page, '시계탑 방문'), '메모');
     await page.getByLabel('메모 본문').fill('가상 가정: 1월 1일은 휴무라 1월 2일로 옮김');
     await page.getByRole('button', { name: '메모 저장', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -473,6 +504,13 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     await expect(retro.getByText('근거 없음', { exact: false }).first()).toBeVisible();
   });
 
+  // C-08〔U1〕 시제품 스크린샷: `UI_U1_SHOTS=1`일 때만 S1~S5를 마친 화면을 남긴다. 대본의 단언은 바꾸지 않는다.
+  if (process.env.UI_U1_SHOTS === '1') {
+    await test.step('U1 · S1~S5 이후 새 화면 스크린샷', async () => {
+      await captureU1(page);
+    });
+  }
+
   await test.step('S6 · C-S6 기존 여행을 더하고 전체 백업', async () => {
     await seedOther(page);
     await selectTrip(page, TRIP);
@@ -501,7 +539,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
       // 삿포로 여행에는 첨부가 없고, 가져온 여행의 첨부는 그 여행에만 속한다.
       expect(restored.assets.every((a) => a.tripId === otherId)).toBe(true);
 
-      await target.getByRole('button', { name: '저장소·백업', exact: true }).click();
+      await openStorage(target);
       await expect(target.getByLabel('전체 백업 파일 선택')).toBeDisabled();
       await target.getByRole('button', { name: '닫기', exact: true }).click();
 

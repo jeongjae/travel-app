@@ -3,6 +3,15 @@ import { resolve } from 'node:path';
 import { buildPackage } from '../../src/transfer/package';
 import { pilotTrip, fixtureAssets } from '../fixtures/pilot';
 import { digestBytes } from '../../src/contracts/v2';
+import {
+  currentDate,
+  menuAction,
+  openMore,
+  openStorage,
+  openTripMenu,
+  planVersionSelect,
+  removeActivity,
+} from './helpers/nav';
 let browserErrors: string[] = [];
 test.beforeEach(async ({ page }) => {
   browserErrors = [];
@@ -22,7 +31,7 @@ test.afterEach(async ({ page }, info) => {
 });
 async function seed(page: Page, short = false) {
   await page.goto('/?workspace=content');
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '가상 여행 둘러보기', exact: true }).click();
   await page
     .getByRole('button', { name: short ? '가상 미술 여행 B · 1일' : '가상 산책 여행 A · 3일', exact: true })
@@ -34,15 +43,12 @@ async function seed(page: Page, short = false) {
     page.getByRole('heading', { name: short ? '가상 미술 여행 B' : '가상 산책 여행 A', exact: true, level: 1 }),
   ).toBeVisible();
 }
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
 async function tool(page: Page, name: string) {
-  await expand(page, '.journey-extras');
-  await page.getByRole('button', { name, exact: true }).click();
+  if (name === '실제 기록') {
+    await page.getByRole('button', { name: '기록', exact: true }).click();
+    return;
+  }
+  await openMore(page, name);
 }
 async function guide(page: Page, name = '가상 장소 1') {
   await page.getByRole('button', { name: '가이드', exact: true }).click();
@@ -53,12 +59,12 @@ async function guide(page: Page, name = '가상 장소 1') {
 test('원본의 다섯 탐색 축에서 날짜·장소·일정 복귀와 지도·준비를 연결한다', async ({ page }) => {
   await seed(page);
   const navigation = page.getByRole('navigation', { name: '주요 메뉴' });
-  await expect(navigation.getByRole('button')).toHaveText(['오늘', '전체 일정', '가이드', '지도', '준비']);
+  await expect(navigation.getByRole('button')).toHaveText(['오늘', '일정', '가이드', '기록', '더보기']);
   await expect(navigation).toBeInViewport({ ratio: 1 });
-  await navigation.getByRole('button', { name: '전체 일정', exact: true }).click();
+  await navigation.getByRole('button', { name: '일정', exact: true }).click();
   await expect(page.locator('.schedule-overview .journey-card')).toHaveCount(3);
   await page.locator('.schedule-overview .journey-card').nth(1).getByRole('button').click();
-  const date = await page.getByLabel('날짜', { exact: true }).inputValue();
+  const date = await currentDate(page);
   await expect(page.getByRole('navigation', { name: '날짜별 일정' }).locator('[aria-current="date"]')).toHaveCount(1);
   await page
     .locator('.timeline-stop')
@@ -69,33 +75,30 @@ test('원본의 다섯 탐색 축에서 날짜·장소·일정 복귀와 지도�
   await page.getByRole('navigation', { name: '본문 목차' }).getByRole('button', { name: '실용', exact: true }).click();
   await expect(page.getByRole('heading', { name: '실용', exact: true })).toBeInViewport();
   await page.getByRole('button', { name: '일정으로 돌아가기', exact: true }).click();
-  await expect(page.getByLabel('날짜', { exact: true })).toHaveValue(date);
-  await navigation.getByRole('button', { name: '지도', exact: true }).click();
+  expect(await currentDate(page)).toBe(date);
+  await openMore(page, '지도');
   await expect(page.getByRole('heading', { name: '지도·동선', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: '외부 지도 열기', exact: true }).first()).toHaveAttribute(
     'href',
     /^https:\/\/www.google.com\/maps\//,
   );
-  await navigation.getByRole('button', { name: '준비', exact: true }).click();
+  await openMore(page, '준비·회화');
   await expect(page.getByRole('heading', { name: '준비·회화', exact: true })).toBeVisible();
   await expect(page.locator('.source-inspection')).not.toHaveAttribute('open');
 });
 
-test('작은 첫 화면 상단에서 저장소·백업을 열고 여행으로 돌아온다', async ({ page }, info) => {
+test('작은 첫 화면 하단의 더보기에서 저장소·백업을 열고 여행으로 돌아온다', async ({ page }, info) => {
   await page.setViewportSize(
     info.project.name === 'mobile' ? { width: 390, height: 640 } : { width: 1280, height: 600 },
   );
   await seed(page);
   await page.reload();
   await expect(page.getByRole('heading', { name: '가상 산책 여행 A', exact: true, level: 1 })).toBeVisible();
-  const menu = page
-    .getByRole('navigation', { name: '저장소 도구' })
-    .getByRole('button', { name: '저장소·백업', exact: true });
-  await expect(menu).toBeInViewport({ ratio: 1 });
-  const bounds = await menu.boundingBox();
-  expect(bounds?.y).toBeLessThan(300);
+  // 스크롤 없이 첫 화면 하단 탭의 더보기에 닿고, 두 번 눌러 저장소·백업이 열린다.
+  const more = page.getByRole('navigation', { name: '주요 메뉴' }).getByRole('button', { name: '더보기', exact: true });
+  await expect(more).toBeInViewport({ ratio: 1 });
   expect(await page.evaluate(() => scrollY)).toBe(0);
-  await menu.click();
+  await openStorage(page);
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').getByRole('heading', { name: '저장소·백업', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '전체 백업 만들기', exact: true })).toBeVisible();
@@ -168,7 +171,7 @@ test('검증용 저장소의 하루 보충·이미지를 표시하고 기본 여
     adapterVersion: '1',
     normalizationVersion: '1',
   });
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByLabel('여행 패키지 선택').setInputFiles({
     name: 'fiction-review.zip',
     mimeType: 'application/zip',
@@ -192,7 +195,7 @@ test('검증용 저장소의 하루 보충·이미지를 표시하고 기본 여
   );
   await page.goto('/?workspace=content');
   await expect(page.getByRole('heading', { name: '가상 산책 여행 A', exact: true, level: 1 })).toBeVisible();
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await expect(page.getByRole('navigation', { name: '여행 선택' }).getByRole('button')).toHaveCount(1);
 });
 
@@ -233,7 +236,7 @@ test('앱 전용 파일과 DB 참조를 분리하고 오프라인 재실행 뒤 
 test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미리보기·복원·재시작', async ({ page, browser }) => {
   await seed(page);
   await seed(page, true);
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await expect(page.getByLabel('전체 백업 파일 선택')).toBeDisabled();
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByText('전체 백업 생성 완료', { exact: false })).toBeVisible();
@@ -248,7 +251,7 @@ test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미�
   restored.on('pageerror', (e) => errors.push(e.message));
   try {
     await restored.goto('http://127.0.0.1:4173/?workspace=content');
-    await restored.getByRole('button', { name: '저장소·백업', exact: true }).click();
+    await openStorage(restored);
     await expect(restored.getByRole('heading', { name: '빈 저장소 전체 복원' })).toBeVisible();
     await restored.evaluate(async () => {
       await navigator.serviceWorker.ready;
@@ -256,7 +259,7 @@ test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미�
     await restored.waitForTimeout(400);
     await target.setOffline(true);
     await restored.reload();
-    await restored.getByRole('button', { name: '저장소·백업', exact: true }).click();
+    await openStorage(restored);
     await restored.getByLabel('전체 백업 파일 선택').setInputFiles(path);
     await expect(restored.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
     await expect(restored.getByRole('navigation', { name: '여행 선택' }).getByRole('button')).toHaveCount(0);
@@ -265,13 +268,13 @@ test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미�
     await restored.getByRole('button', { name: '닫기', exact: true }).click();
     await restored.reload();
     await expect(restored.getByRole('heading', { level: 1, name: '가상 산책 여행 A', exact: true })).toBeVisible();
-    await expand(restored, '.journey-library');
+    await openTripMenu(restored);
     await expect(restored.getByRole('navigation', { name: '여행 선택' }).getByRole('button')).toHaveCount(2);
     await guide(restored);
     await expect(restored.getByRole('img', { name: '표본' })).toBeVisible();
     expect(errors).toEqual([]);
     expect(await restored.locator('body').evaluate((e) => e.scrollWidth <= window.innerWidth)).toBe(true);
-    await restored.getByRole('button', { name: '저장소·백업', exact: true }).click();
+    await openStorage(restored);
     await expect(restored.getByText('오프라인 준비됨', { exact: false })).toHaveCount(2);
     await restored.screenshot({ path: test.info().outputPath('p06-restored.png'), fullPage: false });
   } finally {
@@ -280,7 +283,7 @@ test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미�
 });
 test('오프라인 첨부 축출 안내→현장 기록 유지→불완전 백업 차단→파일로 바이트 복구', async ({ page, context }) => {
   await seed(page);
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await expect(page.getByText('오프라인 준비됨', { exact: false })).toHaveCount(2);
   await page.getByRole('button', { name: '닫기', exact: true }).click();
   await page.evaluate(async () => {
@@ -318,7 +321,7 @@ test('오프라인 첨부 축출 안내→현장 기록 유지→불완전 백�
   await page.getByLabel('활동 이름').fill('첨부 없이 남긴 현장 기록');
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await expect(page.getByText('누락 또는 손상 · 복구 필요', { exact: false })).toHaveCount(1);
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('첨부 바이트가 누락');
@@ -348,14 +351,13 @@ test('가이드 패키지→동일 프로그램 두 여행·본문·Fact·표·�
   await page.reload();
   await guide(page);
   await expect(page.getByText('A에서 편집한 안내', { exact: false })).toBeVisible();
-  await expand(page, '.journey-extras');
-  await expand(page, '.journey-settings');
-  await page.getByLabel('계획 버전').selectOption('plan-1');
+  await (await planVersionSelect(page)).selectOption('plan-1');
+  await page.getByRole('button', { name: '가이드', exact: true }).click();
   await page.getByRole('button', { name: '가상 장소 1', exact: true }).click();
   await expect(page.getByText('당시 고정 내용', { exact: false })).toBeVisible();
   await expect(page.getByText('A에서 편집한 안내', { exact: false })).not.toBeVisible();
-  await page.getByLabel('계획 버전').selectOption('');
-  await expand(page, '.journey-library');
+  await (await planVersionSelect(page)).selectOption('');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '가상 여행 둘러보기', exact: true }).click();
   await page.getByRole('button', { name: '가상 미술 여행 B · 1일', exact: true }).click();
   await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
@@ -369,10 +371,10 @@ test('가이드 패키지→동일 프로그램 두 여행·본문·Fact·표·�
 test('오프라인 미상 기록·계획 제거·정정과 모의 변경안 확인 적용', async ({ page, context }) => {
   await page.route('**/api/ai/v2/status', (route) => route.fulfill({ json: { configured: false } }));
   await seed(page);
-  await page.getByRole('button', { name: '건너뜀 기록', exact: true }).first().click();
+  await menuAction(page, '건너뜀 기록');
   await page.getByLabel('기록 메모').fill('가상 비 때문에 건너뜀');
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
-  await page.getByRole('button', { name: '일정에서 제거', exact: true }).first().click();
+  await removeActivity(page, page);
   await tool(page, '실제 기록');
   await expect(page.getByText('가상 비 때문에 건너뜀', { exact: true })).toBeVisible();
   await expect(page.getByText('시각 미정', { exact: false }).first()).toBeVisible();
@@ -447,7 +449,7 @@ test('새 원본과 앱 본문의 충돌을 검토하고 선택한 섹션만 반
     adapterVersion: '1',
     normalizationVersion: 'pilot-v1',
   });
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByLabel('여행 패키지 선택').setInputFiles({
     name: 'new-source.zip',
     mimeType: 'application/zip',
@@ -481,11 +483,11 @@ test('예약·작업 체크·메모·계획 수정과 새 여행을 공통 화�
   await page.getByRole('button', { name: '메모 저장', exact: true }).click();
   await expect(page.getByText('현장에서 남긴 가상 메모', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '오늘', exact: true }).click();
-  await page.getByRole('button', { name: '일정 수정', exact: true }).first().click();
+  await menuAction(page, '일정 수정');
   await page.getByLabel('활동 제목').fill('직접 수정한 가상 활동');
   await page.getByRole('button', { name: '계획 저장', exact: true }).click();
   await expect(page.getByRole('heading', { name: '직접 수정한 가상 활동', exact: true })).toBeVisible();
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '새 여행', exact: true }).click();
   await page.getByLabel('여행 이름').fill('새로운 짧은 여행');
   await page.getByLabel('시작 날짜').fill('2032-04-01');
@@ -509,8 +511,11 @@ test('기존 여행을 검토한 뒤 전환하고 이전 실제 기록을 공통
   await expect(page.getByRole('heading', { name: '기존 여행 전환 확인', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '원문 보존 후 전환', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  await expand(page, '.journey-library');
-  await page.getByRole('button', { name: '파리의 느린 주말', exact: true }).click();
+  await openTripMenu(page);
+  await page
+    .getByRole('navigation', { name: '여행 선택' })
+    .getByRole('button', { name: '파리의 느린 주말', exact: true })
+    .click();
   await tool(page, '실제 기록');
   await expect(page.getByText('이전 화면에서 남긴 기록', { exact: true })).toBeVisible();
 });

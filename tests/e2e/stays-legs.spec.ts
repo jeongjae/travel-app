@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { openStorage, openTripMenu, planVersionSelect, removeActivity, selectDayByDate } from './helpers/nav';
 
 /**
  * C-02: 숙박·이동 계획 편집. 가상 여행에서 생성→수정→제거→재조회→재실행→오프라인→복원을 desktop·mobile로 확인한다.
@@ -21,17 +22,11 @@ test.afterEach(async ({ page }, info) => {
   }
 });
 
-async function expand(page: Page, selector: string) {
-  const details = page.locator(selector);
-  if ((await details.getAttribute('open')) === null) {
-    await details.locator(':scope > summary').click();
-  }
-}
 async function openTab(page: Page, name: string) {
   await page.getByRole('button', { name, exact: true }).first().click();
 }
 async function createTrip(page: Page, name: string) {
-  await expand(page, '.journey-library');
+  await openTripMenu(page);
   await page.getByRole('button', { name: '새 여행', exact: true }).click();
   await page.getByLabel('여행 이름').fill(name);
   await page.getByLabel('시작 날짜').fill('2032-06-01');
@@ -65,15 +60,8 @@ async function saveStay(page: Page) {
   await page.getByRole('button', { name: '숙박 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
-async function selectDay(page: Page, date: string) {
-  const select = page.getByLabel('날짜', { exact: true });
-  const value = await select
-    .locator('option')
-    .evaluateAll((nodes, wanted) => nodes.find((n) => n.textContent?.startsWith(wanted))?.getAttribute('value'), date);
-  expect(value).toBeTruthy();
-  await select.selectOption(value!);
-}
-const regionLine = (page: Page) => page.locator('.stay-leg-editing .muted').first();
+const selectDay = selectDayByDate;
+const regionLine = (page: Page) => page.locator('.day-regions');
 
 async function buildTrip(page: Page) {
   await page.goto('/?workspace=content');
@@ -94,7 +82,13 @@ test('숙박·이동을 만들고 고치고 지우며, 하루 지역·야간 지
   await page.getByRole('button', { name: '이동 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByText('이동 아침 산책 → 점심 식사 · 도보 · 15분', { exact: false })).toBeVisible();
-  await expect(page.getByText('연결된 이동 1개', { exact: false }).first()).toBeVisible();
+  // 연결된 이동 경고는 항상 보이지 않고 제거 확인 대화상자에서만 보인다.
+  await expect(page.getByText('연결된 이동', { exact: false })).toHaveCount(0);
+  await page.locator('.menu-toggle').first().click();
+  await page.getByRole('button', { name: '일정에서 제거', exact: true }).click();
+  await expect(page.getByRole('dialog').getByText('연결된 이동 1개', { exact: false })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: '취소', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
 
   // 숙박: 06-01~06-03, 미리보기가 날짜별 지역을 보여준다.
   await addStay(page, '가상 호텔', '가상 동네', '2032-06-01', '2032-06-03');
@@ -107,13 +101,13 @@ test('숙박·이동을 만들고 고치고 지우며, 하루 지역·야간 지
   // 퇴실일(06-03)은 하루 지역에 포함되지만 밤을 보내는 지역은 없다.
   await selectDay(page, '2032-06-03');
   await expect(regionLine(page)).toContainText('하루 지역 가상 동네 · 밤을 보내는 지역 없음');
-  await openTab(page, '전체 일정');
+  await openTab(page, '일정');
   await expect(page.getByText('지역 가상 동네 · 숙박 지역 가상 동네', { exact: false }).first()).toBeVisible();
   await expect(page.getByText('이동 1개', { exact: false })).toBeVisible();
 
   // 재실행 뒤에도 같다.
   await page.reload();
-  await openTab(page, '전체 일정');
+  await openTab(page, '일정');
   await expect(page.getByText('지역 가상 동네 · 숙박 지역 가상 동네', { exact: false }).first()).toBeVisible();
 
   // 수정: 기간을 줄이면 06-03에서 지역이 사라진다.
@@ -126,17 +120,18 @@ test('숙박·이동을 만들고 고치고 지우며, 하루 지역·야간 지
   await expect(regionLine(page)).toContainText('하루 지역 없음 · 밤을 보내는 지역 없음');
 
   // 과거 계획은 읽기 전용으로 남아 이전 값을 보여준다.
-  await expand(page, '.journey-extras');
-  await expand(page, '.journey-settings');
-  const options = await page.getByLabel('계획 버전').locator('option').allTextContents();
+  const versions = await planVersionSelect(page);
+  const options = await versions.locator('option').allTextContents();
   const earlier = options.find((text) => text.includes('사용자 숙박 추가'));
   expect(earlier, options.join('|')).toBeTruthy();
-  await page.getByLabel('계획 버전').selectOption({ label: earlier! });
+  await versions.selectOption({ label: earlier! });
   await expect(page.getByText('과거 계획', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: '오늘', exact: true }).click();
   await expect(page.getByRole('button', { name: '숙박 추가', exact: true })).toBeDisabled();
   await selectDay(page, '2032-06-02');
   await expect(regionLine(page)).toContainText('하루 지역 가상 동네');
-  await page.getByLabel('계획 버전').selectOption({ label: '현재 계획' });
+  await (await planVersionSelect(page)).selectOption({ label: '현재 계획' });
+  await page.getByRole('button', { name: '오늘', exact: true }).click();
 
   // 제거: 확인 단계 뒤에 지역 표시가 비워지고 활동은 그대로다.
   await selectDay(page, '2032-06-01');
@@ -177,7 +172,7 @@ test('겹친 밤은 저장을 막고 입력을 보존하며, 활동을 지우면
   await page.getByRole('button', { name: '이동 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByText('이동 아침 산책 → 점심 식사', { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: '일정에서 제거', exact: true }).first().click();
+  await removeActivity(page, page);
   await expect(page.getByText('이동 아침 산책 → 점심 식사', { exact: false })).toHaveCount(0);
   await expect(page.locator('.day-timeline h3')).toHaveText(['점심 식사']);
 });
@@ -217,7 +212,7 @@ test('숙박·이동이 든 두 여행을 전체 백업해 빈 브라우저에 �
   await expect(page.getByText('연결된 이동', { exact: false })).toHaveCount(0);
   await expect(regionLine(page)).toContainText('하루 지역 없음');
 
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByText('전체 백업 생성 완료', { exact: false })).toBeVisible();
   const downloaded = page.waitForEvent('download');
@@ -229,27 +224,26 @@ test('숙박·이동이 든 두 여행을 전체 백업해 빈 브라우저에 �
   const restored = await target.newPage();
   try {
     await restored.goto('http://127.0.0.1:4173/?workspace=content');
-    await restored.getByRole('button', { name: '저장소·백업', exact: true }).click();
+    await openStorage(restored);
     await restored.getByLabel('전체 백업 파일 선택').setInputFiles(path);
     await expect(restored.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
     await expect(restored.getByText('전체 복원 완료.', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '닫기', exact: true }).click();
     await restored.reload();
-    await expand(restored, '.journey-library');
+    await openTripMenu(restored);
     await restored
       .getByRole('navigation', { name: '여행 선택' })
       .getByRole('button', { name: '가상 숙박 여행' })
       .click();
-    await expect(restored.locator('.stay-leg-editing .muted').first()).toContainText(
-      '하루 지역 가상 동네 · 밤을 보내는 지역 가상 동네',
-    );
+    await expect(restored.locator('.day-regions')).toContainText('하루 지역 가상 동네 · 밤을 보내는 지역 가상 동네');
     await expect(restored.getByText('이동 아침 산책 → 점심 식사 · 도보', { exact: false })).toBeVisible();
+    await openTripMenu(restored);
     await restored
       .getByRole('navigation', { name: '여행 선택' })
       .getByRole('button', { name: '두 번째 가상 여행' })
       .click();
-    await expect(restored.locator('.stay-leg-editing .muted').first()).toContainText('하루 지역 없음');
+    await expect(restored.locator('.day-regions')).toContainText('하루 지역 없음');
   } finally {
     await target.close();
   }

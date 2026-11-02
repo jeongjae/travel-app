@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openStorage } from './helpers/nav';
 
 /**
  * CL-16: 파일 입력의 cancel 이벤트가 거품처럼 올라와도 공통 대화상자는 닫히지 않아야 한다.
@@ -7,7 +8,7 @@ import { test, expect } from '@playwright/test';
 test('저장소·백업에서 파일 선택 취소는 대화상자를 닫지 않고 Esc는 닫는다', async ({ page }) => {
   await page.route('**/api/ai/v2/status', (route) => route.fulfill({ json: { configured: false } }));
   await page.goto('/?workspace=content&review=modal-cancel-' + test.info().project.name);
-  await page.getByRole('button', { name: '저장소·백업', exact: true }).click();
+  await openStorage(page);
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
 
