@@ -1,13 +1,17 @@
 /* SP-FR shell.py / style.css의 탐색 계층과 읽기 토큰을 공통 DB 화면에 적용한다. */
 .content-app {
-  --canvas: #faf6ef;
+  /* 디자인 명세(docs/design/spec.md)의 녹색 강조 계열. 버튼 3종(기본·보조·위험)은 아래 한 곳에서 정의한다. */
+  --canvas: #f6f9f7;
   --surface: #fff;
-  --text: #221e19;
-  --muted: #5f5648;
-  --green: #0f5878;
-  --soft: #e3eef3;
-  --line: #e0d7c7;
-  --brand: #000091;
+  --text: #20332d;
+  --muted: #5a6b66;
+  --green: #2d6553;
+  --green-strong: #24513f;
+  --soft: #edf4ef;
+  --line: #e4e9e6;
+  --line-strong: #c5d2cc;
+  --danger: #a13b36;
+  --focus: #83bba5;
   background: var(--canvas);
   color: var(--text);
   font-family:
@@ -33,7 +37,7 @@
   font-size: 15px;
 }
 .content-app button {
-  border-color: #c9bca6;
+  border-color: var(--line-strong);
   border-radius: 12px;
 }
 .content-app a {
@@ -48,12 +52,15 @@
   gap: 12px;
   min-height: 56px;
   padding: 4px max(16px, calc((100vw - 1088px) / 2));
-  background: var(--brand);
-  color: #fff;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
 }
 .journey-topbar .brand {
-  color: #fff;
+  color: var(--green);
   font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
   white-space: nowrap;
 }
 .journey-location {
@@ -62,30 +69,47 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 15px;
   text-align: center;
   margin: 0;
   font-weight: 700;
   letter-spacing: 0;
 }
+.journey-location .trip-switch {
+  max-width: 100%;
+  min-height: 44px;
+  padding: 4px 12px;
+  border-color: transparent;
+  background: var(--soft);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.journey-location .trip-caret {
+  margin-left: 6px;
+  color: var(--green);
+}
+.review-badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
 .content-app .sidebar-tools {
   margin: 0;
 }
-.journey-topbar button {
-  padding: 6px 10px;
-  border: 0;
-  background: transparent;
-  color: #fff;
-  font-size: 13px;
-}
-.journey-topbar button:hover:not(:disabled) {
-  background: #2424a4;
-}
 .journey-library {
-  padding: 0 max(16px, calc((100vw - 1088px) / 2));
+  padding: 8px max(16px, calc((100vw - 1088px) / 2)) 12px;
   border-bottom: 1px solid var(--line);
-  background: #f2ece1;
-  font-size: 13px;
+  background: var(--soft);
+  font-size: 14px;
 }
 .content-app summary {
   min-height: 44px;
@@ -139,34 +163,6 @@
   padding: 0;
   white-space: normal;
 }
-.journey-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.journey-tools button {
-  border: 0;
-  background: transparent;
-  padding: 6px 8px;
-  font-size: 13px;
-}
-.journey-tools button[aria-pressed='true'] {
-  background: var(--soft);
-}
-.journey-settings {
-  font-size: 12px;
-  margin-bottom: 12px;
-}
-.journey-extras {
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-.content-app .day-toolbar select {
-  max-width: 100%;
-}
-.content-app .version-controls {
-  margin: 8px 0;
-}
 .day-page,
 .guide-detail {
   max-width: 672px;
@@ -177,8 +173,8 @@
   gap: 8px;
   overflow-x: auto;
   border-block: 1px solid var(--line);
-  padding: 8px 0;
-  margin-bottom: 20px;
+  padding: 6px 0;
+  margin-bottom: 4px;
 }
 .day-strip button {
   flex: 0 0 auto;
@@ -196,52 +192,71 @@
   color: inherit;
 }
 .day-strip button[aria-current='date'] {
-  background: #23395b;
+  background: var(--green);
   color: #fff;
 }
+/* v1 styles.css의 좁은 화면 규칙(세로 쌓기)을 덮어 두 단추를 한 줄에 둔다. */
 .content-app .day-toolbar {
-  margin: 24px 0;
+  display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  margin: 12px 0;
 }
-.content-app .day-toolbar .button-row {
-  flex-wrap: wrap;
-}
-.content-app .day-toolbar label {
-  font-size: 13px;
+.content-app .day-toolbar button {
+  min-height: 40px;
+  padding: 4px 14px;
+  font-size: 14px;
 }
 .day-intro {
-  margin: 24px 0 32px;
-}
-.day-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  color: var(--green);
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 4px;
+  margin: 12px 0 12px;
 }
 .day-intro h2 {
-  font-size: 32px;
-  line-height: 1.15;
-  margin: 0 0 8px;
-  letter-spacing: -0.6px;
+  font-size: 22px;
+  line-height: 1.3;
+  margin: 0 0 2px;
+  letter-spacing: -0.2px;
+}
+.day-city {
+  margin: 0;
+  color: var(--green);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 .day-summary {
-  color: var(--green);
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1.35;
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.45;
   word-break: keep-all;
 }
+.day-intro .muted {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.day-stay {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+.day-stay button {
+  min-height: 36px;
+  padding: 2px 10px;
+}
 .next-action {
-  padding: 24px;
+  padding: 12px 16px;
   border: 1px solid var(--line);
-  border-left: 4px solid #23395b;
+  border-left: 4px solid var(--green);
   border-radius: 12px;
   background: var(--surface);
-  margin: 0 0 32px;
+  margin: 0 0 12px;
 }
 .journey-label {
   font-size: 13px;
@@ -249,27 +264,28 @@
   color: var(--green);
   letter-spacing: 0.06em;
 }
+.action-line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 2px 0 6px;
+}
 .action-time {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 750;
   line-height: 1.2;
-  margin: 12px 0 4px;
 }
 .next-action .action-title {
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text);
-}
-.next-action > p:not(.action-time, .action-title) {
-  font-size: 15px;
-  color: #4a4239;
 }
 .journey-map-link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
   padding: 6px 14px;
-  border: 1px solid #c9bca6;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
   text-decoration: none;
   font-size: 15px;
@@ -310,10 +326,10 @@
   color: var(--green);
 }
 .timeline-leg {
-  border-left: 3px solid #c9bca6;
+  border-left: 3px solid var(--line-strong);
   margin-top: 24px;
   padding: 12px 16px;
-  background: #f2ece1;
+  background: var(--soft);
   font-size: 15px;
 }
 .journey-grid {
@@ -337,7 +353,7 @@
   font-size: 24px;
 }
 .journey-card p {
-  color: #4a4239;
+  color: var(--text);
   font-size: 15px;
 }
 .guide-card {
@@ -389,7 +405,7 @@
   display: flex;
   justify-content: center;
   border-top: 1px solid var(--line);
-  background: #faf6ef;
+  background: var(--canvas);
   padding: 4px 8px calc(4px + env(safe-area-inset-bottom));
 }
 .journey-bottomnav button {
@@ -430,12 +446,8 @@ body:has(.journey-bottomnav) .update-bar {
   .content-app .main > .notice {
     font-size: 12px;
   }
-  .content-app .day-toolbar label {
-    width: auto;
-    flex: 1 1 100%;
-  }
   .next-action {
-    padding: 20px 16px;
+    padding: 10px 12px;
   }
   .journey-card {
     padding: 20px;
@@ -443,4 +455,165 @@ body:has(.journey-bottomnav) .update-bar {
   .guide-card {
     padding: 0;
   }
+}
+
+.day-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 버튼 3종: 기본(채움, .primary) · 보조(외곽선, 기본 모양) · 위험(붉은 글자, .danger). */
+:where(.content-app) button {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--green);
+}
+.content-app button.primary {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+.content-app button.primary:hover:not(:disabled) {
+  background: var(--green-strong);
+}
+.content-app button.danger {
+  color: var(--danger);
+}
+.content-app button.danger:hover:not(:disabled) {
+  background: #fbefee;
+}
+.content-app button:focus-visible,
+.content-app a:focus-visible,
+.content-app summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* 오늘 화면의 활동 카드: 보이는 단추는 방문 기록·장소·⋯ 뿐이다. */
+.day-timeline {
+  margin-left: 6px;
+}
+.timeline-stop {
+  padding: 4px 0 14px 18px;
+}
+.timeline-stop::before {
+  top: 12px;
+}
+.timeline-stop h3 {
+  font-size: 18px;
+  line-height: 1.35;
+  margin: 0 0 2px;
+}
+.timeline-stop p {
+  margin: 2px 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.timeline-stop .timeline-time {
+  margin: 0;
+  font-size: 14px;
+}
+.content-row .button-row.activity-actions {
+  align-items: center;
+  margin-top: 8px;
+}
+.content-row .button-row.activity-actions button {
+  font-size: 15px;
+}
+.timeline-leg {
+  margin-top: 10px;
+  padding: 8px 12px;
+}
+.timeline-leg p {
+  margin: 0;
+}
+.timeline-leg .button-row {
+  margin-top: 4px;
+}
+.timeline-leg button {
+  min-height: 36px;
+  padding: 2px 10px;
+}
+.stay-leg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.action-menu {
+  position: relative;
+}
+.action-menu .menu-toggle {
+  min-width: 44px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+.action-menu-panel {
+  position: absolute;
+  z-index: 25;
+  right: 0;
+  top: calc(100% + 4px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px #122b2033;
+  scroll-margin-bottom: 96px;
+}
+.content-app .action-menu-panel button {
+  justify-content: flex-start;
+  border-color: transparent;
+  text-align: left;
+}
+.action-menu-panel .journey-map-link {
+  border-radius: 8px;
+  border-color: transparent;
+}
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* 더보기 목록과 하위 화면 */
+.more-page {
+  max-width: 672px;
+  margin-inline: auto;
+}
+.more-list {
+  display: grid;
+  gap: 8px;
+}
+.content-app .more-list button {
+  justify-content: flex-start;
+  min-height: 52px;
+  padding-inline: 16px;
+  font-size: 16px;
+  text-align: left;
+}
+.content-app .back-to-more {
+  margin-bottom: 8px;
+  border-color: transparent;
+  background: transparent;
 }
