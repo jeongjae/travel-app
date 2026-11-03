@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Temporal } from '@js-temporal/polyfill';
 import { timeSpecSchema, type TimeSpec } from '../contracts/v2';
 import { ErrorText } from './ui';
@@ -16,6 +16,7 @@ export function TimeFields({
   defaultZone,
   fixedDate,
   emptyAs,
+  afterTime,
 }: {
   value: TimeSpec;
   onChange: (value: TimeSpec) => void;
@@ -25,6 +26,8 @@ export function TimeFields({
   fixedDate?: string;
   /** 시각 칸이 비었을 때: 계획은 시각 미정, 기록은 날짜만 확인. */
   emptyAs: 'unspecified' | 'date';
+  /** 시각 칸 바로 아래(자세히 접기 앞)에 놓을 칸. 계획의 종료 시각. */
+  afterTime?: ReactNode;
 }) {
   const [precision, setPrecision] = useState<Precision>(value.precision),
     [date, setDate] = useState(value.date ?? fixedDate ?? ''),
@@ -130,6 +133,7 @@ export function TimeFields({
           />
         </label>
       ) : null}
+      {afterTime}
       <details>
         <summary>자세히</summary>
         <label>

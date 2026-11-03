@@ -1681,21 +1681,25 @@ function PlanEditor({
           defaultZone={confirmedZone(editor.header)}
           fixedDate={dayDate}
           emptyAs="unspecified"
+          afterTime={
+            <>
+              <label>
+                종료 시각 (선택)
+                <input
+                  type="time"
+                  value={endClock}
+                  disabled={!startClock}
+                  onChange={(e) => {
+                    setEndClock(e.target.value);
+                    setEndTouched(true);
+                    setAskNextDay(false);
+                  }}
+                />
+              </label>
+              {!startClock ? <p className="muted">종료 시각은 시각을 먼저 입력하면 정할 수 있습니다.</p> : null}
+            </>
+          }
         />
-        <label>
-          종료 시각 (선택)
-          <input
-            type="time"
-            value={endClock}
-            disabled={!startClock}
-            onChange={(e) => {
-              setEndClock(e.target.value);
-              setEndTouched(true);
-              setAskNextDay(false);
-            }}
-          />
-        </label>
-        {!startClock ? <p className="muted">종료 시각은 시각을 먼저 입력하면 정할 수 있습니다.</p> : null}
         {item ? (
           <label>
             변경 이유 (선택)
