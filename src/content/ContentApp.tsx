@@ -208,6 +208,7 @@ export function ContentApp() {
     );
     return withRecords.toSorted()[0] ?? dates[0] ?? trip.header.startDate;
   }
+  const tripEnded = header !== undefined && header.endDate < new Date().toLocaleDateString('sv-SE');
   function openTab(next: Tab) {
     setTab(next);
     setTarget(null);
@@ -465,7 +466,7 @@ export function ContentApp() {
             </button>
           </div>
           <label className="file-picker">
-            여행 패키지 선택
+            원천 패키지 가져오기 (pilot.zip)
             <input
               type="file"
               accept=".zip,application/zip"
@@ -525,6 +526,19 @@ export function ContentApp() {
             ) : null}
             {tab === '일정' && plan ? (
               <section className="day-page">
+                {tripEnded ? (
+                  <p className="notice">
+                    여행이 끝났습니다.{' '}
+                    <button
+                      onClick={() => {
+                        openTab('실제 기록');
+                        setRetroOpen(true);
+                      }}
+                    >
+                      회고 보기
+                    </button>
+                  </p>
+                ) : null}
                 <DayStrip plan={plan} dayId={activeDay?.dayId} onSelect={openDay} />
                 {activeDay ? (
                   <DayLead
@@ -992,7 +1006,9 @@ export function ContentApp() {
                 ) : (
                   <>
                     <h2>실제 기록</h2>
-                    <button onClick={() => setRetroOpen(true)}>날짜별 회고 보기</button>
+                    <button className="primary" onClick={() => setRetroOpen(true)}>
+                      날짜별 회고 보기
+                    </button>
                     <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
                     <button
                       onClick={() =>
