@@ -151,6 +151,9 @@ async function recordUnplanned(page: Page, title: string, note: string, place?: 
   if (place) {
     await page.getByLabel('기록할 장소').selectOption({ label: place });
   }
+  // 새 기록 폼은 보고 있는 날짜를 기본으로 채운다. 이 시나리오는 날짜 미상 기록이 필요하므로 시각·날짜를 비운다.
+  await page.getByLabel('시각 (선택)', { exact: true }).fill('');
+  await page.getByLabel('날짜', { exact: true }).fill('');
   await page.getByLabel('기록 메모').fill(note);
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
