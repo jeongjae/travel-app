@@ -13,7 +13,7 @@ test('저장소·백업에서 파일 선택 취소는 대화상자를 닫지 않
   await expect(dialog).toBeVisible();
 
   // 브라우저가 파일 선택 창 취소 때 발생시키는 것과 같은, 거품이 올라가는 cancel 이벤트.
-  await page.getByLabel('전체 백업 파일 선택').evaluate((input) => {
+  await page.getByLabel('전체 백업 복원').evaluate((input) => {
     input.dispatchEvent(new Event('cancel', { bubbles: true }));
   });
   await page.waitForTimeout(300);

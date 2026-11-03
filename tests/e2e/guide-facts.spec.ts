@@ -52,7 +52,7 @@ async function packageFile(dataset: TripDataset, lineageId: string, sourceCommit
 
 async function addPackage(page: Page, file: Awaited<ReturnType<typeof packageFile>>) {
   await openTripMenu(page);
-  await page.getByLabel('여행 패키지 선택').setInputFiles(file);
+  await page.getByLabel('원천 패키지 가져오기').setInputFiles(file);
   await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
@@ -120,7 +120,7 @@ test('A의 Fact만 새 revision이 되면 A만 갱신되고 A→B→A·재로드
   // 기존 재가져오기 명령(ApplyReimport)으로 A 여행의 Fact만 새 원천 값으로 반영한다.
   await selectTrip(page, factIsolation.tripName);
   await openTripMenu(page);
-  await page.getByLabel('여행 패키지 선택').setInputFiles(await updatedFactPackage());
+  await page.getByLabel('원천 패키지 가져오기').setInputFiles(await updatedFactPackage());
   await page.getByRole('button', { name: '재가져오기 차이 검토', exact: true }).click();
   await expect(page.getByRole('heading', { name: '재가져오기 차이 검토', exact: true })).toBeVisible();
   await shoot(page, 'reimport-review');

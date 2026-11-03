@@ -74,7 +74,7 @@ async function setup(page: Page, delayed = false) {
     adapterVersion: '1',
     normalizationVersion: '2',
   });
-  await page.getByLabel('여행 패키지 선택').setInputFiles({
+  await page.getByLabel('원천 패키지 가져오기').setInputFiles({
     name: 'fictional-ai-v2.zip',
     mimeType: 'application/zip',
     buffer: Buffer.from(await packaged.blob.arrayBuffer()),

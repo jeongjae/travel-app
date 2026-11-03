@@ -172,7 +172,7 @@ test('검증용 저장소의 하루 보충·이미지를 표시하고 기본 여
     normalizationVersion: '1',
   });
   await openTripMenu(page);
-  await page.getByLabel('여행 패키지 선택').setInputFiles({
+  await page.getByLabel('원천 패키지 가져오기').setInputFiles({
     name: 'fiction-review.zip',
     mimeType: 'application/zip',
     buffer: Buffer.from(await packaged.blob.arrayBuffer()),
@@ -237,7 +237,7 @@ test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미�
   await seed(page);
   await seed(page, true);
   await openStorage(page);
-  await expect(page.getByLabel('전체 백업 파일 선택')).toBeDisabled();
+  await expect(page.getByLabel('전체 백업 복원')).toBeDisabled();
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByText('전체 백업 생성 완료', { exact: false })).toBeVisible();
   const downloaded = page.waitForEvent('download');
@@ -260,7 +260,7 @@ test('전체 ZIP 백업 파일 저장→빈 브라우저에서 오프라인 미�
     await target.setOffline(true);
     await restored.reload();
     await openStorage(restored);
-    await restored.getByLabel('전체 백업 파일 선택').setInputFiles(path);
+    await restored.getByLabel('전체 백업 복원').setInputFiles(path);
     await expect(restored.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
     await expect(restored.getByRole('navigation', { name: '여행 선택' }).getByRole('button')).toHaveCount(0);
     await restored.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
@@ -326,7 +326,7 @@ test('오프라인 첨부 축출 안내→현장 기록 유지→불완전 백�
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('첨부 바이트가 누락');
   await expect(page.getByRole('link', { name: '검증한 전체 백업 파일 저장' })).toHaveCount(0);
-  await page.getByLabel('첨부 복구용 패키지·백업 선택').setInputFiles(resolve('public/pilot/fixture-a.zip'));
+  await page.getByLabel('첨부 사진만 복구').setInputFiles(resolve('public/pilot/fixture-a.zip'));
   await expect(page.getByText('2개 첨부를 복구했습니다.', { exact: false })).toBeVisible();
   await expect(page.getByText('오프라인 준비됨', { exact: false })).toHaveCount(2);
   await page.getByRole('button', { name: '전체 백업 만들기', exact: true }).click();
@@ -450,7 +450,7 @@ test('새 원본과 앱 본문의 충돌을 검토하고 선택한 섹션만 반
     normalizationVersion: 'pilot-v1',
   });
   await openTripMenu(page);
-  await page.getByLabel('여행 패키지 선택').setInputFiles({
+  await page.getByLabel('원천 패키지 가져오기').setInputFiles({
     name: 'new-source.zip',
     mimeType: 'application/zip',
     buffer: Buffer.from(await p.blob.arrayBuffer()),

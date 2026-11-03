@@ -298,7 +298,7 @@ async function emptyTarget(browser: Browser, page: Page, review: string) {
 }
 async function restoreFrom(page: Page, file: string) {
   await openStorage(page);
-  await page.getByLabel('전체 백업 파일 선택').setInputFiles(file);
+  await page.getByLabel('전체 백업 복원').setInputFiles(file);
   await expect(page.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
   await expect(page.getByText('전체 복원 완료.', { exact: false })).toBeVisible();
@@ -540,7 +540,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
       expect(restored.assets.every((a) => a.tripId === otherId)).toBe(true);
 
       await openStorage(target);
-      await expect(target.getByLabel('전체 백업 파일 선택')).toBeDisabled();
+      await expect(target.getByLabel('전체 백업 복원')).toBeDisabled();
       await target.getByRole('button', { name: '닫기', exact: true }).click();
 
       await readSapporo(target);
