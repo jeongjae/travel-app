@@ -4,7 +4,16 @@ import { Temporal } from '@js-temporal/polyfill';
 import { repository, ContentRepository } from '../repository';
 import { readPackage } from '../transfer/package';
 import type { Review } from '../transfer/reimport';
-import type { ContentRevision, FieldRecord, PlanVersion, RevisionRef, TimeSpec, TripDataset } from '../contracts/v2';
+import {
+  timeSpecSchema,
+  type ContentRevision,
+  type FieldRecord,
+  type PlanVersion,
+  type RevisionRef,
+  type TimeSpec,
+  type TripDataset,
+} from '../contracts/v2';
+import { actualPayload } from './field-rules';
 import { GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
@@ -27,7 +36,9 @@ import {
 import { reviewWorkspace, workspaceUrl } from '../storage/workspace-name';
 import { Retrospective } from './Retrospective';
 import { retrospectiveDates, UNKNOWN_DATE } from './retro-rules';
-import { ActualEditor, ActualTimeline, TimeEditor, type RecordDraft, type RecordEditor } from './Field';
+import { ActualEditor, ActualTimeline, type RecordDraft, type RecordEditor } from './Field';
+import { TimeFields } from './TimeFields';
+import { confirmedZone, nextDay, recordFormDefault, visitNowTime } from './quick-time';
 import { notesForTarget, SavedNotes } from './Notes';
 import { ProposalPanel, ReimportReview } from './Workflows';
 import { command, errorText, ErrorText, Modal, timeLabel } from './ui';
@@ -331,10 +342,53 @@ export function ContentApp() {
         ...(item ? { item } : {}),
         ...(original ? { original } : {}),
         ...(draft ? { draft } : {}),
+        ...(original || draft ? {} : { defaultStart: recordFormDefault(latest, activeDay?.date) }),
         current,
         context: original?.payload.contextRefs ?? (item && plan ? plan.contextRefs : current),
       });
     }, '');
+  }
+  /**
+   * `방문 기록` 한 번 누르기: 기기 시계의 지금을 여행 시간대의 현지 시각으로 바로 저장한다.
+   * 시각·메모는 저장 뒤 `정정`으로 고친다. 시간대를 알 수 없거나 저장에 실패하면 기존 폼을 연다.
+   */
+  async function quickVisit(item: PlanVersion['items'][number]) {
+    if (!header || !plan) {
+      return;
+    }
+    const start = visitNowTime(header);
+    if (!start) {
+      await record('visited', item);
+      return;
+    }
+    setError('');
+    setBusy(true);
+    try {
+      const latest = (await repo.list()).find((row) => row.tripId === header.tripId) ?? header;
+      const current = await repo.currentContext(header.tripId);
+      const payload = actualPayload(
+        undefined,
+        { title: item.title, outcome: 'visited', note: '', start, placeId: '', tripId: header.tripId },
+        plan.contextRefs,
+        current,
+        { planVersionId: plan.planVersionId, activityId: item.activityId },
+      );
+      const clock = start.precision === 'local' ? start.localTime : '';
+      await repo.execute(
+        command(
+          header.tripId,
+          'RecordActual',
+          { record: { tripId: header.tripId, recordId: crypto.randomUUID(), kind: 'actual', sourceRefs: [], payload } },
+          latest.domainRevision,
+        ),
+      );
+      setNotice(`${item.title} 방문을 ${clock}에 기록했습니다. 시각·메모는 기록 탭에서 정정할 수 있습니다.`);
+    } catch {
+      setBusy(false);
+      await record('visited', item);
+      return;
+    }
+    setBusy(false);
   }
   /**
    * 기록 당시 연결된 장소를 당시 고정 revision으로 연다. 장소는 기록에 직접 연결했거나 기록한 계획 항목이 연결한 장소만 쓴다.
@@ -574,7 +628,9 @@ export function ContentApp() {
                       <article className="content-row timeline-stop" key={i.activityId}>
                         <p className="timeline-time" title={timeLabel(i.time.start)}>
                           {clockLabel(i.time.start)}
-                          {i.time.end ? ` ~ ${clockLabel(i.time.end)}` : ''}
+                          {i.time.end
+                            ? ` ~ ${clockLabel(i.time.end)}${endsNextDay(i.time.start, i.time.end) ? ' (다음 날)' : ''}`
+                            : ''}
                         </p>
                         <h3>{i.title}</h3>
                         <p>{i.summary}</p>
@@ -593,7 +649,7 @@ export function ContentApp() {
                           </a>
                         ) : null}
                         <div className="button-row activity-actions">
-                          <button className="primary" onClick={() => void record('visited', i)}>
+                          <button className="primary" disabled={busy} onClick={() => void quickVisit(i)}>
                             방문 기록
                           </button>
                           {placeId ? (
@@ -1480,64 +1536,106 @@ function PlanEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [title, setTitle] = useState(editor.item?.title ?? ''),
-    [day, setDay] = useState(editor.item?.dayId ?? editor.plan.days[0]?.dayId ?? ''),
-    [time, setTime] = useState<TimeSpec>(editor.item?.time.start ?? { precision: 'unspecified' }),
-    [placeId, setPlaceId] = useState(editor.item?.placeLinks[0]?.placeId ?? ''),
+  const item = editor.item;
+  const [title, setTitle] = useState(item?.title ?? ''),
+    [day, setDay] = useState(item?.dayId ?? editor.plan.days[0]?.dayId ?? ''),
+    [time, setTime] = useState<TimeSpec>(item?.time.start ?? { precision: 'unspecified' }),
+    [endClock, setEndClock] = useState(clockOfEnd(item?.time.end)),
+    [endTouched, setEndTouched] = useState(false),
+    [askNextDay, setAskNextDay] = useState(false),
+    [reason, setReason] = useState(''),
+    [placeId, setPlaceId] = useState(item?.placeLinks[0]?.placeId ?? ''),
     [error, setError] = useState('');
-  const connectedLegs = editor.item
-    ? editor.plan.legs.filter(
-        (leg) => leg.fromActivityId === editor.item!.activityId || leg.toActivityId === editor.item!.activityId,
-      ).length
+  const dayDate = editor.plan.days.find((d) => d.dayId === day)?.date ?? '';
+  const startClock = 'localTime' in time ? time.localTime.slice(0, 5) : '';
+  const endBeforeStart = Boolean(endClock && startClock && endClock < startClock);
+  const connectedLegs = item
+    ? editor.plan.legs.filter((leg) => leg.fromActivityId === item.activityId || leg.toActivityId === item.activityId)
+        .length
     : 0;
+  /** 계획 날짜 칸이 날짜의 기준이다. 시각이 있는 시작값은 그 날짜로 맞춘다. */
+  function alignedStart(): TimeSpec {
+    if (time.precision === 'local' || time.precision === 'date') {
+      return timeSpecSchema.parse({ ...time, date: dayDate });
+    }
+    return time;
+  }
+  function endSpec(start: TimeSpec, spansMidnight: boolean): TimeSpec | undefined {
+    if (!endTouched) {
+      return item?.time.end;
+    }
+    if (!endClock) {
+      return undefined;
+    }
+    if (start.precision !== 'local' && start.precision !== 'instant') {
+      throw new Error('종료 시각은 시작 시각을 먼저 입력한 뒤 정할 수 있습니다.');
+    }
+    const zone = start.timeZone;
+    return timeSpecSchema.parse({
+      precision: 'local',
+      date: spansMidnight ? nextDay(dayDate) : dayDate,
+      localTime: endClock,
+      timeZoneStatus: zone ? 'confirmed' : 'unknown',
+      ...(zone ? { timeZone: zone } : {}),
+    });
+  }
+  async function save(spansMidnight: boolean) {
+    try {
+      const start = alignedStart();
+      const end = endSpec(start, spansMidnight);
+      const base: PlanVersion['items'][number] = item ?? {
+        tripId: editor.header.tripId,
+        planVersionId: editor.plan.planVersionId,
+        activityId: crypto.randomUUID(),
+        dayId: day,
+        order: Math.max(-1, ...editor.plan.items.filter((i) => i.dayId === day).map((i) => i.order)) + 1,
+        title,
+        category: 'activity',
+        time: { start },
+        summary: '',
+        optional: false,
+        placeLinks: [],
+        bookingIds: [],
+        taskRefs: [],
+        executionMarkers: [],
+        sourceFlags: [],
+      };
+      const originalLinks = item?.placeLinks ?? [];
+      // 첫 장소 링크만 이 화면에서 바꾼다. 나머지 연결은 그대로 둔다.
+      const placeLinks = placeId
+        ? [{ placeId, relation: originalLinks[0]?.relation ?? ('visit' as const) }, ...originalLinks.slice(1)]
+        : originalLinks.slice(1);
+      const next = { ...base, dayId: day, title, time: { start, ...(end ? { end } : {}) }, placeLinks };
+      if (item && item.dayId !== day) {
+        next.order = Math.max(-1, ...editor.plan.items.filter((i) => i.dayId === day).map((i) => i.order)) + 1;
+      }
+      await repo.execute(
+        command(
+          editor.header.tripId,
+          'ChangePlan',
+          {
+            currentPlanVersionId: editor.plan.planVersionId,
+            operations: [{ type: 'upsert-item', item: next }],
+            reason: reason.trim() || '사용자 일정 수정',
+          },
+          editor.header.domainRevision,
+        ),
+      );
+      onSaved();
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }
   return (
-    <Modal title={editor.item ? '일정 수정' : '활동 추가'} onClose={onClose}>
+    <Modal title={item ? '일정 수정' : '활동 추가'} onClose={onClose}>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          try {
-            const base: PlanVersion['items'][number] = editor.item ?? {
-              tripId: editor.header.tripId,
-              planVersionId: editor.plan.planVersionId,
-              activityId: crypto.randomUUID(),
-              dayId: day,
-              order: Math.max(-1, ...editor.plan.items.filter((i) => i.dayId === day).map((i) => i.order)) + 1,
-              title,
-              category: 'activity',
-              time: { start: time },
-              summary: '',
-              optional: false,
-              placeLinks: [],
-              bookingIds: [],
-              taskRefs: [],
-              executionMarkers: [],
-              sourceFlags: [],
-            };
-            const originalLinks = editor.item?.placeLinks ?? [];
-            // 첫 장소 링크만 이 화면에서 바꾼다. 나머지 연결은 그대로 둔다.
-            const placeLinks = placeId
-              ? [{ placeId, relation: originalLinks[0]?.relation ?? ('visit' as const) }, ...originalLinks.slice(1)]
-              : originalLinks.slice(1);
-            const item = { ...base, dayId: day, title, time: { start: time }, placeLinks };
-            if (editor.item && editor.item.dayId !== day) {
-              item.order = Math.max(-1, ...editor.plan.items.filter((i) => i.dayId === day).map((i) => i.order)) + 1;
-            }
-            await repo.execute(
-              command(
-                editor.header.tripId,
-                'ChangePlan',
-                {
-                  currentPlanVersionId: editor.plan.planVersionId,
-                  operations: [{ type: 'upsert-item', item }],
-                  reason: '사용자 일정 수정',
-                },
-                editor.header.domainRevision,
-              ),
-            );
-            onSaved();
-          } catch (err) {
-            setError(errorText(err));
+          if (endTouched && endBeforeStart && !askNextDay) {
+            setAskNextDay(true);
+            return;
           }
+          await save(endTouched && endBeforeStart);
         }}
       >
         <label>
@@ -1564,7 +1662,7 @@ function PlanEditor({
             ))}
           </select>
         </label>
-        {editor.item && editor.item.dayId !== day && connectedLegs > 0 ? (
+        {item && item.dayId !== day && connectedLegs > 0 ? (
           <p className="notice">날짜를 바꾸면 이 활동에 연결된 이동 {connectedLegs}개가 함께 제거됩니다.</p>
         ) : null}
         <label>
@@ -1577,12 +1675,58 @@ function PlanEditor({
             ))}
           </select>
         </label>
-        <TimeEditor value={time} onChange={setTime} />
+        <TimeFields
+          value={time}
+          onChange={setTime}
+          defaultZone={confirmedZone(editor.header)}
+          fixedDate={dayDate}
+          emptyAs="unspecified"
+        />
+        <label>
+          종료 시각 (선택)
+          <input
+            type="time"
+            value={endClock}
+            disabled={!startClock}
+            onChange={(e) => {
+              setEndClock(e.target.value);
+              setEndTouched(true);
+              setAskNextDay(false);
+            }}
+          />
+        </label>
+        {!startClock ? <p className="muted">종료 시각은 시각을 먼저 입력하면 정할 수 있습니다.</p> : null}
+        {item ? (
+          <label>
+            변경 이유 (선택)
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="사용자 일정 수정" />
+          </label>
+        ) : null}
+        {askNextDay ? (
+          <div className="notice" role="group" aria-label="다음 날 확인">
+            <p>
+              종료 시각 {endClock}이 시작 시각 {startClock}보다 이릅니다. 다음 날 {endClock}에 끝나는 것으로 저장할까요?
+            </p>
+            <div className="button-row">
+              <button type="button" className="primary" onClick={() => void save(true)}>
+                다음 날로 저장
+              </button>
+              <button type="button" onClick={() => setAskNextDay(false)}>
+                시각 다시 입력
+              </button>
+            </div>
+          </div>
+        ) : null}
         <ErrorText error={error} />
-        <button className="primary">계획 저장</button>
+        <div className="form-actions">
+          <button className="primary">계획 저장</button>
+        </div>
       </form>
     </Modal>
   );
+}
+function clockOfEnd(time?: TimeSpec) {
+  return time && (time.precision === 'local' || time.precision === 'instant') ? time.localTime.slice(0, 5) : '';
 }
 function NoteEditor({
   repo,
@@ -1731,4 +1875,8 @@ function TripCreator({
       </form>
     </Modal>
   );
+}
+
+function endsNextDay(start: TimeSpec, end: TimeSpec) {
+  return Boolean(start.date && end.date && end.date > start.date);
 }

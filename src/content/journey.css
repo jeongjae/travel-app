@@ -617,3 +617,43 @@ body:has(.journey-bottomnav) .update-bar {
   border-color: transparent;
   background: transparent;
 }
+
+/* U2: 긴 폼에서도 저장 버튼과 닫기 버튼이 스크롤 없이 닿도록 대화상자 안에서 고정한다. */
+dialog .dialog-heading {
+  position: sticky;
+  top: -28px;
+  z-index: 2;
+  margin: -28px -28px 20px;
+  padding: 16px 28px 10px;
+  background: Canvas;
+}
+dialog form .form-actions {
+  position: sticky;
+  bottom: -28px;
+  z-index: 2;
+  margin: 16px -28px -28px;
+  padding: 12px 28px 16px;
+  background: Canvas;
+  border-top: 1px solid var(--line);
+}
+dialog form details {
+  margin: 8px 0;
+}
+dialog form details summary {
+  cursor: pointer;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+@media (max-width: 640px) {
+  dialog .dialog-heading {
+    top: -22px;
+    margin: -22px -18px 16px;
+    padding: 14px 18px 8px;
+  }
+  dialog form .form-actions {
+    bottom: -22px;
+    margin: 16px -18px -22px;
+    padding: 12px 18px 14px;
+  }
+}

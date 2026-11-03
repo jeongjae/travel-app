@@ -10,6 +10,8 @@ import {
   type TimeSpec,
   type TripDataset,
 } from '../contracts/v2';
+import { TimeFields } from './TimeFields';
+import { confirmedZone } from './quick-time';
 import { actualPayload, correctionLinks, type ChainLink } from './field-rules';
 import { errorText, ErrorText, Modal, reuseRequest, timeLabel, type RequestAttempt } from './ui';
 export type RecordEditor = {
@@ -22,6 +24,8 @@ export type RecordEditor = {
   context: RevisionRef[];
   /** 폼을 연 시점의 현재 맥락. 정정에서 장소를 바꿀 때만 쓴다. */
   current: RevisionRef[];
+  /** 새 기록의 시작값: 보고 있는 날짜와(오늘이면) 지금 시각. */
+  defaultStart?: TimeSpec;
   /** 새 장소를 먼저 저장하고 돌아올 때 이어서 쓰는 입력. */
   draft?: RecordDraft;
 };
@@ -57,7 +61,7 @@ export function ActualEditor({
     [note, setNote] = useState(editor.draft?.note ?? original?.payload.note ?? ''),
     [outcome, setOutcome] = useState(editor.draft?.outcome ?? editor.outcome),
     [time, setTime] = useState<TimeSpec>(
-      editor.draft?.time ?? original?.payload.time.start ?? { precision: 'unspecified' },
+      editor.draft?.time ?? original?.payload.time.start ?? editor.defaultStart ?? { precision: 'unspecified' },
     ),
     [placeId, setPlaceId] = useState(editor.draft?.placeId ?? original?.payload.placeRef?.entityId ?? ''),
     [error, setError] = useState(''),
@@ -147,7 +151,7 @@ export function ActualEditor({
             )}
           </fieldset>
         )}
-        <TimeEditor value={time} onChange={setTime} />
+        <TimeFields value={time} onChange={setTime} defaultZone={confirmedZone(editor.header)} emptyAs="date" />
         <label>
           기록 메모
           <textarea value={note} onChange={(e) => setNote(e.target.value)} />
@@ -158,152 +162,13 @@ export function ActualEditor({
             입력한 내용은 그대로 남아 있습니다. 창을 닫고 최신 실제 기록을 확인한 뒤 다시 정정하세요.
           </p>
         ) : null}
-        <button className="primary" disabled={busy}>
-          실제 기록 저장
-        </button>
+        <div className="form-actions">
+          <button className="primary" disabled={busy}>
+            실제 기록 저장
+          </button>
+        </div>
       </form>
     </Modal>
-  );
-}
-export function TimeEditor({ value, onChange }: { value: TimeSpec; onChange: (value: TimeSpec) => void }) {
-  const [precision, setPrecision] = useState(value.precision),
-    [date, setDate] = useState(value.date ?? ''),
-    [localTime, setLocalTime] = useState('localTime' in value ? value.localTime : ''),
-    [zone, setZone] = useState('timeZone' in value ? (value.timeZone ?? '') : ''),
-    [offset, setOffset] = useState('offset' in value ? value.offset : ''),
-    [raw, setRaw] = useState(value.rawText ?? ''),
-    [error, setError] = useState('');
-  function update(fields: {
-    precision?: TimeSpec['precision'];
-    date?: string;
-    localTime?: string;
-    zone?: string;
-    offset?: string;
-    raw?: string;
-  }) {
-    const p = fields.precision ?? precision,
-      d = fields.date ?? date,
-      l = fields.localTime ?? localTime,
-      z = fields.zone ?? zone,
-      o = fields.offset ?? offset,
-      r = fields.raw ?? raw;
-    let candidate: unknown;
-    try {
-      if (p === 'unspecified') {
-        candidate = { precision: p, ...(d ? { date: d } : {}) };
-      } else if (p === 'date') {
-        candidate = { precision: p, date: d };
-      } else if (p === 'text') {
-        candidate = { precision: p, ...(d ? { date: d } : {}), rawText: r };
-      } else if (p === 'local') {
-        candidate = {
-          precision: p,
-          date: d,
-          localTime: l,
-          timeZoneStatus: z ? 'confirmed' : 'unknown',
-          ...(z ? { timeZone: z } : {}),
-        };
-      } else {
-        const instant = Temporal.ZonedDateTime.from(`${d}T${l}${o}[${z}]`, {
-          offset: 'reject',
-          disambiguation: 'reject',
-        })
-          .toInstant()
-          .toString();
-        candidate = { precision: p, date: d, localTime: l, timeZone: z, offset: o, instant };
-      }
-      onChange(timeSpecSchema.parse(candidate));
-      setError('');
-    } catch {
-      setError('날짜·시각·시간대·오프셋을 모두 확인하세요. 유효한 값을 입력한 뒤 저장할 수 있습니다.');
-      onChange((candidate as TimeSpec) ?? ({ precision: p } as TimeSpec));
-    }
-  }
-  return (
-    <fieldset>
-      <legend>발생 시각</legend>
-      <label>
-        시각 정밀도
-        <select
-          value={precision}
-          onChange={(e) => {
-            const p = e.target.value as typeof precision;
-            setPrecision(p);
-            update({ precision: p });
-          }}
-        >
-          <option value="unspecified">시각 미상</option>
-          <option value="date">날짜만 확인</option>
-          <option value="text">원문 표현</option>
-          <option value="local">현지 시각</option>
-          <option value="instant">정확한 시점</option>
-        </select>
-      </label>
-      <label>
-        발생 날짜
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => {
-            setDate(e.target.value);
-            update({ date: e.target.value });
-          }}
-        />
-      </label>
-      {precision === 'text' ? (
-        <label>
-          시각 원문
-          <input
-            value={raw}
-            onChange={(e) => {
-              setRaw(e.target.value);
-              update({ raw: e.target.value });
-            }}
-            placeholder="점심 후"
-          />
-        </label>
-      ) : null}
-      {precision === 'local' || precision === 'instant' ? (
-        <>
-          <label>
-            현지 시각
-            <input
-              type="time"
-              value={localTime}
-              onChange={(e) => {
-                setLocalTime(e.target.value);
-                update({ localTime: e.target.value });
-              }}
-            />
-          </label>
-          <label>
-            IANA 시간대
-            <input
-              value={zone}
-              onChange={(e) => {
-                setZone(e.target.value);
-                update({ zone: e.target.value });
-              }}
-              placeholder="Asia/Seoul"
-            />
-          </label>
-        </>
-      ) : null}
-      {precision === 'instant' ? (
-        <label>
-          확인된 UTC 오프셋
-          <input
-            value={offset}
-            onChange={(e) => {
-              setOffset(e.target.value);
-              update({ offset: e.target.value });
-            }}
-            placeholder="+09:00"
-          />
-        </label>
-      ) : null}
-      <ErrorText error={error} />
-    </fieldset>
   );
 }
 export function ActualTimeline({

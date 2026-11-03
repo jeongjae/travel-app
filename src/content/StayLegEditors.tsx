@@ -3,6 +3,7 @@ import type { ContentRevision, PlanVersion, TimeSpec, TripDataset } from '../con
 import type { ContentRepository } from '../repository';
 import { dayRegionsFromStays, isProblem, stayRange } from '../plan/manual-stays';
 import { command, ErrorText, Modal, errorText } from './ui';
+import { confirmedZone } from './quick-time';
 
 type Region = Extract<ContentRevision, { kind: 'region' }>;
 type Stay = PlanVersion['stays'][number];
@@ -70,7 +71,7 @@ export function StayEditor({
     [checkout, setCheckout] = useState(stay?.time.end?.date ?? editor.date ?? firstDate),
     [checkinClock, setCheckinClock] = useState(clockOf(stay?.time.start)),
     [checkoutClock, setCheckoutClock] = useState(clockOf(stay?.time.end)),
-    [zone, setZone] = useState(zoneOf(stay?.time.start)),
+    [zone, setZone] = useState(zoneOf(stay?.time.start) || confirmedZone(header) || ''),
     [reason, setReason] = useState(stay ? '사용자 숙박 수정' : '사용자 숙박 추가'),
     [removing, setRemoving] = useState(false),
     [error, setError] = useState(''),
@@ -170,21 +171,31 @@ export function StayEditor({
               <input type="date" required value={checkin} onChange={(e) => setCheckin(e.target.value)} />
             </label>
             <label>
-              퇴실 날짜
-              <input type="date" required value={checkout} onChange={(e) => setCheckout(e.target.value)} />
-            </label>
-            <label>
               입실 시각 (선택)
               <input type="time" value={checkinClock} onChange={(e) => setCheckinClock(e.target.value)} />
+            </label>
+            <label>
+              퇴실 날짜
+              <input type="date" required value={checkout} onChange={(e) => setCheckout(e.target.value)} />
             </label>
             <label>
               퇴실 시각 (선택)
               <input type="time" value={checkoutClock} onChange={(e) => setCheckoutClock(e.target.value)} />
             </label>
-            <label>
-              시간대 (확인한 경우만)
-              <input value={zone} placeholder="예: Europe/Paris" onChange={(e) => setZone(e.target.value)} />
-            </label>
+            {confirmedZone(header) ? (
+              <details>
+                <summary>자세히</summary>
+                <label>
+                  {`시간대: ${confirmedZone(header)} (여행 기본)`}
+                  <input value={zone} placeholder="예: Europe/Paris" onChange={(e) => setZone(e.target.value)} />
+                </label>
+              </details>
+            ) : (
+              <label>
+                시간대 (예: Europe/Paris, 확인한 경우만)
+                <input value={zone} placeholder="예: Europe/Paris" onChange={(e) => setZone(e.target.value)} />
+              </label>
+            )}
           </>
         )}
         <section aria-label="변경 요약">
@@ -219,7 +230,7 @@ export function StayEditor({
           <input value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
         <ErrorText error={error} />
-        <div className="button-row">
+        <div className="button-row form-actions">
           <button className="primary" disabled={busy || (!removing && Boolean(problem))}>
             {removing ? '제거 확인' : '숙박 저장'}
           </button>
@@ -371,7 +382,7 @@ export function LegEditor({
           <input value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
         <ErrorText error={error} />
-        <div className="button-row">
+        <div className="button-row form-actions">
           <button className="primary" disabled={busy}>
             {removing ? '제거 확인' : '이동 저장'}
           </button>
