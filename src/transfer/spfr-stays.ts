@@ -32,5 +32,5 @@ export function stayRegionsForDay(stays: SourceStay[], date: string) {
   };
 }
 
-export const spfrPilotAdapterVersion = 'spfr-pilot-v3';
-export const spfrPilotNormalizationVersion = '3';
+export const spfrPilotAdapterVersion = 'spfr-pilot-v4';
+export const spfrPilotNormalizationVersion = '4';

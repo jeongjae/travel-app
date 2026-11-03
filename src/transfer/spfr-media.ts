@@ -56,6 +56,7 @@ export async function mapSpfrMedia({
   const assetsByPath = new Map<string, string>();
   const mediaSections = [];
   let photoGroups = 0;
+  const placePhotos = new Map<string, { assetId: string; caption: string }>();
   const addFile = async (sourcePath: string, details: Record<string, unknown>, sourceFile: string, locator: string) => {
     const file = byPath.get(sourcePath);
     if (!file || file.byteLength !== file.bytes.length || (await digestBytes(file.bytes)) !== file.sha256) {
@@ -199,16 +200,19 @@ export async function mapSpfrMedia({
         guide.payload.sections.push({ ...imageSection, order: guide.payload.sections.length });
       }
     }
-    for (const day of plan.days) {
-      if (arrUsage(image.usage).includes(`daily/day-${day.dayId.slice(4).padStart(2, '0')}.html`)) {
-        day.assetRefs.push({ assetId: id, role: 'hero', caption });
-      }
+    if (place?.kind === 'place' && !placePhotos.has(place.entityId)) {
+      // 날짜 사진은 방문 장소의 첫 hero 사진만 쓴다. 원천 usage는 일정 순서 변경이 반영되지 않아 쓰지 않는다.
+      placePhotos.set(place.entityId, {
+        assetId: id,
+        caption: [place.payload.name, text(image.creator), text(image.license)].filter(Boolean).join(' · '),
+      });
     }
     const region = contents.find((content) => content.kind === 'region' && content.entityId === image.region);
     if (image.regionHero === true && region?.kind === 'region') {
       region.payload.assetRefs.push({ assetId: id, role: 'hero', caption });
     }
   }
+  assignDayPhotos(plan, placePhotos);
   for (const [key, value] of Object.entries(manifest).filter(([key]) => key !== 'images')) {
     show(path, `/${key}`, value, `이미지 자료의 ${key}`, 'source-media-metadata');
   }
@@ -321,4 +325,23 @@ function arrUsage(value: unknown) {
     throw new Error('이미지 사용 위치는 문자열 목록이어야 합니다.');
   }
   return value as string[];
+}
+
+/** 날짜 사진을 그날 활동의 방문 장소 순서로 채운다. 중복 장소는 한 번, 장소 사진이 없으면 비운다. */
+function assignDayPhotos(plan: PlanVersion, placePhotos: Map<string, { assetId: string; caption: string }>) {
+  for (const day of plan.days) {
+    day.assetRefs = [];
+    const visited = new Set<string>();
+    const items = plan.items.filter((item) => item.dayId === day.dayId).toSorted((a, b) => a.order - b.order);
+    for (const item of items) {
+      for (const link of item.placeLinks.filter((placeLink) => placeLink.relation === 'visit')) {
+        const photo = placePhotos.get(link.placeId);
+        if (visited.has(link.placeId) || !photo) {
+          continue;
+        }
+        visited.add(link.placeId);
+        day.assetRefs.push({ assetId: photo.assetId, role: 'hero', caption: photo.caption });
+      }
+    }
+  }
 }
