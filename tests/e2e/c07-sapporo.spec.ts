@@ -96,16 +96,18 @@ async function captureU1(page: Page) {
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
 
-/** 시각 입력 상자: 현지 시각 + 도쿄 시간대. */
+/** 시각 입력: 시각 칸을 채우면 현지 시각이다. 시간대는 여행 기본값(도쿄)이 자동으로 쓰이므로 입력하지 않는다. */
 async function setLocalTime(page: Page, date: string, time: string) {
-  await page.getByLabel('시각 정밀도').selectOption('local');
-  await page.getByLabel('발생 날짜').fill(date);
-  await page.locator('input[type=time]').fill(time);
-  await page.getByLabel('IANA 시간대').fill(ZONE);
+  const dateField = page.getByLabel('날짜', { exact: true });
+  if (await dateField.count()) {
+    await dateField.fill(date);
+  }
+  await page.getByLabel('시각 (선택)', { exact: true }).fill(time);
 }
+/** 날짜만 확인: 시각 칸을 비운다. */
 async function setDateOnly(page: Page, date: string) {
-  await page.getByLabel('시각 정밀도').selectOption({ label: '날짜만 확인' });
-  await page.getByLabel('발생 날짜').fill(date);
+  await page.getByLabel('날짜', { exact: true }).fill(date);
+  await page.getByLabel('시각 (선택)', { exact: true }).fill('');
 }
 
 // ───────── S1 ─────────
@@ -200,11 +202,14 @@ const SCHEDULE: [string, string, { place?: string; date: string; time?: string }
 ];
 
 // ───────── S4 ─────────
-async function recordFor(page: Page, button: '방문 기록' | '건너뜀 기록', title: string) {
-  if (button === '방문 기록') {
-    await stop(page, title).getByRole('button', { name: button, exact: true }).click();
-    return;
-  }
+/** `방문 기록`은 한 번 누르면 지금 시각으로 바로 저장한다(폼 없음). `건너뜀 기록`은 폼을 연다. */
+async function visitNow(page: Page, title: string, at: string) {
+  await page.clock.setFixedTime(new Date(at));
+  await stop(page, title).getByRole('button', { name: '방문 기록', exact: true }).click();
+  await expect(page.getByText(`${title} 방문을`, { exact: false })).toBeVisible();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+}
+async function recordFor(page: Page, button: '건너뜀 기록', title: string) {
   await menuAction(stop(page, title), button);
 }
 async function saveRecord(page: Page) {
@@ -226,10 +231,10 @@ async function correctRecord(page: Page, currentNote: string, edit: { date?: str
     .getByRole('button', { name: '정정', exact: true })
     .click();
   if (edit.date) {
-    await page.getByLabel('발생 날짜').fill(edit.date);
+    await page.getByLabel('날짜', { exact: true }).fill(edit.date);
   }
   if (edit.time) {
-    await page.locator('input[type=time]').fill(edit.time);
+    await page.getByLabel('시각 (선택)', { exact: true }).fill(edit.time);
   }
   await page.getByLabel('기록 메모').fill(edit.note);
   await saveRecord(page);
@@ -383,7 +388,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     await page.getByLabel('지역 (선택)').selectOption({ label: '삿포로' });
     await page.getByLabel('입실 날짜').fill(START);
     await page.getByLabel('퇴실 날짜').fill(END);
-    await page.getByLabel('시간대 (확인한 경우만)').fill(ZONE);
+    // 시간대(Asia/Tokyo)는 여행 기본값이 자동으로 쓰인다.
     await page.getByLabel('변경 이유').fill('가상 숙소 3박 확정');
     await page.getByRole('button', { name: '숙박 저장', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -430,16 +435,12 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
   await test.step('S4 · 연도 경계 활동의 계획·실제 기록과 정정 2회', async () => {
     await openTab(page, '오늘');
     await selectDay(page, START);
-    await recordFor(page, '방문 기록', '공항 도착');
-    await setLocalTime(page, START, '14:20');
-    await page.getByLabel('기록 메모').fill('가상 메모: 눈이 내려 도착이 조금 늦음');
-    await saveRecord(page);
-    await recordFor(page, '방문 기록', '카운트다운 산책');
-    await setLocalTime(page, START, '23:30');
-    await page.getByLabel('기록 메모').fill('가상 메모: 자정 직전에 산책 시작');
-    await saveRecord(page);
+    // 방문 기록은 한 번 누르면 기기 시계(여기서는 도쿄 14:20 / 23:30으로 고정)로 바로 저장된다.
+    await visitNow(page, '공항 도착', '2026-12-31T05:20:00Z');
+    await visitNow(page, '카운트다운 산책', '2026-12-31T14:30:00Z');
     await openExtra(page, '실제 기록');
-    await correctRecord(page, '자정 직전에 산책 시작', {
+    await correctRecord(page, '공항 도착', { note: '가상 메모: 눈이 내려 도착이 조금 늦음' });
+    await correctRecord(page, '카운트다운 산책', {
       date: NEW_YEAR,
       time: '00:30',
       note: '가상 메모: 자정을 넘겨 새해 00:30에 끝남',

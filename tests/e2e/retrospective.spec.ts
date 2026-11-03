@@ -64,6 +64,11 @@ async function addActivity(page: Page, title: string) {
   await page.getByRole('button', { name: '계획 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
+/** 새 기록 폼의 기본 날짜·시각을 비워 날짜 미상 기록을 만든다. */
+async function clearDate(page: Page) {
+  await page.getByLabel('시각 (선택)', { exact: true }).fill('');
+  await page.getByLabel('날짜', { exact: true }).fill('');
+}
 async function recordUnplanned(page: Page, title: string, options: { place?: string; date?: string; note?: string }) {
   await page.getByRole('button', { name: '예정 외 활동 기록', exact: true }).click();
   await page.getByLabel('활동 이름').fill(title);
@@ -71,8 +76,10 @@ async function recordUnplanned(page: Page, title: string, options: { place?: str
     await page.getByLabel('기록할 장소').selectOption({ label: options.place });
   }
   if (options.date) {
-    await page.getByLabel('시각 정밀도').selectOption({ label: '날짜만 확인' });
-    await page.getByLabel('발생 날짜').fill(options.date);
+    await page.getByLabel('날짜', { exact: true }).fill(options.date);
+    await page.getByLabel('시각 (선택)', { exact: true }).fill('');
+  } else {
+    await clearDate(page);
   }
   if (options.note) {
     await page.getByLabel('기록 메모').fill(options.note);
@@ -86,7 +93,7 @@ async function correctLatest(page: Page, title: string, edit: { date?: string; n
     .getByRole('button', { name: '정정', exact: true })
     .click();
   if (edit.date) {
-    await page.getByLabel('발생 날짜').fill(edit.date);
+    await page.getByLabel('날짜', { exact: true }).fill(edit.date);
   }
   if (edit.note) {
     await page.getByLabel('기록 메모').fill(edit.note);
@@ -109,6 +116,8 @@ async function buildScenario(page: Page) {
   await addActivity(page, '가상 산책');
   await addActivity(page, '가상 식사');
   await menuAction(page, '건너뜀 기록');
+  // 새 기록 폼은 보고 있는 날짜를 기본으로 채운다. 이 시나리오는 날짜를 모르는 기록을 만들어야 하므로 비운다.
+  await clearDate(page);
   await page.getByLabel('기록 메모').fill('비가 와서 건너뜀');
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();

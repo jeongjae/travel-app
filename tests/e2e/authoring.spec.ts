@@ -71,9 +71,7 @@ async function addActivity(page: Page, title: string, place?: string, time?: str
     await page.getByLabel('활동 제목').fill(title);
   }
   if (time) {
-    await page.getByLabel('시각 정밀도').selectOption('local');
-    await page.getByLabel('발생 날짜').fill('2032-06-01');
-    await page.locator('input[type=time]').fill(time);
+    await page.getByLabel('시각 (선택)', { exact: true }).fill(time);
   }
   await page.getByRole('button', { name: '계획 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
