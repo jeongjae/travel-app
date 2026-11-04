@@ -12,7 +12,13 @@ import {
 } from '../contracts/v2';
 import { TimeFields } from './TimeFields';
 import { confirmedZone } from './quick-time';
-import { actualPayload, correctionLinks, type ChainLink } from './field-rules';
+import {
+  actualPayload,
+  correctionLinks,
+  groupActualsByDate,
+  type ActualChainEntry,
+  type ChainLink,
+} from './field-rules';
 import { errorText, ErrorText, Modal, reuseRequest, timeLabel, type RequestAttempt } from './ui';
 export type RecordEditor = {
   header: TripDataset['header'];
@@ -171,6 +177,40 @@ export function ActualEditor({
     </Modal>
   );
 }
+const outcomeText = { visited: '방문', skipped: '건너뜀', unplanned: '예정 외 활동' } as const;
+const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+
+/** `12월 31일 (목)` 형식의 날짜 머리. 기록이 여러 해에 걸치면 연도를 앞에 붙인다. */
+export function dateHeading(date: string, withYear: boolean) {
+  const day = Temporal.PlainDate.from(date);
+  const text = `${day.month}월 ${day.day}일 (${weekdays[day.dayOfWeek - 1]})`;
+  return withYear ? `${day.year}년 ${text}` : text;
+}
+
+/** 날짜 머리 아래에서는 날짜를 되풀이하지 않고 시각만 보인다. 정밀도 용어는 보조 문구로 따로 둔다. */
+function clockText(time: TimeSpec) {
+  switch (time.precision) {
+    case 'instant':
+    case 'local':
+      return time.localTime;
+    case 'text':
+      return time.rawText;
+    case 'date':
+      return '시각 없음';
+    case 'unspecified':
+      return '시각 미정';
+  }
+}
+const precisionText: Record<TimeSpec['precision'], string> = {
+  instant: '확인된 발생 시점',
+  local: '현지 시각',
+  text: '원문 시각',
+  date: '날짜만 확인',
+  unspecified: '시각 미상',
+};
+
+type ActualRow = Extract<FieldRecord, { kind: 'actual' }>;
+
 export function ActualTimeline({
   records,
   placeNames,
@@ -180,67 +220,39 @@ export function ActualTimeline({
   records: FieldRecord[];
   /** 기록 ID별로, 기록 당시 고정한 revision에서 읽은 장소 이름. */
   placeNames: Map<string, string>;
-  onCorrect: (record: Extract<FieldRecord, { kind: 'actual' }>) => void;
-  onContext: (record: Extract<FieldRecord, { kind: 'actual' }>) => void;
+  onCorrect: (record: ActualRow) => void;
+  onContext: (record: ActualRow) => void;
 }) {
   const links = correctionLinks(records);
   const superseded = new Set(records.flatMap((r) => (r.supersedes ? [r.supersedes] : [])));
-  const actuals = records.filter((r): r is Extract<FieldRecord, { kind: 'actual' }> => r.kind === 'actual');
-  const exact = actuals
-    .filter((r) => r.payload.time.start.precision === 'instant')
-    .toSorted((a, b) =>
-      Temporal.Instant.compare(
-        (a.payload.time.start as Extract<TimeSpec, { precision: 'instant' }>).instant,
-        (b.payload.time.start as Extract<TimeSpec, { precision: 'instant' }>).instant,
-      ),
-    );
-  const dated = actuals
-    .filter((r) => r.payload.time.start.precision !== 'instant' && Boolean(r.payload.time.start.date))
-    .toSorted(
-      (a, b) => a.payload.time.start.date!.localeCompare(b.payload.time.start.date!) || a.commitSeq - b.commitSeq,
-    );
-  const unknown = actuals.filter((r) => !r.payload.time.start.date).toSorted((a, b) => a.commitSeq - b.commitSeq);
+  const { days, unknown } = groupActualsByDate(records);
+  const years = new Set(days.map((day) => day.date.slice(0, 4)));
+  const renderRow = (entry: ActualChainEntry) => (
+    <ActualRowView
+      key={entry.latest.recordId}
+      entry={entry}
+      links={links}
+      placeName={placeNames.get(entry.latest.recordId)}
+      onCorrect={onCorrect}
+      onContext={onContext}
+    />
+  );
   return (
     <>
       <h2>실제 활동 기록</h2>
-      {!actuals.length ? <p>실제 기록이 없습니다.</p> : null}
-      {[
-        { label: '확인된 발생 시점', rows: exact },
-        { label: '날짜·현지 시각·원문으로 확인한 기록', rows: dated },
-        { label: '발생일 미상', rows: unknown },
-      ]
-        .filter((g) => g.rows.length)
-        .map((group) => (
-          <section key={group.label}>
-            <h3>{group.label}</h3>
-            {group.rows.map((r) => (
-              <article className="content-row" key={r.recordId}>
-                <h3>{r.payload.title}</h3>
-                <p>
-                  {r.payload.outcome === 'visited'
-                    ? '방문'
-                    : r.payload.outcome === 'skipped'
-                      ? '건너뜀'
-                      : '예정 외 활동'}{' '}
-                  · {timeLabel(r.payload.time.start)}
-                </p>
-                {placeNames.has(r.recordId) ? <p>장소 · {placeNames.get(r.recordId)} (기록 당시 이름)</p> : null}
-                <p>{r.payload.note}</p>
-                {superseded.has(r.recordId) ? (
-                  <p className="muted">정정된 기록 · 원본 보존</p>
-                ) : (
-                  <button onClick={() => onCorrect(r)}>정정</button>
-                )}
-                <CorrectionTrail link={links.get(r.recordId)} />
-                <button onClick={() => onContext(r)}>기록 당시 내용</button>
-                <details>
-                  <summary>앱에 남긴 시각</summary>
-                  <p>앱에 남긴 시각 {r.recordedAt} · 실제로 한 시각과 따로 보관</p>
-                </details>
-              </article>
-            ))}
-          </section>
-        ))}
+      {!days.length && !unknown.length ? <p>실제 기록이 없습니다.</p> : null}
+      {days.map((group) => (
+        <section key={group.date} className="record-day">
+          <h3>{dateHeading(group.date, years.size > 1)}</h3>
+          {group.entries.map(renderRow)}
+        </section>
+      ))}
+      {unknown.length ? (
+        <section className="record-day">
+          <h3>발생일 미상</h3>
+          {unknown.map(renderRow)}
+        </section>
+      ) : null}
       <h3>이전 원천의 상태</h3>
       {records
         .filter((r) => r.kind === 'legacy-state')
@@ -256,6 +268,69 @@ export function ActualTimeline({
           <p key={r.recordId}>{r.payload.body}</p>
         ))}
     </>
+  );
+}
+
+/** 정정 체인 하나를 최신 정정본 한 행으로 보인다. 원문·중간본은 접기 안에 두고 정정 버튼은 최신본에만 둔다. */
+function ActualRowView({
+  entry,
+  links,
+  placeName,
+  onCorrect,
+  onContext,
+}: {
+  entry: ActualChainEntry;
+  links: Map<string, ChainLink>;
+  placeName: string | undefined;
+  onCorrect: (record: ActualRow) => void;
+  onContext: (record: ActualRow) => void;
+}) {
+  const { latest, chain } = entry;
+  const corrections = chain.length - 1;
+  const time = latest.payload.time.start;
+  const aux = [
+    [precisionText[time.precision], time.precision === 'local' || time.precision === 'instant' ? time.timeZone : '']
+      .filter(Boolean)
+      .join(' · '),
+    placeName ? `장소 · ${placeName} (기록 당시 이름)` : '',
+    corrections ? `정정 ${corrections}회 · 최신 정정본` : '',
+  ].filter(Boolean);
+  return (
+    <article className="content-row record-row">
+      <h4>{latest.payload.title}</h4>
+      <p>
+        {outcomeText[latest.payload.outcome]} · {clockText(time)}
+      </p>
+      {latest.payload.note ? <p>{latest.payload.note}</p> : null}
+      <p className="muted record-aux">{aux.join(' · ')}</p>
+      <div className="button-row">
+        <button onClick={() => onCorrect(latest)}>정정</button>
+        <details className="row-more">
+          <summary aria-label="기록 더 보기">⋯</summary>
+          <button onClick={() => onContext(latest)}>기록 당시 내용</button>
+          <p className="muted">앱에 남긴 시각 {latest.recordedAt} · 실제로 한 시각과 따로 보관</p>
+        </details>
+      </div>
+      {corrections ? (
+        <details className="correction-fold">
+          <summary>정정 {corrections}회 · 원문 보기</summary>
+          <ol>
+            {chain.map((record) => (
+              <li key={record.recordId}>
+                <strong>{record.payload.title}</strong> · {outcomeText[record.payload.outcome]} ·{' '}
+                {timeLabel(record.payload.time.start)}
+                {record.payload.note ? <p>{record.payload.note}</p> : null}
+                <CorrectionTrail link={links.get(record.recordId)} />
+                {record.recordId !== latest.recordId ? <p className="muted">정정된 기록 · 원본 보존</p> : null}
+                <button type="button" onClick={() => onContext(record)}>
+                  이 단계의 기록 당시 내용
+                </button>
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
+    </article>
   );
 }
 

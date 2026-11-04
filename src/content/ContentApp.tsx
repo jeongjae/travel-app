@@ -27,13 +27,13 @@ import {
   DayBookings,
   DayLead,
   DayStrip,
-  GuideCard,
   JourneyIcon,
   journeyTabs,
   MapLink,
   ScheduleOverview,
 } from './Journey';
 import { reviewWorkspace, workspaceUrl } from '../storage/workspace-name';
+import { GuideList } from './GuideList';
 import { Retrospective } from './Retrospective';
 import { retrospectiveDates, UNKNOWN_DATE } from './retro-rules';
 import { ActualEditor, ActualTimeline, type RecordDraft, type RecordEditor } from './Field';
@@ -876,35 +876,12 @@ export function ContentApp() {
                     이름·지역 검색
                     <input value={search} onChange={(e) => setSearch(e.target.value)} />
                   </label>
-                  <div className="journey-grid">
-                    {catalog
-                      .filter(
-                        (c): c is Extract<ContentRevision, { kind: 'place' | 'region' }> =>
-                          c.kind === 'place' || c.kind === 'region',
-                      )
-                      .toSorted((a, b) => Number(b.kind === 'region') - Number(a.kind === 'region'))
-                      .filter((c) =>
-                        `${c.payload.name} ${
-                          c.kind === 'place'
-                            ? c.payload.regionIds
-                                .map((id) => {
-                                  const r = catalog.find((r) => r.kind === 'region' && r.entityId === id);
-                                  return r?.kind === 'region' ? r.payload.name : '';
-                                })
-                                .join(' ')
-                            : ''
-                        }`.includes(search),
-                      )
-                      .map((c) => (
-                        <GuideCard
-                          key={`${c.kind}-${c.entityId}`}
-                          repo={repo}
-                          content={c}
-                          context={context}
-                          onOpen={() => navigate(c.kind, c.entityId)}
-                        />
-                      ))}
-                  </div>
+                  <GuideList
+                    catalog={catalog}
+                    search={search}
+                    onClearSearch={() => setSearch('')}
+                    onOpen={(kind, id) => navigate(kind, id)}
+                  />
                 </section>
               )
             ) : null}
@@ -1033,7 +1010,7 @@ export function ContentApp() {
               </section>
             ) : null}
             {tab === '실제 기록' ? (
-              <section>
+              <section className="record-page">
                 {retroOpen ? (
                   <>
                     <button onClick={() => setRetroOpen(false)}>실제 기록 목록으로</button>

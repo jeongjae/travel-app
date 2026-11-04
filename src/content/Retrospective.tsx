@@ -6,10 +6,12 @@ import {
   buildRetrospective,
   retrospectiveDates,
   type ActualEntry,
+  planVersionLabel,
+  type ItemBadge,
   type PlanColumn,
   type ReasonView,
 } from './retro-rules';
-import { timeLabel } from './ui';
+import { HelpNote, timeLabel } from './ui';
 
 const outcomeLabel = { visited: '방문', skipped: '건너뜀', unplanned: '예정 외 활동' } as const;
 
@@ -44,10 +46,10 @@ export function Retrospective({
   return (
     <section aria-label="날짜별 회고" className="retro">
       <h2>날짜별 회고</h2>
-      <p className="muted">
+      <HelpNote>
         읽기 전용입니다. 날짜와 계획 버전을 바꿔도 아무것도 저장하거나 바꾸지 않으며, 기록은 당시 계획과 고정한 본문으로
         읽습니다.
-      </p>
+      </HelpNote>
       <div className="version-controls">
         <label>
           회고 날짜
@@ -68,13 +70,18 @@ export function Retrospective({
               value={view.selectedPlanVersionId === view.currentPlanVersionId ? '' : view.selectedPlanVersionId}
               onChange={(e) => onPlanVersion(e.target.value)}
             >
-              <option value="">현재 계획</option>
+              <option value="">
+                {planVersionLabel(
+                  trip.plans.find((p) => p.planVersionId === view.currentPlanVersionId) ?? trip.plans[0],
+                  { current: true },
+                )}
+              </option>
               {trip.plans
                 .toSorted((a, b) => b.number - a.number)
                 .filter((p) => p.planVersionId !== view.currentPlanVersionId)
                 .map((p) => (
                   <option key={p.planVersionId} value={p.planVersionId}>
-                    과거 계획 {p.number} · {p.reason}
+                    {planVersionLabel(p, { current: false })} · 계획 {p.number}
                   </option>
                 ))}
             </select>
@@ -87,6 +94,11 @@ export function Retrospective({
         </p>
       ) : (
         <div className="retro-columns">
+          {view.columns.length > 1 ? (
+            <p className="muted retro-legend">
+              배지는 선택한 계획에서 현재 계획으로 바뀐 점입니다. 같은 항목에는 배지가 없습니다.
+            </p>
+          ) : null}
           {view.columns.map((column) => (
             <PlanColumnView key={column.planVersionId} column={column} onOpenPlanPlace={onOpenPlanPlace} />
           ))}
@@ -106,6 +118,21 @@ export function Retrospective({
   );
 }
 
+function badgeText(badge: ItemBadge) {
+  switch (badge.kind) {
+    case 'added':
+      return '추가';
+    case 'removed':
+      return '제거';
+    case 'moved':
+      return `이동 (${badge.otherDate})`;
+    case 'time-changed':
+      return '시각 변경';
+    case 'content-changed':
+      return '내용 변경';
+  }
+}
+
 function PlanColumnView({
   column,
   onOpenPlanPlace,
@@ -115,10 +142,13 @@ function PlanColumnView({
 }) {
   return (
     <article className="content-row" aria-label={`${column.isCurrent ? '현재 계획' : '과거 계획'} ${column.number}`}>
-      <h3>
-        {column.isCurrent ? '현재 계획' : '과거 계획'} {column.number}
+      <h3 className="retro-column-head">
+        {planVersionLabel(column, { current: column.isCurrent })}
+        <span className="muted retro-plan-number">
+          {column.isCurrent ? '' : '과거 계획 · '}계획 {column.number}
+        </span>
       </h3>
-      <p className="muted">변경 이유(계획 전체): {column.reason}</p>
+      {column.isCurrent ? <p className="muted">변경 이유: {column.reason}</p> : null}
       {!column.days.length ? <p>이 계획 버전에는 이 날짜가 없습니다.</p> : null}
       {column.days.map(({ day, items, legs, stays }) => (
         <div key={day.dayId}>
@@ -130,6 +160,11 @@ function PlanColumnView({
             {items.map((item: PlanVersion['items'][number]) => (
               <li key={item.activityId}>
                 {item.title} · {timeLabel(item.time.start)}
+                {(column.badges[item.activityId] ?? []).map((badge) => (
+                  <span key={badge.kind} className={`retro-badge retro-badge-${badge.kind}`}>
+                    {badgeText(badge)}
+                  </span>
+                ))}
                 {item.placeLinks[0] ? (
                   <button
                     type="button"
@@ -259,12 +294,13 @@ function ActualEntryView({
 
 const dayChangeText: Record<ReasonView['dayChange'], string> = {
   initial: '첫 계획이라 비교할 이전 버전이 없습니다.',
-  unchanged: '이 날짜는 직전 버전과 같습니다. 아래 이유는 계획 전체에 대한 것이며 이 날짜의 원인으로 보지 않습니다.',
-  changed: '이 날짜의 활동이 직전 버전과 달라졌습니다.',
+  unchanged: '이 날짜는 직전 버전과 같습니다.',
+  changed: '이 날짜가 직전 버전과 달라졌습니다.',
   'added-day': '이 날짜가 이 버전에서 새로 생겼습니다.',
   'removed-day': '이 날짜가 이 버전에서 사라졌습니다.',
   'no-day': '이 날짜는 이 버전과 직전 버전에 모두 없습니다.',
 };
+const dayPartText = { day: '날짜 제목', legs: '이동', stays: '숙박' } as const;
 const roleText = { selected: '선택한 계획', current: '현재 계획', 'linked-by-record': '기록이 연결한 계획' } as const;
 
 function ReasonSection({
@@ -287,8 +323,21 @@ function ReasonSection({
           <h4>
             계획 {reason.number} · {reason.roles.map((role) => roleText[role]).join(' · ')}
           </h4>
-          <p>저장된 이유(계획 전체): {reason.reason}</p>
-          <p className="muted">{dayChangeText[reason.dayChange]}</p>
+          <p>저장된 이유: {reason.reason}</p>
+          <HelpNote label="이유 도움말">
+            이유는 계획 전체에 대한 것이며, 이 날짜가 바뀌지 않았다면 이 날짜의 원인으로 보지 않습니다.
+          </HelpNote>
+          <p className="muted">
+            {dayChangeText[reason.dayChange]}
+            {reason.dayChange === 'changed' && (reason.changedActivityIds.length || reason.changedDayParts.length)
+              ? ` (${[
+                  reason.changedActivityIds.length ? `활동 ${reason.changedActivityIds.length}건` : '',
+                  ...reason.changedDayParts.map((part) => dayPartText[part]),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')})`
+              : ''}
+          </p>
           {reason.parent ? <p className="muted">직전 버전: 계획 {reason.parent.number}</p> : null}
           {reason.source === 'applied-proposal' && reason.proposal ? (
             <>
@@ -318,7 +367,12 @@ function ReasonSection({
           ) : reason.source === 'proposal-missing' ? (
             <p className="muted">변경안 연결 없음 · 이 계획을 만든 적용 변경안의 기록을 찾을 수 없습니다.</p>
           ) : (
-            <p className="muted">변경안 없음 · 직접 변경 등으로 저장된 이유만 있습니다. 근거 없음.</p>
+            <>
+              <p className="muted">변경안 없음 · 근거 없음</p>
+              <HelpNote label="변경안 없음 도움말">
+                직접 변경 등으로 저장된 이유만 있고 연결된 변경안이 없습니다.
+              </HelpNote>
+            </>
           )}
         </article>
       ))}

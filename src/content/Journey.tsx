@@ -288,39 +288,3 @@ export function ScheduleOverview({
     </section>
   );
 }
-
-export function GuideCard({
-  repo,
-  content,
-  context,
-  onOpen,
-}: {
-  repo: ContentRepository;
-  content: Extract<ContentRevision, { kind: 'place' | 'region' }>;
-  context?: RevisionRef[];
-  onOpen: () => void;
-}) {
-  const photo = content.payload.assetRefs.find((asset) => asset.role === 'hero') ?? content.payload.assetRefs[0];
-  return (
-    <article className="journey-card guide-card">
-      {photo ? (
-        <AssetImage
-          repo={repo}
-          tripId={content.tripId}
-          assetId={photo.assetId}
-          context={context}
-          alt={photo.caption ?? content.payload.name}
-        />
-      ) : null}
-      <div className="guide-card-body">
-        <h3>
-          <button onClick={onOpen}>{content.payload.name}</button>
-        </h3>
-        <p>{content.kind === 'place' ? content.payload.summary : content.payload.tagline}</p>
-        {content.kind === 'place' && content.payload.gradeLabel ? (
-          <span className="journey-label">{content.payload.gradeLabel}</span>
-        ) : null}
-      </div>
-    </article>
-  );
-}
