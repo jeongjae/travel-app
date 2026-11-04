@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openTripMenu, removeActivity } from './helpers/nav';
+import { openTripMenu, planVersionSelect, removeActivity } from './helpers/nav';
 
 /**
  * C-12〔U3〕 읽기 화면 정리. 가상 여행만 쓴다. 데이터·저장 명령은 그대로이고 표시만 바뀐다.
@@ -233,4 +233,70 @@ test('가이드: 지역 머리 아래에 장소가 묶이고, 검색은 일치�
   await north.getByRole('button', { name: '북쪽 동네', exact: true }).click();
   await expect(page.getByRole('heading', { name: '북쪽 동네', exact: true, level: 2 })).toBeVisible();
   await expect(page.getByRole('button', { name: '지역 가이드 작성', exact: true })).toBeVisible();
+});
+
+test('C8 오늘: 예정 외 기록은 타임라인에 기록 카드로, 방문 기록은 계획 카드 배지로 보이고 계획은 그대로다', async ({
+  page,
+}) => {
+  await page.goto(space('u3-today'));
+  await openTripMenu(page);
+  await page.getByRole('button', { name: '새 여행', exact: true }).click();
+  await page.getByLabel('여행 이름').fill('가상 오늘 여행');
+  await page.getByLabel('시작 날짜').fill('2032-06-01');
+  await page.getByLabel('종료 날짜').fill('2032-06-03');
+  await page.getByLabel('시간대', { exact: false }).fill('Asia/Tokyo');
+  await page.getByRole('button', { name: '여행 만들기', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '가상 오늘 여행', exact: true, level: 1 })).toBeVisible();
+  await openTab(page, '오늘');
+  await addActivity(page, '가상 산책');
+
+  const planCount = async () => {
+    const select = await planVersionSelect(page);
+    const count = await select.locator('option').count();
+    await openTab(page, '오늘');
+    return count;
+  };
+  const versionsBefore = await planCount();
+  await expect(page.locator('article.timeline-stop')).toHaveCount(1);
+  await expect(page.locator('article.timeline-record')).toHaveCount(0);
+
+  // 예정 외 기록을 저장하면 같은 화면에서 알림과 기록 카드가 보인다.
+  await page.getByRole('button', { name: '예정 외 활동 기록', exact: true }).click();
+  await page.getByLabel('활동 이름').fill('길가의 벤치');
+  await page.getByLabel('기록 메모').fill('잠깐 쉬었다');
+  await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(
+    page.getByText('예정 외 활동을 기록했습니다. 아래 타임라인과 `기록` 탭에서 볼 수 있습니다.'),
+  ).toBeVisible();
+  const card = page.locator('article.timeline-record', { hasText: '길가의 벤치' });
+  await expect(card).toBeVisible();
+  await expect(card.getByText('예정 외', { exact: true })).toBeVisible();
+  await expect(card.getByText('잠깐 쉬었다')).toBeVisible();
+  // 기록 카드에는 계획 편집 메뉴가 없고 `정정`과 `기록 탭에서 보기`만 있다.
+  await expect(card.locator('.menu-toggle')).toHaveCount(0);
+  await expect(card.getByRole('button')).toHaveText(['정정', '기록 탭에서 보기']);
+
+  // 계획 데이터 불변: 계획 항목 수와 계획 버전 수가 그대로다.
+  await expect(page.locator('article.timeline-stop')).toHaveCount(1);
+  expect(await planCount()).toBe(versionsBefore);
+
+  // 방문 기록은 계획 카드의 한 줄 배지로 보인다(기록 카드가 더 생기지 않는다).
+  await page
+    .locator('article.timeline-stop', { hasText: '가상 산책' })
+    .getByRole('button', { name: '방문 기록', exact: true })
+    .click();
+  await expect(
+    page.locator('article.timeline-stop', { hasText: '가상 산책' }).locator('.record-badge-pill'),
+  ).toHaveText(/^방문 \d\d:\d\d$/);
+  await expect(page.locator('article.timeline-record')).toHaveCount(1);
+  expect(await planCount()).toBe(versionsBefore);
+
+  // 기록 카드의 동작: 정정은 폼을 열고, 기록 탭에서 보기는 기록 탭으로 간다.
+  await card.getByRole('button', { name: '정정', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: '닫기', exact: true }).click();
+  await card.getByRole('button', { name: '기록 탭에서 보기', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '실제 활동 기록' })).toBeVisible();
+  await expect(page.locator('article.record-row', { hasText: '길가의 벤치' })).toBeVisible();
 });
