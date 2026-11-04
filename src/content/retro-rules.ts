@@ -1,6 +1,7 @@
+import { Temporal } from '@js-temporal/polyfill';
 import { canonicalJson } from '../contracts/v2/json';
 import type { FieldRecord, PlanVersion, Proposal, RevisionRef, TripDataset } from '../contracts/v2';
-import { correctionLinks, type ActualRecord } from './field-rules';
+import { actualChains, type ActualRecord } from './field-rules';
 
 /**
  * C-05 T-C6: 날짜별 회고 조회 모델. 저장소에서 읽은 TripDataset만 입력으로 받는 순수 함수이며 아무것도 쓰지 않는다.
@@ -27,11 +28,23 @@ export type PlanDayView = {
   stays: Stay[];
 };
 
+/** 선택한 계획 → 현재 계획으로 바뀐 항목 하나에 붙는 변경 표시. 같은 항목은 표시가 없다. */
+export type ItemBadge =
+  | { kind: 'added' }
+  | { kind: 'removed' }
+  | { kind: 'moved'; otherDate: string }
+  | { kind: 'time-changed' }
+  | { kind: 'content-changed' };
+
 export type PlanColumn = {
   planVersionId: string;
   number: number;
   isCurrent: boolean;
   reason: string;
+  /** 계획 버전을 저장한 시각(ISO instant). 버전 이름에 쓴다. */
+  createdAt: string;
+  /** 비교 중일 때만, activityId별 변경 표시. 두 열이 아니면 비어 있다. */
+  badges: Record<string, ItemBadge[]>;
   /** 이 계획 버전이 고정한 콘텐츠 revision. 당시 본문을 열 때 쓴다. */
   contextRefs: RevisionRef[];
   /** 이 날짜가 이 계획 버전에 없으면 빈 배열. */
@@ -99,6 +112,8 @@ export type ReasonView = {
   dayChange: 'initial' | 'unchanged' | 'changed' | 'added-day' | 'removed-day' | 'no-day';
   /** 이 날짜에서 직전 버전과 달라진 활동 ID. */
   changedActivityIds: string[];
+  /** 활동 외에 이 날짜의 제목·날짜 메타, 이동, 숙박이 직전 버전과 달라졌는지. */
+  changedDayParts: ('day' | 'legs' | 'stays')[];
   /** 변경안이 영향 대상으로 명시한 활동 중 이 날짜에 있는 것. */
   impactOnDate: string[];
 };
@@ -116,26 +131,6 @@ export type RetroView = {
 };
 
 const dateOf = (record: ActualRecord) => record.payload.time.start.date;
-
-function actualChains(records: FieldRecord[]): ActualRecord[][] {
-  const actuals = records.filter((r): r is ActualRecord => r.kind === 'actual');
-  const known = new Set(actuals.map((r) => r.recordId));
-  const links = correctionLinks(records);
-  return actuals
-    .filter((r) => !r.supersedes || !known.has(r.supersedes))
-    .map((root) => {
-      const chain: ActualRecord[] = [];
-      for (
-        let cursor: ActualRecord | undefined = root;
-        cursor && !chain.includes(cursor);
-        cursor = links.get(cursor.recordId)?.after
-      ) {
-        chain.push(cursor);
-      }
-      return chain;
-    })
-    .toSorted((a, b) => a[0].commitSeq - b[0].commitSeq);
-}
 
 function planLinkOf(trip: TripDataset, record: ActualRecord): PlanLinkView {
   const { planVersionId, activityId } = record.payload;
@@ -214,12 +209,19 @@ function dayViews(plan: PlanVersion, date: string): PlanDayView[] {
     });
 }
 
-function column(trip: TripDataset, plan: PlanVersion, date: string): PlanColumn {
+function column(
+  trip: TripDataset,
+  plan: PlanVersion,
+  date: string,
+  badges: Record<string, ItemBadge[]> = {},
+): PlanColumn {
   return {
     planVersionId: plan.planVersionId,
     number: plan.number,
     isCurrent: plan.planVersionId === trip.header.currentPlanVersionId,
     reason: plan.reason,
+    createdAt: plan.createdAt,
+    badges,
     contextRefs: plan.contextRefs,
     days: dayViews(plan, date),
   };
@@ -230,6 +232,87 @@ const itemsOnDate = (plan: PlanVersion | undefined, date: string) => {
   return plan?.items.filter((i) => dayIds.has(i.dayId)) ?? [];
 };
 const stripPlan = ({ planVersionId: _planVersionId, ...rest }: Item) => rest;
+
+const dateOfItem = (plan: PlanVersion, item: Item) => plan.days.find((d) => d.dayId === item.dayId)?.date;
+
+/**
+ * 한 열의 날짜 항목에 붙일 변경 표시를 계산한다(순수 함수).
+ * side는 이 열이 선택한 과거 계획인지 현재 계획인지를 뜻하며, 표시는 "선택한 계획 → 현재 계획" 방향이다.
+ * 현재 열에만 있으면 추가, 선택 열에만 있으면 제거, 다른 날짜에 있으면 이동이다. 같은 날짜에 있고 시각만 다르면 시각 변경이다.
+ */
+export function itemBadges(
+  plan: PlanVersion,
+  other: PlanVersion,
+  date: string,
+  side: 'selected' | 'current',
+): Record<string, ItemBadge[]> {
+  const badges: Record<string, ItemBadge[]> = {};
+  for (const item of itemsOnDate(plan, date)) {
+    const counterpart = other.items.find((i) => i.activityId === item.activityId);
+    if (!counterpart) {
+      badges[item.activityId] = [{ kind: side === 'current' ? 'added' : 'removed' }];
+      continue;
+    }
+    const counterpartDate = dateOfItem(other, counterpart);
+    if (counterpartDate !== date) {
+      badges[item.activityId] = counterpartDate ? [{ kind: 'moved', otherDate: counterpartDate }] : [];
+      continue;
+    }
+    const found: ItemBadge[] = [];
+    if (canonicalJson(counterpart.time) !== canonicalJson(item.time)) {
+      found.push({ kind: 'time-changed' });
+    }
+    const { time: _time, ...itemRest } = stripPlan(item);
+    const { time: _otherTime, ...counterpartRest } = stripPlan(counterpart);
+    if (canonicalJson(itemRest) !== canonicalJson(counterpartRest)) {
+      found.push({ kind: 'content-changed' });
+    }
+    if (found.length) {
+      badges[item.activityId] = found;
+    }
+  }
+  return badges;
+}
+
+const stamp = (value: unknown) => canonicalJson(value);
+const withoutPlanId = <T extends { planVersionId: string }>({ planVersionId: _id, ...rest }: T) => rest;
+
+/** 활동 외에 이 날짜의 제목·날짜 메타, 이동, 숙박이 두 계획 사이에서 달라졌는지 구분해 돌려준다. */
+function changedDayParts(plan: PlanVersion, before: PlanVersion, date: string): ReasonView['changedDayParts'] {
+  const parts: ReasonView['changedDayParts'] = [];
+  const daysOf = (p: PlanVersion) => p.days.filter((d) => d.date === date).map(withoutPlanId);
+  if (stamp(daysOf(plan)) !== stamp(daysOf(before))) {
+    parts.push('day');
+  }
+  const legsOf = (p: PlanVersion) => {
+    const dayIds = new Set(p.days.filter((d) => d.date === date).map((d) => d.dayId));
+    return p.legs.filter((l) => dayIds.has(l.dayId)).map(withoutPlanId);
+  };
+  if (stamp(legsOf(plan)) !== stamp(legsOf(before))) {
+    parts.push('legs');
+  }
+  const staysOf = (p: PlanVersion) => dayViews(p, date).flatMap((view) => view.stays.map(withoutPlanId));
+  if (stamp(staysOf(plan)) !== stamp(staysOf(before))) {
+    parts.push('stays');
+  }
+  return parts;
+}
+
+/** 저장 시각을 "MM/DD HH:mm"으로. 시간대를 주지 않으면 실행 환경의 시간대를 쓴다. */
+export function savedAtLabel(createdAt: string, timeZone?: string): string {
+  const zoned = Temporal.Instant.from(createdAt).toZonedDateTimeISO(timeZone ?? Temporal.Now.timeZoneId());
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${two(zoned.month)}/${two(zoned.day)} ${two(zoned.hour)}:${two(zoned.minute)}`;
+}
+
+/** 계획 버전의 이름: 저장 시각 + 이유. 버전 번호는 보조 정보로 뒤에 붙인다. */
+export function planVersionLabel(
+  plan: Pick<PlanVersion, 'createdAt' | 'reason' | 'number'>,
+  options: { current: boolean; timeZone?: string },
+): string {
+  const stampText = savedAtLabel(plan.createdAt, options.timeZone);
+  return options.current ? `현재 계획 (${stampText})` : `${stampText} · ${plan.reason}`;
+}
 
 function reasonOf(trip: TripDataset, plan: PlanVersion, date: string, roles: ReasonView['roles']): ReasonView {
   const parent = plan.parentId ? trip.plans.find((p) => p.planVersionId === plan.parentId) : undefined;
@@ -256,6 +339,7 @@ function reasonOf(trip: TripDataset, plan: PlanVersion, date: string, roles: Rea
       changed.add(old.activityId);
     }
   }
+  const dayParts = parent && hasDay && parentHasDay ? changedDayParts(plan, parent, date) : [];
   let dayChange: ReasonView['dayChange'];
   if (!parent) {
     dayChange = plan.parentId ? 'no-day' : 'initial';
@@ -266,7 +350,7 @@ function reasonOf(trip: TripDataset, plan: PlanVersion, date: string, roles: Rea
   } else if (!hasDay) {
     dayChange = 'removed-day';
   } else {
-    dayChange = changed.size ? 'changed' : 'unchanged';
+    dayChange = changed.size || dayParts.length ? 'changed' : 'unchanged';
   }
   const onDate = new Set([...hereItems, ...beforeItems].map((i) => i.activityId));
   return {
@@ -294,6 +378,7 @@ function reasonOf(trip: TripDataset, plan: PlanVersion, date: string, roles: Rea
       : {}),
     dayChange,
     changedActivityIds: [...changed],
+    changedDayParts: dayParts,
     impactOnDate: applied ? applied.impact.activityIds.filter((id) => onDate.has(id)) : [],
   };
 }
@@ -321,9 +406,10 @@ export function buildRetrospective(trip: TripDataset, date: string, selectedPlan
       movedAway.push({ entry, movedTo: latestDate });
     }
   }
-  const columns = [column(trip, selected, date)];
+  const comparing = selected.planVersionId !== current.planVersionId && !unknownDate;
+  const columns = [column(trip, selected, date, comparing ? itemBadges(selected, current, date, 'selected') : {})];
   if (selected.planVersionId !== current.planVersionId) {
-    columns.unshift(column(trip, current, date));
+    columns.unshift(column(trip, current, date, comparing ? itemBadges(current, selected, date, 'current') : {}));
   }
   const reasonPlans = new Map<string, ReasonView['roles']>();
   const addRole = (planVersionId: string, role: ReasonView['roles'][number]) => {

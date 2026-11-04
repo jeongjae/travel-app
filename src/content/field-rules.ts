@@ -118,3 +118,81 @@ export function correctionLinks(records: FieldRecord[]): Map<string, ChainLink> 
   }
   return links;
 }
+
+/** 정정 체인을 원본부터 최신까지 순서대로 모은다. 체인 순서는 원본의 commitSeq 순서다. */
+export function actualChains(records: FieldRecord[]): ActualRecord[][] {
+  const actuals = records.filter((r): r is ActualRecord => r.kind === 'actual');
+  const known = new Set(actuals.map((r) => r.recordId));
+  const links = correctionLinks(records);
+  return actuals
+    .filter((r) => !r.supersedes || !known.has(r.supersedes))
+    .map((root) => {
+      const chain: ActualRecord[] = [];
+      for (
+        let cursor: ActualRecord | undefined = root;
+        cursor && !chain.includes(cursor);
+        cursor = links.get(cursor.recordId)?.after
+      ) {
+        chain.push(cursor);
+      }
+      return chain;
+    })
+    .toSorted((a, b) => a[0].commitSeq - b[0].commitSeq);
+}
+
+export type ActualChainEntry = {
+  /** 최신 정정본. 목록에는 이 기록 한 행만 보인다. */
+  latest: ActualRecord;
+  /** 원본부터 최신까지. 정정하지 않았으면 길이 1. */
+  chain: ActualRecord[];
+};
+
+export type ActualDayGroup = {
+  /** 최신 정정본의 발생일(YYYY-MM-DD). */
+  date: string;
+  /** 시각이 있는 기록은 시각 순, 시각을 모르는 기록은 그 뒤에 기록한 순서대로. */
+  entries: ActualChainEntry[];
+};
+
+export type ActualGrouping = {
+  days: ActualDayGroup[];
+  /** 최신 정정본의 발생일을 모르는 기록. 날짜를 추정하지 않고 따로 모은다. */
+  unknown: ActualChainEntry[];
+};
+
+const clockOf = (record: ActualRecord) => {
+  const start = record.payload.time.start;
+  return start.precision === 'local' || start.precision === 'instant' ? start.localTime : undefined;
+};
+
+/** 실제 기록을 정정 체인 단위로 묶어 날짜별로 나눈다(읽기 전용 표시 모델). 기록은 바꾸지 않는다. */
+export function groupActualsByDate(records: FieldRecord[]): ActualGrouping {
+  const entries = actualChains(records).map((chain) => ({ latest: chain[chain.length - 1], chain }));
+  const byDate = new Map<string, ActualChainEntry[]>();
+  const unknown: ActualChainEntry[] = [];
+  for (const entry of entries) {
+    const date = entry.latest.payload.time.start.date;
+    if (!date) {
+      unknown.push(entry);
+      continue;
+    }
+    byDate.set(date, [...(byDate.get(date) ?? []), entry]);
+  }
+  const byTime = (a: ActualChainEntry, b: ActualChainEntry) => {
+    const clockA = clockOf(a.latest);
+    const clockB = clockOf(b.latest);
+    if (clockA && clockB && clockA !== clockB) {
+      return clockA.localeCompare(clockB);
+    }
+    if (Boolean(clockA) !== Boolean(clockB)) {
+      return clockA ? -1 : 1;
+    }
+    return a.latest.commitSeq - b.latest.commitSeq;
+  };
+  return {
+    days: [...byDate]
+      .toSorted(([a], [b]) => a.localeCompare(b))
+      .map(([date, rows]) => ({ date, entries: rows.toSorted(byTime) })),
+    unknown,
+  };
+}
