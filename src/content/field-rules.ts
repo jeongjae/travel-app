@@ -196,3 +196,78 @@ export function groupActualsByDate(records: FieldRecord[]): ActualGrouping {
     unknown,
   };
 }
+
+export type DayRecordView = {
+  /** 계획 항목(activityId)에 연결된 최신 정정본. 항목 카드에 한 줄 배지로 보인다. */
+  byActivity: Map<string, ActualRecord>;
+  /** 이 날짜의 계획 항목에 연결되지 않은 기록. 타임라인에 기록 전용 카드로 넣는다. */
+  standalone: ActualChainEntry[];
+};
+
+/**
+ * C-12 C8: 오늘 타임라인에 함께 보일 실제 기록을 고른다(읽기 전용). 기록도 계획 항목도 바꾸지 않는다.
+ * 항목에 연결된 기록은 그 날짜와 상관없이 항목의 최신 기록 하나만 배지로 쓰고,
+ * 이 날짜에 발생했지만 현재 계획의 항목에 연결되지 않은 기록(예정 외 활동, 제거된 항목의 기록)은 전용 카드로 모은다.
+ */
+export function dayRecordView(records: FieldRecord[], activityIds: ReadonlySet<string>, date: string): DayRecordView {
+  const entries = actualChains(records).map((chain) => ({ latest: chain[chain.length - 1], chain }));
+  const byActivity = new Map<string, ActualRecord>();
+  for (const { latest } of entries.toSorted((a, b) => a.latest.commitSeq - b.latest.commitSeq)) {
+    const activityId = latest.payload.activityId;
+    if (activityId && activityIds.has(activityId)) {
+      byActivity.set(activityId, latest);
+    }
+  }
+  const standalone = entries.filter(({ latest }) => {
+    const linked = latest.payload.activityId;
+    return latest.payload.time.start.date === date && !(linked && activityIds.has(linked));
+  });
+  return { byActivity, standalone: standalone.toSorted(compareByClock) };
+}
+
+function compareByClock(a: ActualChainEntry, b: ActualChainEntry) {
+  const clockA = clockOf(a.latest);
+  const clockB = clockOf(b.latest);
+  if (clockA && clockB && clockA !== clockB) {
+    return clockA.localeCompare(clockB);
+  }
+  if (Boolean(clockA) !== Boolean(clockB)) {
+    return clockA ? -1 : 1;
+  }
+  return a.latest.commitSeq - b.latest.commitSeq;
+}
+
+export type TimelinePlacement = {
+  /** 이 항목(activityId) 카드 바로 앞에 놓을 기록 카드. */
+  before: Map<string, ActualChainEntry[]>;
+  /** 어느 항목보다도 늦거나 시각이 없는 기록. 그날 맨 아래에 놓는다. */
+  trailing: ActualChainEntry[];
+};
+
+/**
+ * 기록 전용 카드를 계획 항목 사이의 시각 순서에 맞춰 끼워 넣을 자리를 정한다.
+ * 시각이 있는 기록은 그보다 늦은 시각의 첫 항목 앞에, 항목이 없거나 더 늦은 항목이 없으면 맨 아래에 둔다.
+ * 시각이 없는 기록은 항상 맨 아래이며 항목의 순서(order)는 건드리지 않는다.
+ */
+export function placeOnTimeline(
+  items: ReadonlyArray<{ activityId: string; time: { start: TimeSpec } }>,
+  standalone: ActualChainEntry[],
+): TimelinePlacement {
+  const before = new Map<string, ActualChainEntry[]>();
+  const trailing: ActualChainEntry[] = [];
+  for (const entry of standalone) {
+    const clock = clockOf(entry.latest);
+    const target = clock
+      ? items.find((item) => {
+          const start = item.time.start;
+          return (start.precision === 'local' || start.precision === 'instant') && start.localTime > clock;
+        })
+      : undefined;
+    if (target) {
+      before.set(target.activityId, [...(before.get(target.activityId) ?? []), entry]);
+    } else {
+      trailing.push(entry);
+    }
+  }
+  return { before, trailing };
+}

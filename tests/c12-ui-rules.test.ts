@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pilotTrip } from './fixtures/pilot';
 import { buildRetrospective, itemBadges, planVersionLabel, savedAtLabel } from '../src/content/retro-rules';
-import { groupActualsByDate } from '../src/content/field-rules';
+import { dayRecordView, groupActualsByDate, placeOnTimeline } from '../src/content/field-rules';
 import type { FieldRecord, PlanVersion, TimeSpec, TripDataset } from '../src/contracts/v2/index';
 
 /** C-12 U3: 읽기 화면용 순수 규칙(날짜 묶음·버전 이름·변경 배지·날짜 변화 판정). 저장소를 쓰지 않는다. */
@@ -166,5 +166,45 @@ describe('변경 표시(배지)', () => {
     const view = buildRetrospective(trip, next.days[0].date);
     expect(view.columns).toHaveLength(1);
     expect(view.columns[0].badges).toEqual({});
+  });
+});
+
+describe('C8 오늘 타임라인의 실제 기록', () => {
+  const withActivity = (record: FieldRecord, activityId: string) => {
+    (record as unknown as { payload: Record<string, unknown> }).payload.activityId = activityId;
+    return record;
+  };
+  const item = (activityId: string, clock?: string) => ({
+    activityId,
+    time: { start: clock ? local('2032-05-02', clock) : ({ precision: 'unspecified' } as TimeSpec) },
+  });
+
+  it('항목에 연결된 기록은 최신 정정본만 배지로, 연결되지 않은 이 날짜 기록은 전용 카드로 모은다', () => {
+    const visit = withActivity(actual('방문', local('2032-05-02', '14:20'), { recordId: 'v1' }), 'a1');
+    const fix = withActivity(
+      actual('방문 정정', local('2032-05-02', '14:35'), { recordId: 'v2', supersedes: 'v1' }),
+      'a1',
+    );
+    const free = actual('길가의 벤치', local('2032-05-02', '12:00'));
+    const otherDay = actual('다른 날', local('2032-05-03', '09:00'));
+    const removed = withActivity(actual('지운 항목의 기록', local('2032-05-02', '16:00')), 'gone');
+    const view = dayRecordView([visit, fix, free, otherDay, removed], new Set(['a1']), '2032-05-02');
+    expect(view.byActivity.get('a1')?.payload.title).toBe('방문 정정');
+    expect(view.standalone.map((e) => e.latest.payload.title)).toEqual(['길가의 벤치', '지운 항목의 기록']);
+  });
+
+  it('기록 카드는 시각 순서에 맞춰 항목 사이에 끼고, 시각이 없거나 가장 늦으면 맨 아래에 둔다', () => {
+    const items = [item('a', '09:00'), item('b', '13:00'), item('c', '18:00')];
+    const morning = actual('이른 기록', local('2032-05-02', '08:00'));
+    const noon = actual('점심 기록', local('2032-05-02', '12:00'));
+    const night = actual('밤 기록', local('2032-05-02', '23:00'));
+    const untimed = actual('시각 없음', { precision: 'date', date: '2032-05-02' });
+    const placement = placeOnTimeline(
+      items,
+      [morning, noon, night, untimed].map((latest) => ({ latest, chain: [latest] }) as never),
+    );
+    expect(placement.before.get('a')?.map((e) => e.latest.payload.title)).toEqual(['이른 기록']);
+    expect(placement.before.get('b')?.map((e) => e.latest.payload.title)).toEqual(['점심 기록']);
+    expect(placement.trailing.map((e) => e.latest.payload.title)).toEqual(['밤 기록', '시각 없음']);
   });
 });
