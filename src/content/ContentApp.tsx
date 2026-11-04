@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Temporal } from '@js-temporal/polyfill';
 import { repository, ContentRepository } from '../repository';
@@ -13,7 +13,8 @@ import {
   type TimeSpec,
   type TripDataset,
 } from '../contracts/v2';
-import { actualPayload } from './field-rules';
+import { actualPayload, dayRecordView, placeOnTimeline } from './field-rules';
+import { RecordBadge, TimelineRecordCard } from './TimelineRecords';
 import { GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
@@ -204,6 +205,20 @@ export function ContentApp() {
     context = recordContext ?? (historical ? plan?.contextRefs : undefined);
   const dayItems =
     plan?.items.filter((item) => item.dayId === activeDay?.dayId).toSorted((a, b) => a.order - b.order) ?? [];
+  // C8: 오늘 타임라인에 그날의 실제 기록을 함께 보인다. 계획 항목·계획 버전은 바뀌지 않는다.
+  const dayRecords =
+    plan && activeDay
+      ? dayRecordView(records, new Set(plan.items.map((item) => item.activityId)), activeDay.date)
+      : undefined;
+  const timelinePlacement = placeOnTimeline(dayItems, dayRecords?.standalone ?? []);
+  const renderRecordCard = (entry: NonNullable<typeof dayRecords>['standalone'][number]) => (
+    <TimelineRecordCard
+      key={entry.latest.recordId}
+      entry={entry}
+      onCorrect={(row) => void record(row.payload.outcome, undefined, row)}
+      onShow={() => openTab('실제 기록')}
+    />
+  );
   const regionName = (regionId: string) => {
     const region = catalog.find((c) => c.kind === 'region' && c.entityId === regionId);
     return region?.kind === 'region' ? region.payload.name : regionId;
@@ -639,128 +654,138 @@ export function ContentApp() {
                           c.kind === 'place' && c.entityId === placeId,
                       )?.payload.name ?? placeId;
                     return (
-                      <article className="content-row timeline-stop" key={i.activityId}>
-                        <p className="timeline-time" title={timeLabel(i.time.start)}>
-                          {clockLabel(i.time.start)}
-                          {i.time.end
-                            ? ` ~ ${clockLabel(i.time.end)}${endsNextDay(i.time.start, i.time.end) ? ' (다음 날)' : ''}`
-                            : ''}
-                        </p>
-                        <h3>{i.title}</h3>
-                        <p>{i.summary}</p>
-                        {i.menuText ? <p>식사·메뉴: {i.menuText}</p> : null}
-                        {i.reservationText ? <p>예약 안내: {i.reservationText}</p> : null}
-                        {i.executionNote ? <p>{i.executionNote}</p> : null}
-                        {i.executionMarkers.map((marker, index) => (
-                          <p key={index} className="muted">
-                            {marker.label} · {marker.detail}
+                      <Fragment key={i.activityId}>
+                        {(timelinePlacement.before.get(i.activityId) ?? []).map(renderRecordCard)}
+                        <article className="content-row timeline-stop">
+                          <p className="timeline-time" title={timeLabel(i.time.start)}>
+                            {clockLabel(i.time.start)}
+                            {i.time.end
+                              ? ` ~ ${clockLabel(i.time.end)}${endsNextDay(i.time.start, i.time.end) ? ' (다음 날)' : ''}`
+                              : ''}
                           </p>
-                        ))}
-                        {i.optional ? <p className="muted">선택 활동</p> : null}
-                        {i.officialUrl ? (
-                          <a href={i.officialUrl} target="_blank" rel="noreferrer">
-                            공식 안내
-                          </a>
-                        ) : null}
-                        <div className="button-row activity-actions">
-                          <button className="primary" disabled={busy} onClick={() => void quickVisit(i)}>
-                            방문 기록
-                          </button>
-                          {placeId ? (
-                            <button aria-label={`장소 안내 · ${placeName}`} onClick={() => navigate('place', placeId)}>
-                              장소
-                            </button>
+                          <h3>{i.title}</h3>
+                          <RecordBadge record={dayRecords?.byActivity.get(i.activityId)} />
+                          <p>{i.summary}</p>
+                          {i.menuText ? <p>식사·메뉴: {i.menuText}</p> : null}
+                          {i.reservationText ? <p>예약 안내: {i.reservationText}</p> : null}
+                          {i.executionNote ? <p>{i.executionNote}</p> : null}
+                          {i.executionMarkers.map((marker, index) => (
+                            <p key={index} className="muted">
+                              {marker.label} · {marker.detail}
+                            </p>
+                          ))}
+                          {i.optional ? <p className="muted">선택 활동</p> : null}
+                          {i.officialUrl ? (
+                            <a href={i.officialUrl} target="_blank" rel="noreferrer">
+                              공식 안내
+                            </a>
                           ) : null}
-                          <ActionMenu
-                            label={`${i.title} 더보기 메뉴`}
-                            actions={[
-                              { label: '건너뜀 기록', onSelect: () => void record('skipped', i) },
-                              {
-                                label: '일정 수정',
-                                disabled: historical,
-                                onSelect: () => setPlanEditor({ header: { ...header }, plan, item: i }),
-                              },
-                              {
-                                label: '위로',
-                                ariaLabel: `${i.title} 위로`,
-                                disabled: historical || busy || i.activityId === dayItems[0]?.activityId,
-                                onSelect: () => void moveItem(i, -1),
-                              },
-                              {
-                                label: '아래로',
-                                ariaLabel: `${i.title} 아래로`,
-                                disabled: historical || busy || i.activityId === dayItems.at(-1)?.activityId,
-                                onSelect: () => void moveItem(i, 1),
-                              },
-                              {
-                                label: '메모',
-                                onSelect: () =>
-                                  setNoteTarget({
-                                    header: { ...header },
-                                    label: i.title,
-                                    ref: {
-                                      tripId: header.tripId,
-                                      targetKind: 'activity',
-                                      entityId: i.activityId,
-                                      planVersionId: plan.planVersionId,
-                                    },
-                                  }),
-                              },
-                              {
-                                label: '일정에서 제거',
-                                danger: true,
-                                disabled: historical || busy,
-                                onSelect: () => setRemoveTarget(i),
-                              },
-                            ]}
-                          >
-                            <MapLink
-                              target={catalog.find(
-                                (content) => content.kind === 'map-target' && content.entityId === i.mapTargetId,
-                              )}
-                            />
-                          </ActionMenu>
-                        </div>
-                        <SavedNotes
-                          notes={notesForTarget(records, {
-                            tripId: header.tripId,
-                            targetKind: 'activity',
-                            entityId: i.activityId,
-                          })}
-                        />
-                        {plan.legs
-                          .filter((leg) => leg.dayId === activeDay?.dayId && leg.fromActivityId === i.activityId)
-                          .map((leg) => {
-                            const label = `${i.title} → ${plan.items.find((item) => item.activityId === leg.toActivityId)?.title}`;
-                            return (
-                              <div className="timeline-leg" key={leg.legId}>
-                                <p>
-                                  이동 {label} ·{' '}
-                                  {[leg.mode, leg.durationText, leg.distanceText, leg.lineText]
-                                    .filter(Boolean)
-                                    .join(' · ')}
-                                </p>
-                                <div className="button-row">
-                                  <MapLink
-                                    target={catalog.find(
-                                      (content) =>
-                                        content.kind === 'map-target' && content.entityId === leg.mapTargetId,
-                                    )}
-                                  />
-                                  <button
-                                    aria-label={`이동 ${label} 수정`}
-                                    disabled={historical}
-                                    onClick={() => setLegEditor({ header: { ...header }, plan, dayId: leg.dayId, leg })}
-                                  >
-                                    수정
-                                  </button>
+                          <div className="button-row activity-actions">
+                            <button className="primary" disabled={busy} onClick={() => void quickVisit(i)}>
+                              방문 기록
+                            </button>
+                            {placeId ? (
+                              <button
+                                aria-label={`장소 안내 · ${placeName}`}
+                                onClick={() => navigate('place', placeId)}
+                              >
+                                장소
+                              </button>
+                            ) : null}
+                            <ActionMenu
+                              label={`${i.title} 더보기 메뉴`}
+                              actions={[
+                                { label: '건너뜀 기록', onSelect: () => void record('skipped', i) },
+                                {
+                                  label: '일정 수정',
+                                  disabled: historical,
+                                  onSelect: () => setPlanEditor({ header: { ...header }, plan, item: i }),
+                                },
+                                {
+                                  label: '위로',
+                                  ariaLabel: `${i.title} 위로`,
+                                  disabled: historical || busy || i.activityId === dayItems[0]?.activityId,
+                                  onSelect: () => void moveItem(i, -1),
+                                },
+                                {
+                                  label: '아래로',
+                                  ariaLabel: `${i.title} 아래로`,
+                                  disabled: historical || busy || i.activityId === dayItems.at(-1)?.activityId,
+                                  onSelect: () => void moveItem(i, 1),
+                                },
+                                {
+                                  label: '메모',
+                                  onSelect: () =>
+                                    setNoteTarget({
+                                      header: { ...header },
+                                      label: i.title,
+                                      ref: {
+                                        tripId: header.tripId,
+                                        targetKind: 'activity',
+                                        entityId: i.activityId,
+                                        planVersionId: plan.planVersionId,
+                                      },
+                                    }),
+                                },
+                                {
+                                  label: '일정에서 제거',
+                                  danger: true,
+                                  disabled: historical || busy,
+                                  onSelect: () => setRemoveTarget(i),
+                                },
+                              ]}
+                            >
+                              <MapLink
+                                target={catalog.find(
+                                  (content) => content.kind === 'map-target' && content.entityId === i.mapTargetId,
+                                )}
+                              />
+                            </ActionMenu>
+                          </div>
+                          <SavedNotes
+                            notes={notesForTarget(records, {
+                              tripId: header.tripId,
+                              targetKind: 'activity',
+                              entityId: i.activityId,
+                            })}
+                          />
+                          {plan.legs
+                            .filter((leg) => leg.dayId === activeDay?.dayId && leg.fromActivityId === i.activityId)
+                            .map((leg) => {
+                              const label = `${i.title} → ${plan.items.find((item) => item.activityId === leg.toActivityId)?.title}`;
+                              return (
+                                <div className="timeline-leg" key={leg.legId}>
+                                  <p>
+                                    이동 {label} ·{' '}
+                                    {[leg.mode, leg.durationText, leg.distanceText, leg.lineText]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </p>
+                                  <div className="button-row">
+                                    <MapLink
+                                      target={catalog.find(
+                                        (content) =>
+                                          content.kind === 'map-target' && content.entityId === leg.mapTargetId,
+                                      )}
+                                    />
+                                    <button
+                                      aria-label={`이동 ${label} 수정`}
+                                      disabled={historical}
+                                      onClick={() =>
+                                        setLegEditor({ header: { ...header }, plan, dayId: leg.dayId, leg })
+                                      }
+                                    >
+                                      수정
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                      </article>
+                              );
+                            })}
+                        </article>
+                      </Fragment>
                     );
                   })}
+                  {timelinePlacement.trailing.map(renderRecordCard)}
                 </div>
                 <DayBookings items={dayItems} />
                 {activeDay ? <DayDetails repo={repo} day={activeDay} context={context} onNavigate={navigate} /> : null}
@@ -1260,8 +1285,14 @@ export function ContentApp() {
             setAuthoring('place');
           }}
           onSaved={() => {
+            const savedUnplannedToday =
+              actualEditor.outcome === 'unplanned' && !actualEditor.original && tab === '일정';
             setActualEditor(null);
-            setNotice('실제 기록을 저장했습니다.');
+            setNotice(
+              savedUnplannedToday
+                ? '예정 외 활동을 기록했습니다. 아래 타임라인과 `기록` 탭에서 볼 수 있습니다.'
+                : '실제 기록을 저장했습니다.',
+            );
           }}
         />
       ) : null}
