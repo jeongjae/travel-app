@@ -163,9 +163,14 @@
   padding: 0;
   white-space: normal;
 }
-.day-page,
 .guide-detail {
   max-width: 672px;
+  margin-inline: auto;
+}
+/* D2: 오늘·기록·회고는 데스크톱에서 880px까지 넓힌다(2열 배치는 지도 결정 뒤). */
+.day-page,
+.record-page {
+  max-width: 880px;
   margin-inline: auto;
 }
 .day-strip {
@@ -356,18 +361,6 @@
   color: var(--text);
   font-size: 15px;
 }
-.guide-card {
-  padding: 0;
-}
-.guide-card-body {
-  padding: 20px;
-}
-.guide-card > img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-}
 .guide-hero {
   margin: 24px 0;
 }
@@ -451,9 +444,6 @@ body:has(.journey-bottomnav) .update-bar {
   }
   .journey-card {
     padding: 20px;
-  }
-  .guide-card {
-    padding: 0;
   }
 }
 
