@@ -290,7 +290,7 @@ test('C8 오늘: 예정 외 기록은 타임라인에 기록 카드로, 방문 �
     .click();
   await expect(
     page.locator('article.timeline-stop', { hasText: '가상 산책' }).locator('.record-badge-pill'),
-  ).toHaveText(/^방문 \d\d:\d\d$/);
+  ).toHaveText(/^방문( \d+\/\d+)? \d\d:\d\d$/);
   await expect(page.locator('article.timeline-record')).toHaveCount(1);
   expect(await planCount()).toBe(versionsBefore);
 

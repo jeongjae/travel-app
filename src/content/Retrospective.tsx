@@ -369,9 +369,7 @@ function ReasonSection({
           ) : (
             <>
               <p className="muted">변경안 없음 · 근거 없음</p>
-              <HelpNote label="변경안 없음 설명">
-                직접 변경 등으로 저장된 이유만 있고 연결된 변경안이 없습니다.
-              </HelpNote>
+              <HelpNote label="근거 설명">직접 변경 등으로 저장된 이유만 있고 연결된 변경안이 없습니다.</HelpNote>
             </>
           )}
         </article>
