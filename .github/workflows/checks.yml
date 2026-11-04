@@ -9,7 +9,8 @@ permissions:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    # ubuntu-latest became 26.04 (2026-11), which has no Python 3.12.7 build for setup-python; pin until .python-version moves.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
         with:
