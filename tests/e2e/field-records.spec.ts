@@ -204,7 +204,11 @@ test('일정의 방문·건너뜀 기록과 메모는 계획과 분리되어 남
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await removeActivity(page, page);
-  await expect(page.getByRole('heading', { name: '가상 산책', exact: true })).toHaveCount(0);
+  // 계획 항목은 사라지지만(C-12 C8) 건너뜀 기록은 같은 날 타임라인에 기록 전용 카드로 남는다.
+  await expect(
+    page.locator('article.timeline-stop').getByRole('heading', { name: '가상 산책', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator('article.timeline-record', { hasText: '가상 산책' })).toBeVisible();
 
   await openRecords(page);
   await expect(row(page, '가상 산책').getByText('건너뜀', { exact: false }).first()).toBeVisible();

@@ -54,7 +54,8 @@ async function selectTrip(page: Page, name: string) {
   await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible();
 }
 const selectDay = selectDayByDate;
-const timelineTitles = (page: Page) => page.locator('.day-timeline h3').allTextContents();
+// C-12 C8: 타임라인에는 기록 전용 카드도 있으므로 계획 항목 카드(timeline-stop)만 센다.
+const timelineTitles = (page: Page) => page.locator('.day-timeline article.timeline-stop h3').allTextContents();
 const row = (page: Page, title: string): Locator => page.locator('article.content-row', { hasText: title });
 const space = (name: string) => `/?workspace=content&review=${name}`;
 /** 일정 항목 카드. 이동 안내 문구에 다른 활동 제목이 들어 있으므로 제목(h3)으로 고른다. */
@@ -382,7 +383,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     await openTab(page, '오늘');
     await selectDay(page, START);
     await expect.poll(() => timelineTitles(page)).toEqual(['공항 도착', '호텔 체크인', '카운트다운 산책']);
-    await expect(page.locator('.timeline-time')).toHaveText(['14:00', '시각 미정', '23:30']);
+    await expect(page.locator('article.timeline-stop .timeline-time')).toHaveText(['14:00', '시각 미정', '23:30']);
     await page.getByRole('button', { name: '숙박 추가', exact: true }).click();
     await page.getByLabel('숙박 이름·거점').fill('가상 시내 호텔');
     await page.getByLabel('지역 (선택)').selectOption({ label: '삿포로' });
