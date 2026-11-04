@@ -647,3 +647,49 @@ dialog form details summary {
     padding: 12px 18px 14px;
   }
 }
+
+/* C8: 오늘 타임라인의 실제 기록 */
+.record-badge {
+  margin: 2px 0 4px;
+}
+.record-badge-pill {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong, var(--line));
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.record-badge-visited {
+  color: var(--green);
+  border-color: currentColor;
+}
+.record-badge-unplanned {
+  color: var(--muted);
+}
+.timeline-record {
+  margin: 8px 0 8px 18px;
+  padding: 8px 12px 10px;
+  border: 1px dashed var(--line-strong, var(--muted));
+  border-radius: 10px;
+}
+.timeline-record h3 {
+  margin: 2px 0;
+  font-size: 17px;
+}
+.timeline-record .timeline-time {
+  margin: 0;
+  font-size: 14px;
+}
+.timeline-record-note {
+  margin: 2px 0;
+  font-size: 14px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timeline-record .button-row {
+  margin-top: 4px;
+}
