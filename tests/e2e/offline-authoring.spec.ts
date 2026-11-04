@@ -110,5 +110,6 @@ test('Codex 오프라인: 새 여행→지역·장소 작성→일정 연결·�
   await openTab(page, '가이드');
   await page.getByLabel('이름·지역 검색').fill('카페');
   await expect(page.getByRole('button', { name: '가상 카페', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '가상 지역', exact: true })).toHaveCount(0);
+  // C-12: 지역은 일치한 장소를 담는 머리로만 남는다(지역 이름 자체는 일치하지 않는 다른 지역은 사라진다).
+  await expect(page.locator('section.guide-region')).toHaveCount(1);
 });

@@ -91,7 +91,10 @@ test('(a) 방문 기록은 한 번 누르면 여행 시간대의 현재 시각�
   await nav(page).getByRole('button', { name: '기록', exact: true }).click();
   const row = page.locator('article.content-row', { hasText: '가상 산책' });
   // local 정밀도 · 여행 시간대 · 현재 시각(14:20, 도쿄)
-  await expect(row).toContainText('2032-06-01 14:20 · Asia/Tokyo');
+  // C-12: 날짜는 날짜 머리(6월 1일)가, 시각은 행 첫 줄이, 시간대는 보조 문구가 보인다.
+  await expect(page.getByRole('heading', { name: '6월 1일 (화)' })).toBeVisible();
+  await expect(row).toContainText('14:20');
+  await expect(row).toContainText('현지 시각 · Asia/Tokyo');
   await row.getByRole('button', { name: '정정', exact: true }).click();
   await expect(page.getByRole('dialog').getByLabel('날짜', { exact: true })).toHaveValue('2032-06-01');
   await expect(time(page)).toHaveValue('14:20');
@@ -100,6 +103,7 @@ test('(a) 방문 기록은 한 번 누르면 여행 시간대의 현재 시각�
   await page.screenshot({ path: test.info().outputPath('correct-form.png') });
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
+  await page.locator('details.correction-fold summary').click();
   await expect(page.getByText('정정 2/2단계 · 최신 정정본', { exact: false })).toBeVisible();
   await expect(page.locator('article.content-row', { hasText: '가상 메모: 정정' })).toContainText('14:35');
 });

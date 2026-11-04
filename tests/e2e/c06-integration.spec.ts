@@ -272,9 +272,9 @@ async function evidenceRoundTrip(page: Page) {
   await retro.getByLabel('회고 날짜').selectOption(planDate!);
   const options = await retro.getByLabel('회고 계획 버전').locator('option').allTextContents();
   // 변경안을 적용해 만든 계획(계획 이유 '가상 상황에 따른 변경')의 근거를 연다. 그 계획이 현재일 때는 현재 열의 이유에서 읽힌다.
-  const past =
-    options.find((text) => text.startsWith('과거 계획') && text.includes('가상 상황')) ??
-    options.find((text) => text.startsWith('과거 계획'));
+  // C-12: 현재 계획 옵션은 `현재 계획 (...)`이고, 과거 계획 옵션은 `MM/DD HH:mm · 이유 · 계획 N`이다.
+  const pastOptions = options.filter((text) => !text.startsWith('현재 계획'));
+  const past = pastOptions.find((text) => text.includes('가상 상황')) ?? pastOptions[0];
   expect(past, options.join(' | ')).toBeTruthy();
   await retro.getByLabel('회고 계획 버전').selectOption({ label: past! });
   const picked = await selection(retro);

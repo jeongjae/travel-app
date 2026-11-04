@@ -448,6 +448,10 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     await correctRecord(page, '자정을 넘겨 새해 00:30에 끝남', {
       note: '가상 메모: 정정 2회차, 사람이 많아 늦게 끝남',
     });
+    // C-12: 정정 체인은 최신본 한 행이고 원문은 `정정 N회 · 원문 보기` 접기 안에 있다.
+    await page
+      .locator('details.correction-fold')
+      .evaluateAll((folds) => folds.forEach((fold) => ((fold as HTMLDetailsElement).open = true)));
     await expect(page.getByText('정정 3/3단계 · 최신 정정본', { exact: false })).toBeVisible();
     await expect(page.getByText('정정 1/3단계 · 이후 정정본 있음', { exact: false })).toBeVisible();
   });
@@ -488,7 +492,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     // 시계탑 방문: 이동 전 계획에서는 1/1, 현재 계획에서는 1/2.
     await retro.getByLabel('회고 날짜').selectOption(NEW_YEAR);
     const options = await retro.getByLabel('회고 계획 버전').locator('option').allTextContents();
-    const earlier = options.find((text) => text.startsWith('과거 계획') && text.includes('근교 당일치기 이동(가상)'));
+    const earlier = options.find((text) => !text.startsWith('현재 계획') && text.includes('근교 당일치기 이동(가상)'));
     expect(earlier, options.join(' | ')).toBeTruthy();
     await retro.getByLabel('회고 계획 버전').selectOption({ label: earlier! });
     await expect(
@@ -500,7 +504,7 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
       retro.getByRole('article', { name: /^현재 계획 [0-9]+$/ }).getByText('시계탑 방문', { exact: false }),
     ).toBeVisible();
     await expect(
-      retro.getByRole('article', { name: /^현재 계획 [0-9]+$/ }).getByText('변경 이유(계획 전체): 사용자 일정 수정'),
+      retro.getByRole('article', { name: /^현재 계획 [0-9]+$/ }).getByText('변경 이유: 사용자 일정 수정'),
     ).toBeVisible();
     await expect(retro.getByText('근거 없음', { exact: false }).first()).toBeVisible();
   });

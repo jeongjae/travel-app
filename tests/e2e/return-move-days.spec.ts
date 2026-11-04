@@ -112,7 +112,7 @@ test('귀국일·이동일의 날짜·활동·이동 구간·장소/지역 관�
     .getByRole('button', { name: '가이드', exact: true })
     .click();
   await page.getByLabel('이름·지역 검색').fill('다른 지역');
-  const guideCards = page.locator('.guide-card');
+  const guideCards = page.locator('.guide-place-row');
   await expect(guideCards.getByRole('button', { name: '가상 다른 장소', exact: true })).toBeVisible();
   await expect(guideCards.getByRole('button', { name: '가상 장소', exact: true })).toHaveCount(0);
   await shoot(page, '5-guide-search-other-region', false);

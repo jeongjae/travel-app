@@ -68,6 +68,18 @@ async function record(page: Page, title: string, options: { place?: string; note
   await expect(page.getByRole('dialog')).not.toBeVisible();
 }
 const row = (page: Page, title: string): Locator => page.locator('article.content-row', { hasText: title });
+/** C-12: 정정 체인은 최신 정정본 한 행이며 원문·중간본은 `정정 N회 · 원문 보기` 접기 안에 있다. */
+async function expandCorrections(page: Page, title: string) {
+  const fold = row(page, title).locator('details.correction-fold');
+  if (!(await fold.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await fold.locator('summary').click();
+  }
+}
+/** `기록 당시 내용`은 행의 ⋯ 접기 안에 있다. */
+async function openRecordContext(page: Page, title: string) {
+  await row(page, title).getByLabel('기록 더 보기').click();
+  await row(page, title).getByRole('button', { name: '기록 당시 내용', exact: true }).click();
+}
 async function correctNote(page: Page, title: string, note: string) {
   await row(page, title).getByRole('button', { name: '정정', exact: true }).click();
   await page.getByLabel('기록 메모').fill(note);
@@ -87,6 +99,7 @@ test('장소를 고른 기록·장소 없는 기록을 남기고 이름이 바�
   await record(page, '길가의 벤치', { note: '장소 없이 남김' });
   await expect(row(page, '우연히 들른 카페').getByText('장소 · 가상 카페 (기록 당시 이름)')).toBeVisible();
   await expect(row(page, '길가의 벤치').getByText('장소 ·', { exact: false })).toHaveCount(0);
+  await row(page, '길가의 벤치').getByLabel('기록 더 보기').click();
   await expect(row(page, '길가의 벤치').getByRole('button', { name: '기록 당시 내용', exact: true })).toBeVisible();
   // 장소 없는 기록의 당시 내용은 안내만 보이고 아무것도 이동하지 않는다.
   await row(page, '길가의 벤치').getByRole('button', { name: '기록 당시 내용', exact: true }).click();
@@ -107,7 +120,7 @@ test('장소를 고른 기록·장소 없는 기록을 남기고 이름이 바�
 
   await openRecords(page);
   await expect(row(page, '우연히 들른 카페').getByText('장소 · 가상 카페 (기록 당시 이름)')).toBeVisible();
-  await row(page, '우연히 들른 카페').getByRole('button', { name: '기록 당시 내용', exact: true }).click();
+  await openRecordContext(page, '우연히 들른 카페');
   await expect(page.getByText('당시 고정 내용', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '가상 카페', exact: true, level: 2 })).toBeVisible();
   await expect(page.getByText('처음 요약', { exact: true })).toBeVisible();
@@ -123,17 +136,22 @@ test('장소를 고른 기록·장소 없는 기록을 남기고 이름이 바�
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByText('정정된 기록 · 원본 보존')).toHaveCount(2);
+  // 체인은 최신 정정본 한 행이고, 원문·중간본은 접기 안에서 단계별로 읽는다.
+  await expect(row(page, '우연히 들른 카페')).toHaveCount(1);
+  await expect(page.getByText('정정 2회 · 최신 정정본', { exact: false })).toBeVisible();
+  await expandCorrections(page, '우연히 들른 카페');
   await expect(page.getByText('정정 3/3단계 · 최신 정정본', { exact: false })).toBeVisible();
   await expect(page.getByText('정정 1/3단계 · 이후 정정본 있음', { exact: false })).toBeVisible();
   await expect(page.getByText('처음 메모', { exact: true })).toBeVisible();
-  await expect(page.getByText('세 번째 메모', { exact: true })).toBeVisible();
-  await expect(page.getByText('장소 · 가상 카페 (기록 당시 이름)')).toHaveCount(3);
+  await expect(page.getByText('세 번째 메모', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('장소 · 가상 카페 (기록 당시 이름)')).toHaveCount(1);
 
   // 재실행 뒤에도 같다.
   await page.reload();
   await openRecords(page);
-  await expect(page.getByText('정정 3/3단계 · 최신 정정본', { exact: false })).toBeVisible();
-  await expect(page.getByText('장소 · 가상 카페 (기록 당시 이름)')).toHaveCount(3);
+  await expect(page.getByText('정정 2회 · 최신 정정본', { exact: false })).toBeVisible();
+  await expect(page.getByText('장소 · 가상 카페 (기록 당시 이름)')).toHaveCount(1);
+  await expandCorrections(page, '우연히 들른 카페');
   await expect(page.getByText('처음 메모', { exact: true })).toBeVisible();
 });
 
@@ -193,11 +211,9 @@ test('일정의 방문·건너뜀 기록과 메모는 계획과 분리되어 남
   await expect(row(page, '가상 산책').getByText('비가 와서 건너뜀')).toBeVisible();
   // 일정 항목에 연결된 기록에는 장소 선택이 없고, 정정해도 계획 연결과 메모 외 값을 그대로 둔다.
   await correctNote(page, '가상 산책', '비 때문에 건너뜀 (정정)');
+  await expandCorrections(page, '가상 산책');
   await expect(page.getByText('정정 2/2단계 · 최신 정정본', { exact: false })).toBeVisible();
-  await row(page, '가상 산책')
-    .filter({ hasText: '정정 2/2단계' })
-    .getByRole('button', { name: '정정', exact: true })
-    .click();
+  await row(page, '가상 산책').getByRole('button', { name: '정정', exact: true }).click();
   await expect(page.getByLabel('기록할 장소')).toHaveCount(0);
   await page.getByRole('button', { name: '닫기', exact: true }).click();
 
@@ -259,11 +275,12 @@ test('통신이 끊긴 상태에서도 기록·메모·정정을 저장하고 �
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await page.reload();
   await openRecords(page);
+  await expandCorrections(page, '오프라인 기록');
   await expect(page.getByText('오프라인 처음', { exact: true })).toBeVisible();
-  await expect(page.getByText('오프라인 정정', { exact: true })).toBeVisible();
+  await expect(page.getByText('오프라인 정정', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('정정 2/2단계 · 최신 정정본', { exact: false })).toBeVisible();
   await expect(page.getByText('오프라인 메모', { exact: true })).toBeVisible();
-  await expect(page.getByText('장소 · 가상 카페 (기록 당시 이름)')).toHaveCount(2);
+  await expect(page.getByText('장소 · 가상 카페 (기록 당시 이름)')).toHaveCount(1);
 });
 
 test('정정이 든 두 여행을 전체 백업해 빈 브라우저에 복원하면 원문·최신·당시 장소를 같게 읽는다', async ({
@@ -311,14 +328,12 @@ test('정정이 든 두 여행을 전체 백업해 빈 브라우저에 복원하
       .getByRole('button', { name: '가상 현장 여행' })
       .click();
     await openRecords(restored);
+    await expandCorrections(restored, '복원할 기록');
     await expect(restored.getByText('복원 전 원문', { exact: true })).toBeVisible();
-    await expect(restored.getByText('복원 전 정정', { exact: true })).toBeVisible();
+    await expect(restored.getByText('복원 전 정정', { exact: true }).first()).toBeVisible();
     await expect(restored.getByText('정정 2/2단계 · 최신 정정본', { exact: false })).toBeVisible();
-    await expect(restored.getByText('장소 · 가상 카페 (기록 당시 이름)')).toHaveCount(2);
-    await restored
-      .locator('article.content-row', { hasText: '복원 전 정정' })
-      .getByRole('button', { name: '기록 당시 내용', exact: true })
-      .click();
+    await expect(restored.getByText('장소 · 가상 카페 (기록 당시 이름)')).toHaveCount(1);
+    await openRecordContext(restored, '복원할 기록');
     await expect(restored.getByText('당시 고정 내용', { exact: true })).toBeVisible();
     await expect(restored.getByRole('heading', { name: '가상 카페', exact: true, level: 2 })).toBeVisible();
     await openTripMenu(restored);

@@ -381,6 +381,7 @@ test('오프라인 미상 기록·계획 제거·정정과 모의 변경안 확�
   await page.getByRole('button', { name: '정정', exact: true }).last().click();
   await page.getByLabel('기록 메모').fill('가상 기록 정정');
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
+  await page.locator('details.correction-fold summary').first().click();
   await expect(page.getByText('정정된 기록 · 원본 보존')).toBeVisible();
   await tool(page, '변경안');
   await expect(page.getByText('기준이 오래됐습니다.', { exact: false })).toBeVisible();
@@ -400,7 +401,7 @@ test('오프라인 미상 기록·계획 제거·정정과 모의 변경안 확�
   await context.setOffline(true);
   await page.reload();
   await tool(page, '실제 기록');
-  await expect(page.getByText('가상 기록 정정', { exact: true })).toBeVisible();
+  await expect(page.getByText('가상 기록 정정', { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: '예정 외 활동 기록', exact: true }).click();
   await page.getByLabel('활동 이름').fill('오프라인 예정 외');
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();

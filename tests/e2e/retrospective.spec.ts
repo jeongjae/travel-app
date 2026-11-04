@@ -179,7 +179,12 @@ test('날짜별 회고에서 당시 계획·정정 원문·변경 이유·당시
   // 선택한 과거 계획과 현재 계획을 열로 나눠 보고 변경 이유를 읽는다.
   const retro = page.getByRole('region', { name: '날짜별 회고' });
   await retro.getByLabel('회고 날짜').selectOption('2032-06-01');
-  await retro.getByLabel('회고 계획 버전').selectOption({ label: '과거 계획 2 · 사용자 일정 수정' });
+  // C-12: 버전 이름은 `MM/DD HH:mm · 이유 · 계획 N`이다. 이유로 옵션을 찾는다.
+  const pastPlan = await retro
+    .getByLabel('회고 계획 버전')
+    .locator('option', { hasText: '사용자 일정 수정 · 계획 2' })
+    .getAttribute('value');
+  await retro.getByLabel('회고 계획 버전').selectOption(pastPlan!);
   await expect(
     retro.getByRole('article', { name: '과거 계획 2' }).getByText('가상 산책', { exact: false }),
   ).toBeVisible();
