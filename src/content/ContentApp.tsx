@@ -208,13 +208,24 @@ export function ContentApp() {
   // C8: 오늘 타임라인에 그날의 실제 기록을 함께 보인다. 계획 항목·계획 버전은 바뀌지 않는다.
   const dayRecords =
     plan && activeDay
-      ? dayRecordView(records, new Set(plan.items.map((item) => item.activityId)), activeDay.date)
+      ? dayRecordView(
+          records,
+          new Set(plan.items.map((item) => item.activityId)),
+          activeDay.date,
+          new Map(
+            plan.items.flatMap((item) => {
+              const day = plan.days.find((d) => d.dayId === item.dayId);
+              return day ? [[item.activityId, day.date] as const] : [];
+            }),
+          ),
+        )
       : undefined;
   const timelinePlacement = placeOnTimeline(dayItems, dayRecords?.standalone ?? []);
   const renderRecordCard = (entry: NonNullable<typeof dayRecords>['standalone'][number]) => (
     <TimelineRecordCard
       key={entry.latest.recordId}
       entry={entry}
+      plannedOn={dayRecords?.plannedOn.get(entry.latest.recordId)}
       onCorrect={(row) => void record(row.payload.outcome, undefined, row)}
       onShow={() => openTab('실제 기록')}
     />
@@ -664,7 +675,7 @@ export function ContentApp() {
                               : ''}
                           </p>
                           <h3>{i.title}</h3>
-                          <RecordBadge record={dayRecords?.byActivity.get(i.activityId)} />
+                          <RecordBadge record={dayRecords?.byActivity.get(i.activityId)} planDate={activeDay?.date} />
                           <p>{i.summary}</p>
                           {i.menuText ? <p>식사·메뉴: {i.menuText}</p> : null}
                           {i.reservationText ? <p>예약 안내: {i.reservationText}</p> : null}
@@ -902,6 +913,8 @@ export function ContentApp() {
                     <input value={search} onChange={(e) => setSearch(e.target.value)} />
                   </label>
                   <GuideList
+                    repo={repo}
+                    context={context}
                     catalog={catalog}
                     search={search}
                     onClearSearch={() => setSearch('')}

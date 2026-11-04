@@ -202,6 +202,8 @@ export type DayRecordView = {
   byActivity: Map<string, ActualRecord>;
   /** 이 날짜의 계획 항목에 연결되지 않은 기록. 타임라인에 기록 전용 카드로 넣는다. */
   standalone: ActualChainEntry[];
+  /** 전용 카드 중 다른 날 계획 항목에 연결된 기록의 계획 날짜(recordId → YYYY-MM-DD). 보조 문구에 쓴다. */
+  plannedOn: Map<string, string>;
 };
 
 /**
@@ -209,7 +211,12 @@ export type DayRecordView = {
  * 항목에 연결된 기록은 그 날짜와 상관없이 항목의 최신 기록 하나만 배지로 쓰고,
  * 이 날짜에 발생했지만 현재 계획의 항목에 연결되지 않은 기록(예정 외 활동, 제거된 항목의 기록)은 전용 카드로 모은다.
  */
-export function dayRecordView(records: FieldRecord[], activityIds: ReadonlySet<string>, date: string): DayRecordView {
+export function dayRecordView(
+  records: FieldRecord[],
+  activityIds: ReadonlySet<string>,
+  date: string,
+  activityDates: ReadonlyMap<string, string> = new Map(),
+): DayRecordView {
   const entries = actualChains(records).map((chain) => ({ latest: chain[chain.length - 1], chain }));
   const byActivity = new Map<string, ActualRecord>();
   for (const { latest } of entries.toSorted((a, b) => a.latest.commitSeq - b.latest.commitSeq)) {
@@ -218,11 +225,24 @@ export function dayRecordView(records: FieldRecord[], activityIds: ReadonlySet<s
       byActivity.set(activityId, latest);
     }
   }
+  const plannedOn = new Map<string, string>();
   const standalone = entries.filter(({ latest }) => {
+    if (latest.payload.time.start.date !== date) {
+      return false;
+    }
     const linked = latest.payload.activityId;
-    return latest.payload.time.start.date === date && !(linked && activityIds.has(linked));
+    if (!(linked && activityIds.has(linked))) {
+      return true;
+    }
+    // 항목이 다른 날 계획에 있고 기록이 이 날짜로 정정된 경우: 이 날짜에도 기록 카드를 둔다.
+    const plannedDate = activityDates.get(linked);
+    if (plannedDate && plannedDate !== date) {
+      plannedOn.set(latest.recordId, plannedDate);
+      return true;
+    }
+    return false;
   });
-  return { byActivity, standalone: standalone.toSorted(compareByClock) };
+  return { byActivity, standalone: standalone.toSorted(compareByClock), plannedOn };
 }
 
 function compareByClock(a: ActualChainEntry, b: ActualChainEntry) {

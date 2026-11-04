@@ -100,7 +100,9 @@ test('기록 목록: 날짜 머리 아래 시각 순이고 정정 체인은 최�
   await expect(more.getByText('앱에 남긴 시각', { exact: false })).toBeVisible();
 });
 
-test('회고: 버전 이름에 저장 시각이 보이고, 추가·제거 배지가 붙으며, 설명은 ⓘ 안에 있다', async ({ page }) => {
+test('회고: 버전 이름에 저장 시각이 보이고, 추가·제거 배지가 붙으며, 설명은 `계획 설명` 단추 안에 있다', async ({
+  page,
+}) => {
   await page.goto(space('u3-retro'));
   await createTrip(page, '가상 회고 여행');
   await openTab(page, '오늘');
@@ -116,9 +118,9 @@ test('회고: 버전 이름에 저장 시각이 보이고, 추가·제거 배지
   const retro = page.getByRole('region', { name: '날짜별 회고' });
   await expect(retro).toBeVisible();
 
-  // 설명문은 ⓘ 접기 안에 있고 본문에는 사실만 남는다.
+  // 설명문은 `계획 설명` 접기 안에 있고 본문에는 사실만 남는다.
   await expect(retro.getByText('읽기 전용입니다.', { exact: false })).toBeHidden();
-  await retro.getByLabel('도움말').first().click();
+  await retro.getByText('계획 설명', { exact: true }).click();
   await expect(retro.getByText('읽기 전용입니다.', { exact: false })).toBeVisible();
 
   // 버전 이름: 저장 시각 + 이유(번호는 보조). 현재 계획은 저장 시각만 붙는다.

@@ -193,6 +193,23 @@ describe('C8 오늘 타임라인의 실제 기록', () => {
     expect(view.standalone.map((e) => e.latest.payload.title)).toEqual(['길가의 벤치', '지운 항목의 기록']);
   });
 
+  it('다른 날로 정정된 기록은 발생일 타임라인에 전용 카드로 나타나고 계획 날짜를 알려 준다', () => {
+    const visit = withActivity(actual('방문', local('2031-12-31', '23:40'), { recordId: 'v1' }), 'a1');
+    const fix = withActivity(
+      actual('방문 정정', local('2032-01-01', '00:30'), { recordId: 'v2', supersedes: 'v1' }),
+      'a1',
+    );
+    const ids = new Set(['a1']);
+    const planDates = new Map([['a1', '2031-12-31']]);
+    const planDay = dayRecordView([visit, fix], ids, '2031-12-31', planDates);
+    expect(planDay.byActivity.get('a1')?.payload.time.start.date).toBe('2032-01-01');
+    expect(planDay.standalone).toHaveLength(0);
+    const actualDay = dayRecordView([visit, fix], ids, '2032-01-01', planDates);
+    expect(actualDay.standalone.map((e) => e.latest.payload.title)).toEqual(['방문 정정']);
+    expect(actualDay.plannedOn.get('v2')).toBe('2031-12-31');
+    expect(actualDay.byActivity.size).toBe(1);
+  });
+
   it('기록 카드는 시각 순서에 맞춰 항목 사이에 끼고, 시각이 없거나 가장 늦으면 맨 아래에 둔다', () => {
     const items = [item('a', '09:00'), item('b', '13:00'), item('c', '18:00')];
     const morning = actual('이른 기록', local('2032-05-02', '08:00'));

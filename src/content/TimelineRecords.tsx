@@ -4,17 +4,21 @@ import { clockLabel } from './Journey';
 const outcomeText = { visited: '방문', skipped: '건너뜀', unplanned: '예정 외' } as const;
 
 /** 계획 항목 카드 안의 한 줄 배지: 그 활동의 최신 기록 결과와 시각(`방문 14:20` / `건너뜀`). */
-export function RecordBadge({ record }: { record: ActualRecord | undefined }) {
+const shortDate = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
+
+export function RecordBadge({ record, planDate }: { record: ActualRecord | undefined; planDate?: string }) {
   if (!record) {
     return null;
   }
   const start = record.payload.time.start;
   const clock = start.precision === 'local' || start.precision === 'instant' ? ` ${clockLabel(start)}` : '';
+  // 계획 날짜와 다른 날로 정정된 기록은 발생일을 붙인다(`방문 1/1 00:30`).
+  const moved = planDate && start.date && start.date !== planDate ? ` ${shortDate(start.date)}` : '';
   return (
     <p className="record-badge" aria-label="이 활동의 실제 기록">
       <span className={`record-badge-pill record-badge-${record.payload.outcome}`}>
         {outcomeText[record.payload.outcome]}
-        {record.payload.outcome === 'skipped' ? '' : clock}
+        {record.payload.outcome === 'skipped' ? moved : `${moved}${clock}`}
       </span>
     </p>
   );
@@ -26,10 +30,13 @@ export function RecordBadge({ record }: { record: ActualRecord | undefined }) {
  */
 export function TimelineRecordCard({
   entry,
+  plannedOn,
   onCorrect,
   onShow,
 }: {
   entry: ActualChainEntry;
+  /** 다른 날 계획 항목의 기록이면 그 계획 날짜. */
+  plannedOn?: string;
   onCorrect: (record: ActualRecord) => void;
   onShow: () => void;
 }) {
@@ -43,6 +50,7 @@ export function TimelineRecordCard({
         {hasClock ? clockLabel(start) : '시각 없음'}
       </p>
       <h3>{latest.payload.title}</h3>
+      {plannedOn ? <p className="timeline-record-note">{shortDate(plannedOn)} 계획 항목의 기록</p> : null}
       {latest.payload.note ? <p className="timeline-record-note">{latest.payload.note}</p> : null}
       <div className="button-row">
         <button type="button" onClick={() => onCorrect(latest)}>
