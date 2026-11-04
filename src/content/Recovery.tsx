@@ -4,6 +4,23 @@ import type { ContentRepository } from '../repository';
 import { readArchive } from '../transfer/package';
 import { readBackup } from '../transfer/backup';
 import { ErrorText, Modal, errorText } from './ui';
+import { reviewWorkspace } from '../storage/workspace-name';
+
+type ErrorPlace = 'restore' | 'repair' | 'other';
+
+/** 평소 공간을 건드리지 않고 복원용 새 검토 공간 주소를 만든다: restore-YYYYMMDD-N. */
+function newRestoreWorkspaceUrl() {
+  const today = new Date().toISOString().slice(0, 10).replaceAll('-', '');
+  const counterKey = `travel-app:restore-space:${today}`;
+  let sequence = Math.floor(Math.random() * 900) + 100;
+  try {
+    sequence = Number(localStorage.getItem(counterKey) ?? '0') + 1;
+    localStorage.setItem(counterKey, String(sequence));
+  } catch {
+    // 저장소를 쓸 수 없으면 무작위 번호를 쓴다.
+  }
+  return `${location.pathname}?workspace=content&review=restore-${today}-${sequence}`;
+}
 
 export default function Recovery({
   repo,
@@ -16,6 +33,7 @@ export default function Recovery({
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
+    [errorPlace, setErrorPlace] = useState<ErrorPlace>('other'),
     [status, setStatus] = useState(''),
     [url, setUrl] = useState(''),
     [filename, setFilename] = useState('');
@@ -39,11 +57,12 @@ export default function Recovery({
       }
     };
   }, []);
-  async function run(fn: (signal: AbortSignal) => Promise<void>) {
+  async function run(fn: (signal: AbortSignal) => Promise<void>, place: ErrorPlace = 'other') {
     const current = new AbortController();
     controller.current = current;
     setBusy(true);
     setError('');
+    setErrorPlace(place);
     setStatus('처리 중입니다.');
     try {
       await fn(current.signal);
@@ -144,8 +163,17 @@ export default function Recovery({
       ) : null}
       <h3>빈 저장소 전체 복원</h3>
       <p>기존 여행이 있으면 복원하지 않습니다. 비공개 영역에서 검증하고 확인 후 여행 목록에 표시합니다.</p>
+      {headers.length > 0 ? (
+        <div className="notice">
+          <p>
+            이 공간에 여행 {headers.length}개가 있어 전체 복원을 할 수 없습니다. 전체 복원은 빈 공간에서만 합니다. → `새
+            빈 공간 열기`
+          </p>
+          <button onClick={() => window.open(newRestoreWorkspaceUrl(), '_blank')}>새 빈 공간 열기</button>
+        </div>
+      ) : null}
       <label className="file-picker">
-        전체 백업 파일 선택
+        전체 백업 복원 (travel-app-backup-*.zip)
         <input
           type="file"
           accept=".zip,application/zip"
@@ -159,11 +187,12 @@ export default function Recovery({
                 const result = await readBackup(file, signal);
                 setPreview({ blob: file, trips: result.manifest.tripIds.length, cutSeq: result.manifest.cutSeq });
                 setStatus('백업 파일 검증 완료. 복원 내용을 확인하세요.');
-              });
+              }, 'restore');
             }
           }}
         />
       </label>
+      <ErrorText error={errorPlace === 'restore' ? error : ''} />
       {preview ? (
         <div className="notice">
           <p>
@@ -176,7 +205,9 @@ export default function Recovery({
                 const jobId = await repo.prepareRestore(preview.blob, signal, setStatus);
                 await repo.activateRestore(jobId, signal);
                 setPreview(null);
-                setStatus('전체 복원 완료. 여행 목록에서 확인하세요.');
+                setStatus(
+                  `전체 복원 완료. 복원한 여행은 이 공간(${reviewWorkspace(location.search) ?? '평소 공간'})에 있습니다. 여행 메뉴에서 전환해 쓰세요.`,
+                );
               })
             }
           >
@@ -200,7 +231,7 @@ export default function Recovery({
             </p>
           ))}
           <label className="file-picker">
-            첨부 복구용 패키지·백업 선택
+            첨부 사진만 복구 (여행·계획은 바뀌지 않음)
             <input
               type="file"
               accept=".zip,application/zip"
@@ -213,11 +244,12 @@ export default function Recovery({
                     const archive = await readArchive(file, signal);
                     const count = await repo.repairAssets(tripId, archive.assets, signal);
                     setStatus(`${count}개 첨부를 복구했습니다. 계획·본문·기록은 보존됩니다.`);
-                  });
+                  }, 'repair');
                 }
               }}
             />
           </label>
+          <ErrorText error={errorPlace === 'repair' ? error : ''} />
         </>
       ) : null}
       <h3>중단된 준비 작업</h3>
@@ -281,7 +313,7 @@ export default function Recovery({
         참조 없는 임시 첨부 정리
       </button>
       {busy ? <button onClick={() => controller.current?.abort()}>진행 작업 취소</button> : null}
-      <ErrorText error={error} />
+      <ErrorText error={errorPlace === 'other' ? error : ''} />
       {status ? <p role="status">{status}</p> : null}
     </Modal>
   );

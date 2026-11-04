@@ -274,8 +274,11 @@ export async function readArchive(blob: Blob, signal?: AbortSignal) {
 export async function readPackage(blob: Blob, signal?: AbortSignal) {
   const archive = await readArchive(blob, signal),
     { rows, assets, manifest, packageDigest } = archive;
+  if (manifest.format === 'travel-app-backup') {
+    throw new Error('전체 백업 파일입니다. `더보기 → 저장소·백업 → 전체 백업 복원`에서 빈 공간에 복원하세요.');
+  }
   if (manifest.format !== 'travel-app-package' || manifest.purpose !== 'migration') {
-    throw new Error('현재 입력은 이행 패키지 v2입니다. 백업/복사형 가져오기는 별도 경로입니다.');
+    throw new Error('알 수 없는 파일 형식입니다.');
   }
   const report = reportSchema.parse(archive.report);
   if (report.blocking.length) {

@@ -125,7 +125,7 @@ test('오프라인 메모를 새 페이지·재로드·빈 공간 백업 복원 
     const restored = await restoredContext.newPage();
     await restored.goto('http://127.0.0.1:4173/?workspace=content&review=note-restored');
     await openStorage(restored);
-    await restored.getByLabel('전체 백업 파일 선택').setInputFiles(path);
+    await restored.getByLabel('전체 백업 복원').setInputFiles(path);
     await restored.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
     await expect(restored.getByText('전체 복원 완료.', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '닫기', exact: true }).click();

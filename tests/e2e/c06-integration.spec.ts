@@ -80,7 +80,7 @@ const changeEvidenceAndFirstActivity = (trip: TripDataset) => {
 };
 async function openReview(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
   await openTripMenu(page);
-  await page.getByLabel('여행 패키지 선택').setInputFiles(file);
+  await page.getByLabel('원천 패키지 가져오기').setInputFiles(file);
   await page.getByRole('button', { name: '재가져오기 차이 검토', exact: true }).click();
   await expect(page.getByRole('heading', { name: '재가져오기 차이 검토', exact: true })).toBeVisible();
 }
@@ -306,7 +306,7 @@ async function backupTo(page: Page, file: string) {
 }
 async function restoreFrom(page: Page, file: string) {
   await openStorage(page);
-  await page.getByLabel('전체 백업 파일 선택').setInputFiles(file);
+  await page.getByLabel('전체 백업 복원').setInputFiles(file);
   await expect(page.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
   await expect(page.getByText('전체 복원 완료.', { exact: false })).toBeVisible();
@@ -378,7 +378,7 @@ test('두 여행(가져온 A·수동 B)을 전체 백업해 빈 검토 공간에
   try {
     // 비어 있지 않은 공간에는 복원이 거부되고 기존 데이터는 그대로다(원본 공간에서 시도).
     await openStorage(page);
-    await expect(page.getByLabel('전체 백업 파일 선택')).toBeDisabled();
+    await expect(page.getByLabel('전체 백업 복원')).toBeDisabled();
     const afterRejected = await dump(page, source);
     expect(domain(afterRejected)).toEqual(domain(before));
     await page.getByRole('button', { name: '닫기', exact: true }).click();
@@ -388,7 +388,7 @@ test('두 여행(가져온 A·수동 B)을 전체 백업해 빈 검토 공간에
     const restored = await dump(target, destination);
     // 복원된 공간도 비어 있지 않으므로 같은 백업을 다시 복원할 수 없다.
     await openStorage(target);
-    await expect(target.getByLabel('전체 백업 파일 선택')).toBeDisabled();
+    await expect(target.getByLabel('전체 백업 복원')).toBeDisabled();
     await target.getByRole('button', { name: '닫기', exact: true }).click();
     expect(counts(restored)).toEqual(counts(before));
     expect(domain(restored)).toEqual(domain(before));

@@ -299,7 +299,7 @@ test('정정이 든 두 여행을 전체 백업해 빈 브라우저에 복원하
   try {
     await restored.goto('http://127.0.0.1:4173/?workspace=content');
     await openStorage(restored);
-    await restored.getByLabel('전체 백업 파일 선택').setInputFiles(path);
+    await restored.getByLabel('전체 백업 복원').setInputFiles(path);
     await expect(restored.getByText('복원 미리보기: 2개 여행', { exact: false })).toBeVisible();
     await restored.getByRole('button', { name: '확인 후 전체 복원', exact: true }).click();
     await expect(restored.getByText('전체 복원 완료.', { exact: false })).toBeVisible();

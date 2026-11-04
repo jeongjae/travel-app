@@ -35,7 +35,7 @@ async function openReview(page: Page, edit?: (trip: TripDataset) => void) {
     normalizationVersion: 'pilot-v1',
   });
   await openTripMenu(page);
-  await page.getByLabel('여행 패키지 선택').setInputFiles({
+  await page.getByLabel('원천 패키지 가져오기').setInputFiles({
     name: 'plan-source.zip',
     mimeType: 'application/zip',
     buffer: Buffer.from(await built.blob.arrayBuffer()),

@@ -92,7 +92,7 @@ test('하단 탭 다섯 개로 기존 모든 기능에 닿는다', async ({ page
   for (const name of ['새 여행', '가상 여행 둘러보기']) {
     await expect(page.locator('.journey-library').getByRole('button', { name, exact: true })).toBeVisible();
   }
-  await expect(page.getByLabel('여행 패키지 선택')).toBeVisible();
+  await expect(page.getByLabel('원천 패키지 가져오기')).toBeVisible();
   await expect(page.getByRole('link', { name: '기존 일정 열기', exact: true })).toBeVisible();
   await expect(
     page.getByRole('navigation', { name: '여행 선택' }).getByRole('button', { name: '가상 탐색 여행', exact: true }),

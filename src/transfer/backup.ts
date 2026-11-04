@@ -383,8 +383,11 @@ export async function buildBackup(
 }
 export async function readBackup(blob: Blob, signal?: AbortSignal) {
   const archive = await readArchive(blob, signal);
+  if (archive.manifest.format === 'travel-app-package') {
+    throw new Error('원천 패키지입니다. 여행 메뉴의 `원천 패키지 가져오기`를 쓰세요.');
+  }
   if (archive.manifest.format !== 'travel-app-backup') {
-    fail('전체 백업 v2 필요');
+    throw new Error('알 수 없는 파일 형식입니다.');
   }
   z.strictObject({ backupContract: z.literal('full-v2'), legacyOriginalEncoding: z.literal('tagged-v1') }).parse(
     archive.report,
