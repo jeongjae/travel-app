@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test, expect, type Browser, type Locator, type Page } from '@playwright/test';
 import { dump, domain, counts, tripIdOf, spaceIds, type Dump } from './helpers/space-dump';
-import { menuAction, openMore, openStorage, openTripMenu, selectDayByDate } from './helpers/nav';
+import { menuAction, openMore, openStorage, openTripMenu, selectDayByDate, guideMenu } from './helpers/nav';
 
 /**
  * C-07〔T-C8〕 삿포로 가상 여행 대본 리허설. `docs/c07-sapporo-scenario.md`의 단계 번호(S1~S7)를 그대로 따른다.
@@ -144,7 +144,7 @@ async function addPlace(page: Page, name: string, region: string, summary: strin
   await expect(page.getByRole('heading', { name, exact: true, level: 2 })).toBeVisible();
 }
 async function writeRegionGuide(page: Page) {
-  await page.getByRole('button', { name: '지역 가이드 작성', exact: true }).click();
+  await guideMenu(page, '지역 가이드 작성');
   await page.getByLabel('가이드 제목').fill('겨울 도시 걷기 안내');
   await page.getByLabel('섹션 1 제목').fill('눈길 걷기');
   await page.getByLabel('섹션 1 본문').fill('가상 안내: 미끄럼 방지 신발을 챙긴다.');

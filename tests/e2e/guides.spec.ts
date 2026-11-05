@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openMore, openStorage, openTripMenu, planVersionSelect } from './helpers/nav';
+import { openMore, openStorage, openTripMenu, planVersionSelect, guideMenu } from './helpers/nav';
 
 /**
  * C-03: 지역·여행 가이드 작성/수정과 장소·지역 기본정보 수정. 가상 여행에서 생성→찾기→열기→수정→재실행→오프라인→복원을
@@ -64,7 +64,7 @@ async function openFromList(page: Page, name: string) {
   await expect(page.getByRole('heading', { name, exact: true, level: 2 })).toBeVisible();
 }
 async function writeRegionGuide(page: Page, title: string, sections: [string, string][]) {
-  await page.getByRole('button', { name: '지역 가이드 작성', exact: true }).click();
+  await guideMenu(page, '지역 가이드 작성');
   await page.getByLabel('가이드 제목').fill(title);
   for (const [index, [sectionTitle, body]] of sections.entries()) {
     if (index > 0) {
@@ -99,12 +99,12 @@ test('지역 가이드를 작성해 지역에서 찾고, 제목·본문을 고�
   await expect(page.getByRole('heading', { name: '동네 걷기 안내', exact: true, level: 3 })).toBeVisible();
 
   // 제목과 섹션 본문 수정.
-  await page.getByRole('button', { name: '가이드 제목 수정', exact: true }).click();
+  await guideMenu(page, '가이드 제목 수정');
   await page.getByLabel('가이드 제목').fill('동네 걷기 안내 개정');
   await page.getByRole('button', { name: '제목 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByRole('heading', { name: '동네 걷기 안내 개정', exact: true, level: 3 })).toBeVisible();
-  await page.getByRole('button', { name: '아침 산책 편집', exact: true }).click();
+  await guideMenu(page, '아침 산책 편집');
   await page.getByLabel('본문 Markdown').fill('해 뜨기 전에 걷기 좋다. 개정한 문장');
   await page.getByRole('button', { name: '본문 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -146,13 +146,13 @@ test('여행 공통 가이드를 준비 화면에서 찾아 읽고 고치며, �
   await openMore(page, '준비·회화');
   await expect(page.getByRole('button', { name: '출발 전 점검', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '출발 전 점검', exact: true }).click();
-  await page.getByRole('button', { name: '서류 편집', exact: true }).click();
+  await guideMenu(page, '서류 편집');
   await page.getByLabel('섹션 제목').fill('서류와 보험');
   await page.getByLabel('본문 Markdown').fill('여권, 보험, 예약 번호 확인');
   await page.getByRole('button', { name: '본문 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByText('여권, 보험, 예약 번호 확인', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '가이드 제목 수정', exact: true }).click();
+  await guideMenu(page, '가이드 제목 수정');
   await page.getByLabel('가이드 제목').fill('출발 전 점검표');
   await page.getByRole('button', { name: '제목 저장', exact: true }).click();
   await expect(page.getByRole('heading', { name: '출발 전 점검표', exact: true, level: 2 })).toBeVisible();
@@ -192,7 +192,7 @@ test('지역·장소 기본정보를 고치면 목록·검색·상세·연결 �
 
   // 장소 기본정보: 이름·종류·요약·지역을 바꾼다. 본문(가이드)은 그대로다.
   await openFromList(page, '가상 카페');
-  await page.getByRole('button', { name: '기본정보 수정', exact: true }).click();
+  await guideMenu(page, '기본정보 수정');
   await page.getByLabel('장소 이름').fill('새 가상 카페');
   await page.getByLabel('장소 종류').fill('카페');
   await page.getByLabel('한 줄 요약').fill('바뀐 요약');
@@ -206,7 +206,7 @@ test('지역·장소 기본정보를 고치면 목록·검색·상세·연결 �
 
   // 지역 기본정보.
   await openFromList(page, '가상 동네');
-  await page.getByRole('button', { name: '기본정보 수정', exact: true }).click();
+  await guideMenu(page, '기본정보 수정');
   await page.getByLabel('지역 이름').fill('새 가상 동네');
   await page.getByLabel('한 줄 소개').fill('새 한 줄 소개');
   await page.getByLabel('지역 설명').fill('바뀐 설명');
@@ -263,7 +263,7 @@ test('통신이 끊긴 상태에서도 가이드를 작성·수정하고 재실�
   await page.reload();
   await openFromList(page, '가상 동네');
   await writeRegionGuide(page, '오프라인 안내', [['현장', '현장에서 쓴 글']]);
-  await page.getByRole('button', { name: '현장 편집', exact: true }).click();
+  await guideMenu(page, '현장 편집');
   await page.getByLabel('본문 Markdown').fill('현장에서 고친 글');
   await page.getByRole('button', { name: '본문 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -291,7 +291,7 @@ test('가이드와 기본정보 수정이 든 두 여행을 전체 백업해 빈
   await addRegion(page, '가상 동네', '처음 설명');
   await writeRegionGuide(page, '동네 안내', [['걷기', '복원될 본문']]);
   await openFromList(page, '가상 동네');
-  await page.getByRole('button', { name: '기본정보 수정', exact: true }).click();
+  await guideMenu(page, '기본정보 수정');
   await page.getByLabel('지역 이름').fill('수정된 가상 동네');
   await page.getByRole('button', { name: '기본정보 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();

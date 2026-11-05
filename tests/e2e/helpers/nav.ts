@@ -68,3 +68,9 @@ export async function planVersionSelect(page: Page) {
   await openMore(page, '계획 버전');
   return page.getByLabel('계획 버전');
 }
+
+/** 가이드·지역·장소 상세 머리의 `⋯ 편집` 메뉴를 열고 항목을 누른다. */
+export async function guideMenu(scope: Page | Locator, item: string) {
+  await scope.locator('.guide-head .menu-toggle').click();
+  await scope.getByRole('button', { name: item, exact: true }).click();
+}
