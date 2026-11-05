@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import type { ContentRevision, TripDataset } from '../contracts/v2';
 import type { ContentRepository } from '../repository';
 import { ErrorText, Modal, errorText, reuseRequest, type RequestAttempt } from './ui';
+import { regionDisplayName } from './display-names';
 
 type Region = Extract<ContentRevision, { kind: 'region' }>;
 type Place = Extract<ContentRevision, { kind: 'place' }>;
@@ -240,7 +241,7 @@ export function PlaceInfoEditor({
                   )
                 }
               />
-              {region.payload.name}
+              {regionDisplayName(region.payload.name)}
             </label>
           ))
         ) : (

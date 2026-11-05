@@ -2,6 +2,7 @@ import type { ContentRevision, RevisionRef } from '../contracts/v2';
 import type { ContentRepository } from '../repository';
 import { AssetImage } from './Guide';
 import { groupGuideCatalog } from './guide-rules';
+import { regionDisplayName } from './display-names';
 
 type Place = Extract<ContentRevision, { kind: 'place' }>;
 type Region = Extract<ContentRevision, { kind: 'region' }>;
@@ -69,7 +70,7 @@ export function GuideList({
           <header className="guide-region-head">
             <h3>
               <button type="button" onClick={() => onOpen('region', region.entityId)}>
-                {region.payload.name}
+                {regionDisplayName(region.payload.name)}
               </button>
             </h3>
             {oneLine(region) ? <p className="muted">{oneLine(region)}</p> : null}

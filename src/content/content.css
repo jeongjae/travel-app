@@ -426,3 +426,34 @@ dialog th {
     height: 64px;
   }
 }
+
+/* C-14: 긴 여행 이름 전체 표시, 이전 원천 상태 접기, 도구 로딩 안내 */
+.trip-full-name {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+.trip-switch {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.legacy-states summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.tool-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 1.25rem 1.5rem;
+  max-width: calc(100vw - 2rem);
+  background: Canvas;
+  color: CanvasText;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  text-align: center;
+}

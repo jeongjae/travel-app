@@ -20,6 +20,7 @@ import { buildNewTrip } from './trip-factory';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
 import { GuideAuthoring } from './GuideAuthoring';
 import { isReadingGuide } from './guide-rules';
+import { guideLabels, regionDisplayName, tripDisplayName } from './display-names';
 import { LegEditor, StayEditor, type LegEditorState, type StayEditorState } from './StayLegEditors';
 import { DayDetails } from './DayDetails';
 import { ActionMenu } from './ActionMenu';
@@ -49,6 +50,8 @@ import { appAssetUrl } from '../hosting';
 const repo = new ContentRepository(repository.db);
 const Recovery = lazy(() => import('./Recovery'));
 type Target = { kind: ContentRevision['kind']; id: string };
+const isGuideContent = (content: ContentRevision): content is Extract<ContentRevision, { kind: 'guide' }> =>
+  content.kind === 'guide';
 const tabs = [
   '일정',
   '전체 일정',
@@ -137,6 +140,10 @@ export function ContentApp() {
   const tripId = selected || headers[0]?.tripId,
     header = headers.find((h) => h.tripId === tripId),
     currentPlanId = planId || header?.currentPlanVersionId;
+  const headerName = header?.name;
+  useEffect(() => {
+    document.title = headerName ? `${tripDisplayName(headerName)} · travel-app` : 'travel-app · 여행 계획과 기록';
+  }, [headerName]);
   const plan = useLiveQuery(
     () => (tripId && currentPlanId ? repo.plan(tripId, currentPlanId) : undefined),
     [tripId, currentPlanId],
@@ -230,9 +237,18 @@ export function ContentApp() {
       onShow={() => openTab('실제 기록')}
     />
   );
+  const regionList = catalog.filter((c): c is Extract<ContentRevision, { kind: 'region' }> => c.kind === 'region');
+  /** 이전 원천 상태 기록의 대상 이름: 장소·지역 이름. */
+  const targetNames = new Map(
+    catalog.flatMap((c) =>
+      c.kind === 'place' || c.kind === 'region'
+        ? [[c.entityId, c.kind === 'region' ? regionDisplayName(c.payload.name) : c.payload.name] as const]
+        : [],
+    ),
+  );
   const regionName = (regionId: string) => {
     const region = catalog.find((c) => c.kind === 'region' && c.entityId === regionId);
-    return region?.kind === 'region' ? region.payload.name : regionId;
+    return region?.kind === 'region' ? regionDisplayName(region.payload.name) : regionId;
   };
   /** 선택한 회고 날짜. 목록에 없으면(다른 여행 등) 실제 기록이 있는 첫 날짜, 없으면 여행 시작일. */
   function retroDateFor(trip: NonNullable<typeof retroTrip>) {
@@ -504,7 +520,7 @@ export function ContentApp() {
               aria-controls="trip-library"
               onClick={() => setTripMenu((open) => !open)}
             >
-              {header.name}
+              {tripDisplayName(header.name)}
               <span className="trip-caret" aria-hidden="true">
                 ▾
               </span>
@@ -522,18 +538,22 @@ export function ContentApp() {
       {loadedHeaders !== undefined && (tripMenu || !header) ? (
         <section className="journey-library" id="trip-library" aria-label="여행 전환·새 여행·가져오기">
           {header ? (
-            <p className="muted">
-              {header.startDate} — {header.endDate} · 이 브라우저에 저장됨
-            </p>
+            <>
+              <p className="muted">
+                {header.startDate} — {header.endDate} · 이 브라우저에 저장됨
+              </p>
+              {tripDisplayName(header.name) !== header.name ? <p className="trip-full-name">{header.name}</p> : null}
+            </>
           ) : null}
           <nav className="trip-list" aria-label="여행 선택">
             {headers.map((h) => (
               <button
                 className={`trip-item ${h.tripId === tripId ? 'selected' : ''}`}
                 key={h.tripId}
+                title={h.name}
                 onClick={() => select(h.tripId)}
               >
-                {h.name}
+                {tripDisplayName(h.name)}
               </button>
             ))}
           </nav>
@@ -593,10 +613,29 @@ export function ContentApp() {
             <h1>어느 여행을 열까요?</h1>
             <p>여행 패키지를 선택하거나 가상 여행으로 가이드와 기록 흐름을 둘러보세요.</p>
             <div className="button-row">
-              <button disabled={!ready} onClick={() => setRecovery(true)}>
+              <label className="file-picker">
+                여행 패키지(pilot.zip) 가져오기
+                <input
+                  type="file"
+                  accept=".zip,application/zip"
+                  disabled={busy || meta?.mode !== 'v2'}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) {
+                      void load(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <p className="muted">
+              전체 백업에서 되살리기는{' '}
+              <button type="button" disabled={!ready} onClick={() => setRecovery(true)}>
                 저장소·백업
               </button>
-            </div>
+              에서 합니다.
+            </p>
           </section>
         ) : (
           <>
@@ -1012,11 +1051,13 @@ export function ContentApp() {
                   </button>
                 </div>
                 <nav className="button-row preparation-links" aria-label="여행 자료">
-                  {guides.filter(isReadingGuide).map((content) => (
-                    <button key={content.entityId} onClick={() => navigate('guide', content.entityId)}>
-                      {content.kind === 'guide' ? content.payload.title : content.entityId}
-                    </button>
-                  ))}
+                  {guideLabels(guides.filter(isReadingGuide).filter(isGuideContent), regionList).map(
+                    ({ content, label }) => (
+                      <button key={content.entityId} onClick={() => navigate('guide', content.entityId)}>
+                        {label}
+                      </button>
+                    ),
+                  )}
                 </nav>
                 {catalog
                   .filter((c): c is Extract<ContentRevision, { kind: 'phrase-book' }> => c.kind === 'phrase-book')
@@ -1037,13 +1078,16 @@ export function ContentApp() {
                   ))}
                 <details className="source-inspection">
                   <summary>자료·원천 대조</summary>
-                  {guides
-                    .filter((c) => c.kind === 'guide' && c.payload.documentKind !== 'place-guide' && !isReadingGuide(c))
-                    .map((c) => (
-                      <button key={c.entityId} onClick={() => navigate('guide', c.entityId)}>
-                        {c.kind === 'guide' ? c.payload.title : c.entityId}
-                      </button>
-                    ))}
+                  {guideLabels(
+                    guides
+                      .filter(isGuideContent)
+                      .filter((c) => c.payload.documentKind !== 'place-guide' && !isReadingGuide(c)),
+                    regionList,
+                  ).map(({ content, label }) => (
+                    <button key={content.entityId} onClick={() => navigate('guide', content.entityId)}>
+                      {label}
+                    </button>
+                  ))}
                 </details>
               </section>
             ) : null}
@@ -1094,6 +1138,7 @@ export function ContentApp() {
                     </button>
                     <ActualTimeline
                       records={records}
+                      targetNames={targetNames}
                       placeNames={recordedPlaces}
                       onCorrect={(r) => void record(r.payload.outcome, undefined, r)}
                       onContext={(r) => void openRecordedPlace(r)}
@@ -1170,7 +1215,13 @@ export function ContentApp() {
         />
       ) : null}
       {recovery ? (
-        <Suspense fallback={<p role="status">저장소 도구를 여는 중입니다.</p>}>
+        <Suspense
+          fallback={
+            <p role="status" className="tool-loading">
+              저장소 도구를 여는 중입니다.
+            </p>
+          }
+        >
           <Recovery repo={repo} tripId={tripId} onClose={() => setRecovery(false)} />
         </Suspense>
       ) : null}
@@ -1199,7 +1250,7 @@ export function ContentApp() {
       ) : null}
       {preview ? (
         <Modal title="여행 패키지 미리보기" onClose={() => setPreview(null)}>
-          <h3>{preview.dataset.header.name}</h3>
+          <h3 title={preview.dataset.header.name}>{tripDisplayName(preview.dataset.header.name)}</h3>
           <p>
             {
               preview.dataset.plans.find((p) => p.planVersionId === preview.dataset.header.currentPlanVersionId)?.days

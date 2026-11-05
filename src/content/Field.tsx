@@ -19,6 +19,7 @@ import {
   type ActualChainEntry,
   type ChainLink,
 } from './field-rules';
+import { localClock } from './display-names';
 import { errorText, ErrorText, Modal, reuseRequest, timeLabel, type RequestAttempt } from './ui';
 export type RecordEditor = {
   header: TripDataset['header'];
@@ -214,10 +215,13 @@ type ActualRow = Extract<FieldRecord, { kind: 'actual' }>;
 export function ActualTimeline({
   records,
   placeNames,
+  targetNames = new Map<string, string>(),
   onCorrect,
   onContext,
 }: {
   records: FieldRecord[];
+  /** 이전 원천 상태 기록의 대상(장소·지역) 이름. 없으면 대상 ID를 보인다. */
+  targetNames?: Map<string, string>;
   /** 기록 ID별로, 기록 당시 고정한 revision에서 읽은 장소 이름. */
   placeNames: Map<string, string>;
   onCorrect: (record: ActualRow) => void;
@@ -253,14 +257,10 @@ export function ActualTimeline({
           {unknown.map(renderRow)}
         </section>
       ) : null}
-      <h3>이전 원천의 상태</h3>
-      {records
-        .filter((r) => r.kind === 'legacy-state')
-        .map((r) => (
-          <p key={r.recordId}>
-            {r.payload.note} · {r.payload.state} · 실제 방문 시각으로 추정하지 않음
-          </p>
-        ))}
+      <LegacyStates
+        states={records.filter((r): r is Extract<FieldRecord, { kind: 'legacy-state' }> => r.kind === 'legacy-state')}
+        targetNames={targetNames}
+      />
       <h3>메모</h3>
       {records
         .filter((r): r is Extract<FieldRecord, { kind: 'note' }> => r.kind === 'note' && !superseded.has(r.recordId))
@@ -268,6 +268,43 @@ export function ActualTimeline({
           <p key={r.recordId}>{r.payload.body}</p>
         ))}
     </>
+  );
+}
+
+const legacyStateText: Record<'visited' | 'not-visited' | 'checked' | 'unchecked', string> = {
+  visited: '방문함',
+  'not-visited': '방문 안 함',
+  checked: '확인함',
+  unchecked: '확인 안 함',
+};
+
+/** 이전 원천의 체크 상태는 접기 하나로 요약하고, 펼치면 대상 이름과 한국어 상태만 보인다. */
+function LegacyStates({
+  states,
+  targetNames,
+}: {
+  states: Extract<FieldRecord, { kind: 'legacy-state' }>[];
+  targetNames: Map<string, string>;
+}) {
+  if (!states.length) {
+    return null;
+  }
+  const positive = states.filter((r) => r.payload.state === 'visited' || r.payload.state === 'checked').length;
+  return (
+    <details className="legacy-states">
+      <summary>
+        이전 원천의 방문 체크 {states.length}건 (방문 {positive} · 미방문 {states.length - positive})
+      </summary>
+      <p className="muted">실제 방문 시각으로 추정하지 않았습니다.</p>
+      <ul>
+        {states.map((r) => (
+          <li key={r.recordId}>
+            {targetNames.get(r.payload.targetRef.entityId) ?? r.payload.targetRef.entityId} ·{' '}
+            {legacyStateText[r.payload.state]}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -308,7 +345,9 @@ function ActualRowView({
         <details className="row-more">
           <summary aria-label="기록 더 보기">⋯</summary>
           <button onClick={() => onContext(latest)}>기록 당시 내용</button>
-          <p className="muted">앱에 남긴 시각 {latest.recordedAt} · 실제로 한 시각과 따로 보관</p>
+          <p className="muted" title={latest.recordedAt}>
+            앱에 남긴 시각 {localClock(latest.recordedAt)} · 실제로 한 시각과 따로 보관
+          </p>
         </details>
       </div>
       {corrections ? (

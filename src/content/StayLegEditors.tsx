@@ -4,6 +4,7 @@ import type { ContentRepository } from '../repository';
 import { dayRegionsFromStays, isProblem, stayRange } from '../plan/manual-stays';
 import { command, ErrorText, Modal, errorText } from './ui';
 import { confirmedZone } from './quick-time';
+import { regionDisplayName } from './display-names';
 
 type Region = Extract<ContentRevision, { kind: 'region' }>;
 type Stay = PlanVersion['stays'][number];
@@ -161,7 +162,7 @@ export function StayEditor({
                 <option value="">지역 없음·미정</option>
                 {regions.map((region) => (
                   <option key={region.entityId} value={region.entityId}>
-                    {region.payload.name}
+                    {regionDisplayName(region.payload.name)}
                   </option>
                 ))}
               </select>

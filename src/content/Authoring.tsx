@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ContentRevision, TripDataset } from '../contracts/v2';
 import type { ContentRepository } from '../repository';
 import { command, ErrorText, Modal, errorText } from './ui';
+import { regionDisplayName } from './display-names';
 
 type Region = Extract<ContentRevision, { kind: 'region' }>;
 
@@ -224,7 +225,7 @@ export function PlaceAuthoring({
                     )
                   }
                 />
-                {region.payload.name}
+                {regionDisplayName(region.payload.name)}
               </label>
             ))
           ) : (
