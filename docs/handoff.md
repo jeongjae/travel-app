@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-05 · **main·Pages C-14까지 배포 / C-15(파리 읽기 화면) 지시 발행·구현 대기 / U4 사용자 재수행 대기 / D 설계·계획 검토 준비**
+2026-11-05 · **main·Pages C-14까지 배포 / C-15 구현·CI 성공·Codex 조건부 통과(R1 대기) / U4 사용자 재수행 대기 / D 설계·계획 검토 준비**
 
 새 Codex 세션은 먼저 [세션 인계](codex-session-handoff-2026-11-05.md)를 읽는다.
 
@@ -9,7 +9,7 @@
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). 이전 상세는 [history](history/handoff-2026-11-05-before-session-handoff.md).
 - 배포: Pages = main `4b43344` 코드(U1~U4 + C-14). 이후 main 커밋은 문서뿐(`18bb853`).
 - [UI 정리 계획](ui-polish-plan.md): U1~U4 검토 통과·배포. CL-20은 U4 [대본 v2](u4-sapporo-scenario.md) 사용자 재수행 뒤 해소.
-- [C-14 검토](claude-task-c14-review.md) 통과(CL-22 해소). [C-15 지시](claude-task-c15-paris-reading.md): 메모 제목·준비·회화 묶음·가이드 상세·날짜 대표 사진.
+- [C-14 검토](claude-task-c14-review.md) 통과(CL-22 해소). [C-15 검토](claude-task-c15-review.md) 조건부: R1 한국어 `역` 판정·목차 id·스크린샷.
 - REG-02: 데이터 손상 아님. 대표 사진이 첫 방문 장소(출발역·빵집)로 잡히는 표시 문제로 재분류 → C-15 Q3.
 - 평소 공간: PC Chrome 배포 사이트에 파리 패키지 `712369b3…` 가져옴(11/05, 사용자).
 - [D 설계](phase-d-design.md)·[D 계획](phase-d-plan.md) v0.2: 사용자 검토 대기, 구현·유료 호출 미착수.
@@ -24,7 +24,7 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: C-15 수행(`codex/c15-paris-reading`, main에서 시작) → Codex 검토 → main 병합·배포.
+1. Claude: C-15 R1(같은 브랜치) → Codex 확인 → main 병합·배포.
 2. 사용자: C-15 배포 뒤 평소 공간 파리 화면·43일 대표 사진 대조표 확인.
 3. 사용자: U4 대본 v2 재수행(`?workspace=content&review=sapporo-u4`, 약 30분) → Q-U2·Q-U3·S6-d·CL-20.
 4. 사용자 결정: D 설계 검토, iPhone 확인 시점.
