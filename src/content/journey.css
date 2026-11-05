@@ -43,6 +43,9 @@
 .content-app a {
   color: var(--green);
 }
+.content-app {
+  --journey-topbar-height: 56px;
+}
 .journey-topbar {
   position: sticky;
   top: 0;

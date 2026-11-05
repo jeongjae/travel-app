@@ -94,10 +94,10 @@ export function reuseRequest(
 }
 
 /** 본문에는 사실만 두고 설명·주의는 ⓘ 접기 안에 둔다. */
-export function HelpNote({ label = '도움말', children }: { label?: string; children: ReactNode }) {
+export function HelpNote({ label = '설명', children }: { label?: string; children: ReactNode }) {
   return (
     <details className="help-note">
-      <summary aria-label={label}>ⓘ</summary>
+      <summary>{label}</summary>
       <p className="muted">{children}</p>
     </details>
   );

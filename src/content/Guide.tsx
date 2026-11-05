@@ -17,12 +17,17 @@ export function AssetImage({
   assetId,
   context,
   alt,
+  className,
+  hideWhenMissing = false,
 }: {
   repo: ContentRepository;
   tripId: string;
   assetId: string;
   context?: RevisionRef[];
   alt?: string;
+  className?: string;
+  /** 썸네일처럼 자리만 차지하면 안 되는 곳에서는 준비되지 않은 첨부 안내를 숨긴다. */
+  hideWhenMissing?: boolean;
 }) {
   const data = useLiveQuery(() => repo.asset(tripId, assetId, context), [repo, tripId, assetId, context]);
   const [url, setUrl] = useState('');
@@ -40,9 +45,10 @@ export function AssetImage({
       src={url}
       loading="lazy"
       alt={alt ?? data?.content.payload.title ?? '첨부'}
-      style={{ maxWidth: '100%', height: 'auto' }}
+      className={className}
+      style={className ? undefined : { maxWidth: '100%', height: 'auto' }}
     />
-  ) : (
+  ) : hideWhenMissing ? null : (
     <span>첨부가 준비되지 않았습니다: {alt ?? assetId}</span>
   );
 }

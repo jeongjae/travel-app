@@ -245,7 +245,7 @@ dialog th {
 }
 .record-day > h3 {
   position: sticky;
-  top: 0;
+  top: var(--journey-topbar-height, 56px);
   z-index: 1;
   margin: 0;
   padding: 8px 0;
@@ -279,7 +279,14 @@ dialog th {
   display: none;
 }
 .row-more[open] {
-  flex-basis: 100%;
+  /* 정정 옆에 남는 자리에 펼치고, 모자라면 아래로 내려간다. 단추 글자는 줄바꿈하지 않는다. */
+  flex: 1 1 12rem;
+}
+.record-row .button-row button {
+  white-space: nowrap;
+}
+.record-row .row-more[open] > :not(summary) {
+  margin-top: 6px;
 }
 .correction-fold {
   margin-top: 8px;
@@ -301,8 +308,11 @@ dialog th {
 .help-note > summary {
   display: inline-block;
   cursor: pointer;
-  min-width: 24px;
-  text-align: center;
+  min-height: 44px;
+  line-height: 44px;
+  padding: 0 8px;
+  font-size: 13px;
+  text-decoration: underline;
   color: var(--muted);
 }
 .help-note[open] > p {
@@ -400,5 +410,19 @@ dialog th {
     padding: 8px 0;
     background: var(--surface, #fff);
     border-bottom: 1px solid var(--line);
+  }
+}
+
+.guide-place-thumb {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+@media (min-width: 701px) {
+  .guide-place-thumb {
+    width: 64px;
+    height: 64px;
   }
 }

@@ -1,4 +1,6 @@
-import type { ContentRevision } from '../contracts/v2';
+import type { ContentRevision, RevisionRef } from '../contracts/v2';
+import type { ContentRepository } from '../repository';
+import { AssetImage } from './Guide';
 import { groupGuideCatalog } from './guide-rules';
 
 type Place = Extract<ContentRevision, { kind: 'place' }>;
@@ -12,11 +14,15 @@ const oneLine = (region: Region) => region.payload.tagline || region.payload.int
  * 읽기 전용이며 열기만 부모에 알린다. 지역 가이드 작성은 지역 상세 안에서만 한다.
  */
 export function GuideList({
+  repo,
+  context,
   catalog,
   search,
   onClearSearch,
   onOpen,
 }: {
+  repo: ContentRepository;
+  context?: RevisionRef[];
   catalog: ContentRevision[];
   search: string;
   onClearSearch: () => void;
@@ -33,15 +39,29 @@ export function GuideList({
       </p>
     );
   }
-  const placeRow = (place: Place, keyPrefix: string) => (
-    <li key={`${keyPrefix}-${place.entityId}`} className="guide-place-row">
-      <button type="button" onClick={() => onOpen('place', place.entityId)}>
-        {place.payload.name}
-      </button>
-      <span className="muted">{place.payload.summary}</span>
-      {place.payload.gradeLabel ? <span className="journey-label">{place.payload.gradeLabel}</span> : null}
-    </li>
-  );
+  const placeRow = (place: Place, keyPrefix: string) => {
+    const photo = place.payload.assetRefs.find((asset) => asset.role === 'hero') ?? place.payload.assetRefs[0];
+    return (
+      <li key={`${keyPrefix}-${place.entityId}`} className="guide-place-row">
+        {photo ? (
+          <AssetImage
+            repo={repo}
+            tripId={place.tripId}
+            assetId={photo.assetId}
+            context={context}
+            alt={photo.caption ?? place.payload.name}
+            className="guide-place-thumb"
+            hideWhenMissing
+          />
+        ) : null}
+        <button type="button" onClick={() => onOpen('place', place.entityId)}>
+          {place.payload.name}
+        </button>
+        <span className="muted">{place.payload.summary}</span>
+        {place.payload.gradeLabel ? <span className="journey-label">{place.payload.gradeLabel}</span> : null}
+      </li>
+    );
+  };
   return (
     <div className="guide-regions">
       {grouping.regions.map(({ region, places }) => (

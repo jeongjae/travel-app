@@ -46,7 +46,7 @@ export function Retrospective({
   return (
     <section aria-label="날짜별 회고" className="retro">
       <h2>날짜별 회고</h2>
-      <HelpNote>
+      <HelpNote label="계획 설명">
         읽기 전용입니다. 날짜와 계획 버전을 바꿔도 아무것도 저장하거나 바꾸지 않으며, 기록은 당시 계획과 고정한 본문으로
         읽습니다.
       </HelpNote>
@@ -324,7 +324,7 @@ function ReasonSection({
             계획 {reason.number} · {reason.roles.map((role) => roleText[role]).join(' · ')}
           </h4>
           <p>저장된 이유: {reason.reason}</p>
-          <HelpNote label="이유 도움말">
+          <HelpNote label="이유 설명">
             이유는 계획 전체에 대한 것이며, 이 날짜가 바뀌지 않았다면 이 날짜의 원인으로 보지 않습니다.
           </HelpNote>
           <p className="muted">
@@ -369,9 +369,7 @@ function ReasonSection({
           ) : (
             <>
               <p className="muted">변경안 없음 · 근거 없음</p>
-              <HelpNote label="변경안 없음 도움말">
-                직접 변경 등으로 저장된 이유만 있고 연결된 변경안이 없습니다.
-              </HelpNote>
+              <HelpNote label="근거 설명">직접 변경 등으로 저장된 이유만 있고 연결된 변경안이 없습니다.</HelpNote>
             </>
           )}
         </article>
