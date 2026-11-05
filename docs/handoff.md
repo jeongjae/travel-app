@@ -8,7 +8,7 @@
 - [UI 정리 계획](ui-polish-plan.md): U1 확인 완료, U2 [검토 통과](claude-task-c10-review.md), U3 [검토 통과](claude-task-c12-review.md)(`5b44859`), U4 [검토 통과](claude-task-c13-review.md)·배포.
 - main `ec6c461` = U4까지 + CI 러너 고정(11/05 Pages 배포 성공). 다음 [C-14](claude-task-c14-paris-display.md)는 `codex/c14-paris-display`.
 - [D 설계](phase-d-design.md)·[D 계획](phase-d-plan.md) v0.2(벤치마킹 반영): 사용자 검토 대기, 구현·유료 호출 미착수.
-- REG-02 수정(C-09): 후보 `local-data/phase2/c09-candidate/package/pilot.zip` `712369b3…` 평소 공간 적용은 사용자 결정 대기.
+- REG-02 수정(C-09): 패키지 `712369b3…`를 PC Chrome 배포 사이트 평소 공간에 가져옴(11/05, 사용자). 읽기 점검 앱 오류 0, 날짜 사진 일치 화면 확인 대기.
 - REG-03 해소(C-11), CL-14·16~19·21 해소. 남은 후속은 [변경 기록](change-log.md).
 - 기존 verified ZIP `d1832280…bbe0`·원본·백업·프로필 보존. 미추적 `docs/status-review-2026-10-26.md`·`research_notes/` 커밋 제외.
 
