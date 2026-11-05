@@ -450,10 +450,13 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
       note: '가상 메모: 정정 2회차, 사람이 많아 늦게 끝남',
     });
     // C-12: 정정 체인은 최신본 한 행이고 원문은 `정정 N회 · 원문 보기` 접기 안에 있다.
-    await page
-      .locator('details.correction-fold')
-      .evaluateAll((folds) => folds.forEach((fold) => ((fold as HTMLDetailsElement).open = true)));
-    await expect(page.getByText('정정 3/3단계 · 최신 정정본', { exact: false })).toBeVisible();
+    // 저장 직후 목록이 다시 그려지면 새 접기는 닫혀 있으므로, 열기와 확인을 함께 재시도한다.
+    await expect(async () => {
+      await page
+        .locator('details.correction-fold')
+        .evaluateAll((folds) => folds.forEach((fold) => ((fold as HTMLDetailsElement).open = true)));
+      await expect(page.getByText('정정 3/3단계 · 최신 정정본', { exact: false })).toBeVisible({ timeout: 1000 });
+    }).toPass();
     await expect(page.getByText('정정 1/3단계 · 이후 정정본 있음', { exact: false })).toBeVisible();
   });
 
