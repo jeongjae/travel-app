@@ -92,9 +92,12 @@ test('P7 첫 화면: 가져오기 단추 하나와 백업 안내 한 줄', async
   await page.goto(space('c14-start'));
   const start = page.locator('section.empty-start');
   await expect(start.getByRole('heading', { name: '어느 여행을 열까요?' })).toBeVisible();
-  await expect(start.getByText('여행 패키지(pilot.zip) 가져오기')).toBeVisible();
-  await expect(start.getByText('전체 백업에서 되살리기는', { exact: false })).toBeVisible();
+  await expect(start.getByText('원천 패키지 가져오기 (pilot.zip)')).toBeVisible();
+  await expect(start.getByText('전체 백업에서 되살리기:', { exact: false })).toBeVisible();
   await expect(start.getByRole('button', { name: '저장소·백업', exact: true })).toBeVisible();
+  // 여행이 없으면 페이지 전체에 파일 입력이 하나뿐이다(위쪽 패널의 입구는 숨김).
+  await expect(page.locator('input[type="file"]')).toHaveCount(1);
+  await expect(page.locator('.journey-library input[type="file"]')).toHaveCount(0);
   await shot(page, 'p7-start');
 });
 
@@ -107,7 +110,7 @@ test('P1 · P2 · P3 긴 이름은 (N일)로, 원천 상태는 접기 하나로,
   // 첫 화면 본문의 가져오기 입구로 가져온다.
   await page
     .locator('section.empty-start')
-    .getByLabel('여행 패키지(pilot.zip) 가져오기')
+    .getByLabel('원천 패키지 가져오기 (pilot.zip)')
     .setInputFiles({
       name: 'fiction-c14.zip',
       mimeType: 'application/zip',
@@ -122,6 +125,9 @@ test('P1 · P2 · P3 긴 이름은 (N일)로, 원천 상태는 접기 하나로,
   await expect(page).toHaveTitle(/가상 대표 구간 \(43일\) · travel-app/);
   await openTripMenu(page);
   await expect(page.locator('.trip-full-name')).toHaveText(LONG_NAME);
+  // 여행이 있으면 입구는 여행 메뉴의 하나뿐이다(첫 화면 본문에는 없다).
+  await expect(page.locator('input[type="file"]')).toHaveCount(1);
+  await expect(page.locator('.journey-library input[type="file"]')).toHaveCount(1);
   await shot(page, 'p1-trip-name');
   await switchButton.click();
 
@@ -155,7 +161,7 @@ test('실제 패키지 대조: 머리·원천 상태·가이드 단추 수치', 
   await expect(page.getByRole('heading', { name: '어느 여행을 열까요?' })).toBeVisible();
   await page
     .locator('section.empty-start')
-    .getByLabel('여행 패키지(pilot.zip) 가져오기')
+    .getByLabel('원천 패키지 가져오기 (pilot.zip)')
     .setInputFiles(process.env.C14_REAL_PACKAGE!);
   const add = page.getByRole('button', { name: '여행에 추가', exact: true });
   await expect(add).toBeEnabled({ timeout: 120_000 });

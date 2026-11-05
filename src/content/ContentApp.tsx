@@ -565,21 +565,23 @@ export function ContentApp() {
               가상 여행 둘러보기
             </button>
           </div>
-          <label className="file-picker">
-            원천 패키지 가져오기 (pilot.zip)
-            <input
-              type="file"
-              accept=".zip,application/zip"
-              disabled={busy || meta?.mode !== 'v2'}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                if (file) {
-                  void load(file);
-                }
-              }}
-            />
-          </label>
+          {header ? (
+            <label className="file-picker">
+              원천 패키지 가져오기 (pilot.zip)
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                disabled={busy || meta?.mode !== 'v2'}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) {
+                    void load(file);
+                  }
+                }}
+              />
+            </label>
+          ) : null}
           <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
         </section>
       ) : null}
@@ -614,7 +616,7 @@ export function ContentApp() {
             <p>여행 패키지를 선택하거나 가상 여행으로 가이드와 기록 흐름을 둘러보세요.</p>
             <div className="button-row">
               <label className="file-picker">
-                여행 패키지(pilot.zip) 가져오기
+                원천 패키지 가져오기 (pilot.zip)
                 <input
                   type="file"
                   accept=".zip,application/zip"
@@ -630,11 +632,10 @@ export function ContentApp() {
               </label>
             </div>
             <p className="muted">
-              전체 백업에서 되살리기는{' '}
+              전체 백업에서 되살리기:{' '}
               <button type="button" disabled={!ready} onClick={() => setRecovery(true)}>
                 저장소·백업
               </button>
-              에서 합니다.
             </p>
           </section>
         ) : (
