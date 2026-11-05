@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -12,7 +12,7 @@ import { GuideTitleEditor, PlaceInfoEditor, RegionInfoEditor } from './InfoEdito
 import { isEditableGuide } from './guide-rules';
 import { ActionMenu, type MenuAction } from './ActionMenu';
 import { guideDisplayTitle, guideRegion } from './display-names';
-import { extractHeadings, headingId, readingSections, sourceSections } from './guide-view';
+import { extractHeadings, headingId, readingSections, remarkHeadingIds, sourceSections } from './guide-view';
 
 export function AssetImage({
   repo,
@@ -73,17 +73,6 @@ export function GuideMarkdown({
   /** 주면 본문의 `##`/`###` 머리말에 순서대로 id를 붙여 목차가 이동할 수 있게 한다. */
   headingIdFor?: (index: number) => string;
 }) {
-  let headingCount = 0;
-  const heading = (Tag: 'h2' | 'h3') =>
-    function Heading({ children }: { children?: ReactNode }) {
-      const id = headingIdFor ? headingIdFor(headingCount) : undefined;
-      headingCount += 1;
-      return (
-        <Tag id={id} tabIndex={id ? -1 : undefined}>
-          {children}
-        </Tag>
-      );
-    };
   const facts = useLiveQuery(
     () =>
       Promise.all(
@@ -111,14 +100,23 @@ export function GuideMarkdown({
   return (
     <div>
       <Markdown
-        remarkPlugins={[remarkGfm, literalHtml]}
+        remarkPlugins={[
+          remarkGfm,
+          literalHtml,
+          ...(headingIdFor
+            ? [
+                [remarkHeadingIds, { idFor: headingIdFor }] as [
+                  typeof remarkHeadingIds,
+                  { idFor: (index: number) => string },
+                ],
+              ]
+            : []),
+        ]}
         skipHtml
         urlTransform={(url) =>
           url.startsWith('travel://') || url.startsWith('asset://') ? url : defaultUrlTransform(url)
         }
         components={{
-          h2: heading('h2'),
-          h3: heading('h3'),
           a({ href, children }) {
             if (href?.startsWith('asset://')) {
               return <AssetLink repo={repo} tripId={tripId} assetId={href.slice(8)} context={context} />;
@@ -471,7 +469,12 @@ function GuideBody({
       {toc.length ? (
         <nav className="guide-toc" aria-label="본문 목차">
           {toc.map((entry) => (
-            <button key={entry.id} className={`toc-level-${entry.level}`} onClick={() => jump(entry.id)}>
+            <button
+              key={entry.id}
+              className={`toc-level-${entry.level}`}
+              data-target={entry.id}
+              onClick={() => jump(entry.id)}
+            >
               {entry.label}
             </button>
           ))}

@@ -33,7 +33,7 @@ export type DayPhotoPlan = {
   reason: string;
 };
 
-const TRANSIT_NAME = /역\b|공항|렌터카|터미널|\bgare\b|\bstation\b|airport|-ville\b|\bsants\b|\bTGV\b/i;
+const TRANSIT_NAME = /역(?![가-힣])|공항|렌터카|터미널|\bgare\b|\bstation\b|airport|-ville\b|\bsants\b|\bTGV\b/i;
 const MEAL_NAME = /boulangerie|bakery|café|cafe|restaurant|bistro|brasserie|빵집|카페|식당|레스토랑|\bbar\b/i;
 const LODGING_NAME = /\bhotel\b|\bhôtel\b|airbnb|숙소|\bgîte\b|\bgite\b|farmhouse/i;
 

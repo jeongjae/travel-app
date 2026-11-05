@@ -1,3 +1,6 @@
+import remarkGfm from 'remark-gfm';
+import remarkParse from 'remark-parse';
+import { unified } from 'unified';
 import type { ContentRevision } from '../contracts/v2';
 
 /**
@@ -23,28 +26,46 @@ export function sourceSections(guide: Guide): Section[] {
   return guide.payload.sections.filter(isSourceSection).toSorted((a, b) => a.order - b.order);
 }
 
-/** 코드 블록 밖의 `##`/`###` 머리말을 순서대로 뽑는다. 번호는 화면에서 같은 순서로 붙는 머리말 id와 맞는다. */
+type MarkdownNode = {
+  type: string;
+  depth?: number;
+  value?: string;
+  children?: MarkdownNode[];
+  data?: { hProperties?: Record<string, unknown> };
+};
+
+const markdownParser = unified().use(remarkParse).use(remarkGfm);
+
+/** 문서 순서대로 `##`/`###` 머리말을 찾는다. 인용·목록 안의 머리말과 밑줄식 머리말도 화면과 같이 머리말이다. */
+function visitHeadings(node: MarkdownNode, visit: (heading: MarkdownNode) => void) {
+  if (node.type === 'heading' && (node.depth === 2 || node.depth === 3)) {
+    visit(node);
+  }
+  node.children?.forEach((child) => visitHeadings(child, visit));
+}
+
+function nodeText(node: MarkdownNode): string {
+  return node.value ?? (node.children ?? []).map(nodeText).join('');
+}
+
+/** 목차: 화면과 같은 Markdown 해석으로 머리말을 뽑는다. 번호는 `remarkHeadingIds`가 붙이는 id와 같은 순서다. */
 export function extractHeadings(markdown: string): TocHeading[] {
   const headings: TocHeading[] = [];
-  let fenced = false;
-  for (const line of markdown.split(/\r?\n/)) {
-    if (/^\s{0,3}(```|~~~)/.test(line)) {
-      fenced = !fenced;
-      continue;
-    }
-    if (fenced) {
-      continue;
-    }
-    const match = /^(#{2,3})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (match) {
-      headings.push({
-        index: headings.length,
-        level: match[1].length === 2 ? 2 : 3,
-        text: match[2].replace(/[*_`]/g, ''),
-      });
-    }
-  }
+  visitHeadings(markdownParser.parse(markdown) as MarkdownNode, (node) => {
+    headings.push({ index: headings.length, level: node.depth === 2 ? 2 : 3, text: nodeText(node).trim() });
+  });
   return headings;
+}
+
+/** 해석 단계에서 머리말에 id를 붙인다. 렌더 횟수와 무관하게 같은 본문이면 같은 id가 된다. */
+export function remarkHeadingIds({ idFor }: { idFor: (index: number) => string }) {
+  return (tree: MarkdownNode) => {
+    let index = 0;
+    visitHeadings(tree, (node) => {
+      node.data = { ...node.data, hProperties: { ...node.data?.hProperties, id: idFor(index), tabIndex: -1 } };
+      index += 1;
+    });
+  };
 }
 
 export function headingId(guideId: string, sectionKey: string, index: number): string {

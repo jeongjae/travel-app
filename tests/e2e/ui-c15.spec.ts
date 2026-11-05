@@ -38,7 +38,8 @@ async function shot(page: Page, name: string) {
   await mkdir(directory, { recursive: true });
   await page.screenshot({ path: resolve(directory, `${name}-${test.info().project.name}.png`), fullPage: false });
 }
-const space = (name: string) => `/?workspace=content&review=${name}-${test.info().project.name}`;
+const space = (name: string) =>
+  `${process.env.C15_BASE_URL ?? ''}/?workspace=content&review=${name}-${test.info().project.name}`;
 const nav = (page: Page) => page.getByRole('navigation', { name: '주요 메뉴' });
 
 const LONG_NAME = `가상 대표 구간 Day ${Array.from({ length: 43 }, (_, index) => index + 1).join('·')}`;
@@ -230,6 +231,7 @@ test('Q3 날짜 대표 사진과 활동 썸네일이 보이고 사진이 없는 
   await expect(firstCard.locator('.activity-thumb')).toBeVisible();
   await expect(firstCard.locator('.activity-photo figcaption')).toHaveText('가상 장소 1');
   await expect(page.locator('article.timeline-stop').nth(1).locator('.activity-thumb')).toHaveCount(0);
+  await page.locator('.day-cover').scrollIntoViewIfNeeded();
   await shot(page, 'q3-day-photo');
   await page.locator('button[data-date="2026-11-02"]').click();
   await expect(page.locator('.day-photo-none')).toHaveText('사진 없음');
@@ -270,6 +272,29 @@ test('실제 패키지 대조: 준비·회화 묶음, 가이드 상세, 43일 �
     `DETAIL h2="${await page.locator('article.guide-detail h2').first().textContent()}" toc=${await page.locator('.guide-toc button').count()} height=${await page.evaluate(() => document.documentElement.scrollHeight)}`,
   );
   await take('q2-detail');
+
+  // 지역 가이드 전부: 목차 단추마다 대상 머리말이 있고 글자가 같다.
+  await page.getByRole('button', { name: '준비·회화로', exact: true }).first().click();
+  for (const title of sectionTitles.slice(1)) {
+    await links
+      .getByRole('region', { name: title, exact: true })
+      .getByRole('button', { name: '지역 가이드', exact: true })
+      .click();
+    await expect(page.locator('.guide-toc')).toBeVisible();
+    const pairs = await page.locator('.guide-toc button').evaluateAll((buttons) =>
+      buttons.map((button) => ({
+        label: button.textContent?.trim(),
+        target: document.getElementById(button.getAttribute('data-target') ?? '')?.textContent?.trim(),
+      })),
+    );
+    expect(pairs.length, title).toBeGreaterThan(0);
+    expect(
+      pairs.filter((pair) => pair.label !== pair.target),
+      title,
+    ).toEqual([]);
+    lines.push(`TOC ${title}: ${pairs.length}개 일치`);
+    await page.getByRole('button', { name: '준비·회화로', exact: true }).first().click();
+  }
 
   await nav(page).getByRole('button', { name: '오늘', exact: true }).click();
   const plan = dataset.plans[0];

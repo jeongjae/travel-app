@@ -113,6 +113,17 @@ describe('가이드 읽기 모델', () => {
     expect(sourceSections(g).map((s) => s.key)).toEqual(['source-frontmatter']);
     expect(isSourceSection(g.payload.sections[0])).toBe(true);
   });
+  it('목차는 화면과 같이 인용·목록 안 머리말과 밑줄식 머리말도 세고 몇 번을 해석해도 같다', () => {
+    const body = '> ## 인용 머리\n\n밑줄 머리\n---\n\n- ### 목록 머리\n\n## `코드` 머리';
+    const expected = [
+      { index: 0, level: 2, text: '인용 머리' },
+      { index: 1, level: 2, text: '밑줄 머리' },
+      { index: 2, level: 3, text: '목록 머리' },
+      { index: 3, level: 2, text: '코드 머리' },
+    ];
+    expect(extractHeadings(body)).toEqual(expected);
+    expect(extractHeadings(body)).toEqual(expected);
+  });
   it('목차는 코드 블록 밖의 ##·### 머리말만 순서대로 뽑는다', () => {
     const body = '# 제목\n## 첫째\n본문\n```text\n## 코드\n```\n### 둘째 *강조*\n#### 더 깊음\n## 셋째 ##';
     expect(extractHeadings(body)).toEqual([
@@ -202,6 +213,12 @@ describe('날짜 대표 사진', () => {
       photos: [],
       reason: '사진 없음',
     });
+  });
+  it('한국어 역 이름은 낱말 끝의 역만 이동으로 본다', () => {
+    for (const name of ['삿포로역', '오타루역 앞', 'JR 삿포로역 남쪽 출구']) {
+      expect(photoNature(place('p', name), undefined, name)).toBe('transit');
+    }
+    expect(photoNature(place('p', '역사 박물관'), undefined, '역사 박물관')).toBe('sight');
   });
   it('장소 종류 판정과 활동 사진 연결', () => {
     expect(photoNature(place('p', 'Gare de Lyon'), undefined, 'Gare de Lyon')).toBe('transit');
