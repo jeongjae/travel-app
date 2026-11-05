@@ -11,6 +11,7 @@ import {
   openTripMenu,
   planVersionSelect,
   removeActivity,
+  guideMenu,
 } from './helpers/nav';
 let browserErrors: string[] = [];
 test.beforeEach(async ({ page }) => {
@@ -344,7 +345,7 @@ test('가이드 패키지→동일 프로그램 두 여행·본문·Fact·표·�
   await expect(page.locator('table')).toBeVisible();
   await expect(page.getByText('가상 원문: 오후 개방', { exact: false })).toBeVisible();
   await expect(page.getByRole('img', { name: '표본' })).toBeVisible();
-  await page.getByRole('button', { name: '실용 편집', exact: true }).click();
+  await guideMenu(page, '실용 편집');
   await page.getByLabel('본문 Markdown').fill('A에서 편집한 안내 {{fact:opening}}');
   await page.getByRole('button', { name: '본문 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -413,12 +414,12 @@ test('오프라인 미상 기록·계획 제거·정정과 모의 변경안 확�
 test('다른 탭의 편집 뒤 오래된 본문 폼은 입력을 보존하고 충돌을 표시한다', async ({ page, context }) => {
   await seed(page);
   await guide(page);
-  await page.getByRole('button', { name: '실용 편집', exact: true }).click();
+  await guideMenu(page, '실용 편집');
   await page.getByLabel('본문 Markdown').fill('보존할 오래된 입력');
   const other = await context.newPage();
   await other.goto('/?workspace=content');
   await guide(other);
-  await other.getByRole('button', { name: '실용 편집', exact: true }).click();
+  await guideMenu(other, '실용 편집');
   await other.getByLabel('본문 Markdown').fill('다른 탭의 본문');
   await other.getByRole('button', { name: '본문 저장', exact: true }).click();
   await page.getByRole('button', { name: '본문 저장', exact: true }).click();
@@ -429,7 +430,7 @@ test('다른 탭의 편집 뒤 오래된 본문 폼은 입력을 보존하고 �
 test('새 원본과 앱 본문의 충돌을 검토하고 선택한 섹션만 반영한다', async ({ page }) => {
   await seed(page);
   await guide(page);
-  await page.getByRole('button', { name: '실용 편집', exact: true }).click();
+  await guideMenu(page, '실용 편집');
   await page.getByLabel('본문 Markdown').fill('앱 실용 유지');
   await page.getByRole('button', { name: '본문 저장', exact: true }).click();
   const t = await pilotTrip(),

@@ -457,3 +457,85 @@ dialog th {
   border-radius: 8px;
   text-align: center;
 }
+
+/* C-15: 준비·회화 절, 가이드 머리·목차, 날짜 사진 */
+.prep-section {
+  margin: 0 0 1rem;
+}
+.prep-section-title {
+  margin: 1rem 0 0.25rem;
+  font-size: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.guide-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.guide-head h2 {
+  margin: 0;
+  min-width: 0;
+}
+.guide-head .action-menu {
+  flex: none;
+}
+.guide-head .action-menu .menu-toggle {
+  padding: 0 12px;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.guide-toc .toc-level-1 {
+  font-weight: 600;
+}
+.guide-toc .toc-level-3 {
+  margin-left: 12px;
+}
+.guide-source-info {
+  margin-top: 1.5rem;
+}
+.day-cover figcaption {
+  font-size: 0.85rem;
+}
+.day-photo-band ul {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+  overflow-x: auto;
+}
+.day-photo-band li {
+  flex: none;
+  width: 88px;
+  font-size: 0.75rem;
+}
+.day-photo-band li span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.day-photo-thumb {
+  width: 88px;
+  height: 66px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.activity-photo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+.activity-photo figcaption {
+  font-size: 0.8rem;
+  color: var(--muted, inherit);
+}
+.activity-thumb {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+}

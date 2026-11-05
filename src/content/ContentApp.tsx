@@ -15,14 +15,16 @@ import {
 } from '../contracts/v2';
 import { actualPayload, dayRecordView, placeOnTimeline } from './field-rules';
 import { RecordBadge, TimelineRecordCard } from './TimelineRecords';
-import { GuideDetail } from './Guide';
+import { AssetImage, GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
 import { GuideAuthoring } from './GuideAuthoring';
 import { isReadingGuide } from './guide-rules';
 import { guideLabels, regionDisplayName, tripDisplayName } from './display-names';
+import { prepSections } from './prep-groups';
+import { activityPhoto, planDayPhotos } from './day-photos';
 import { LegEditor, StayEditor, type LegEditorState, type StayEditorState } from './StayLegEditors';
-import { DayDetails } from './DayDetails';
+import { DayDetails, DayPhotos } from './DayDetails';
 import { ActionMenu } from './ActionMenu';
 import {
   clockLabel,
@@ -212,6 +214,7 @@ export function ContentApp() {
     context = recordContext ?? (historical ? plan?.contextRefs : undefined);
   const dayItems =
     plan?.items.filter((item) => item.dayId === activeDay?.dayId).toSorted((a, b) => a.order - b.order) ?? [];
+  const dayPhotoPlan = activeDay && plan ? planDayPhotos(activeDay, plan.items, activePlaces) : undefined;
   // C8: 오늘 타임라인에 그날의 실제 기록을 함께 보인다. 계획 항목·계획 버전은 바뀌지 않는다.
   const dayRecords =
     plan && activeDay
@@ -690,6 +693,9 @@ export function ContentApp() {
                     onNavigate={navigate}
                   />
                 ) : null}
+                {activeDay ? (
+                  <DayPhotos repo={repo} day={activeDay} items={plan.items} places={activePlaces} context={context} />
+                ) : null}
                 <div className="day-toolbar">
                   <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
                   <button disabled={historical} onClick={() => setPlanEditor({ header: { ...header }, plan })}>
@@ -715,6 +721,26 @@ export function ContentApp() {
                               : ''}
                           </p>
                           <h3>{i.title}</h3>
+                          {(() => {
+                            const photo = activityPhoto(i, activePlaces, dayPhotoPlan?.photos ?? []);
+                            const visitId = i.placeLinks.find((link) => link.relation === 'visit')?.placeId;
+                            const photoLabel =
+                              activePlaces.find((p) => p.entityId === visitId)?.payload.name ?? i.title;
+                            return photo ? (
+                              <figure className="activity-photo">
+                                <AssetImage
+                                  repo={repo}
+                                  tripId={header.tripId}
+                                  assetId={photo.assetId}
+                                  context={context}
+                                  alt={photoLabel}
+                                  className="activity-thumb"
+                                  hideWhenMissing
+                                />
+                                <figcaption>{photoLabel}</figcaption>
+                              </figure>
+                            ) : null;
+                          })()}
                           <RecordBadge record={dayRecords?.byActivity.get(i.activityId)} planDate={activeDay?.date} />
                           <p>{i.summary}</p>
                           {i.menuText ? <p>식사·메뉴: {i.menuText}</p> : null}
@@ -913,13 +939,15 @@ export function ContentApp() {
               target ? (
                 <>
                   <button onClick={goBack}>
-                    {backTrail.at(-1)?.tab === '일정'
-                      ? '일정으로 돌아가기'
-                      : backTrail.at(-1)?.tab === '실제 기록'
-                        ? '실제 기록으로 돌아가기'
-                        : backTrail.at(-1)?.target
-                          ? '이전 안내로'
-                          : '목록으로'}
+                    {backTrail.at(-1)?.tab === '준비·회화'
+                      ? '준비·회화로'
+                      : backTrail.at(-1)?.tab === '일정'
+                        ? '일정으로 돌아가기'
+                        : backTrail.at(-1)?.tab === '실제 기록'
+                          ? '실제 기록으로 돌아가기'
+                          : backTrail.at(-1)?.target
+                            ? '이전 안내로'
+                            : '목록으로'}
                   </button>
                   <GuideDetail
                     key={`${header.tripId}-${target.kind}-${target.id}`}
@@ -933,6 +961,11 @@ export function ContentApp() {
                     onNavigate={navigate}
                     onSaved={(message) => setNotice(message ?? '본문을 저장했습니다.')}
                   />
+                  {backTrail.at(-1)?.tab === '준비·회화' ? (
+                    <button className="back-to-more" onClick={goBack}>
+                      준비·회화로
+                    </button>
+                  ) : null}
                 </>
               ) : (
                 <section>
@@ -1051,12 +1084,19 @@ export function ContentApp() {
                     여행 가이드 작성
                   </button>
                 </div>
-                <nav className="button-row preparation-links" aria-label="여행 자료">
-                  {guideLabels(guides.filter(isReadingGuide).filter(isGuideContent), regionList).map(
-                    ({ content, label }) => (
-                      <button key={content.entityId} onClick={() => navigate('guide', content.entityId)}>
-                        {label}
-                      </button>
+                <nav className="preparation-links" aria-label="여행 자료">
+                  {prepSections(guides.filter(isReadingGuide).filter(isGuideContent), regionList, plan?.days ?? []).map(
+                    (section) => (
+                      <section key={section.key} className="prep-section" aria-label={section.title}>
+                        <h3 className="prep-section-title">{section.title}</h3>
+                        <div className="button-row">
+                          {section.entries.map(({ content, label }) => (
+                            <button key={content.entityId} onClick={() => navigate('guide', content.entityId)}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
                     ),
                   )}
                 </nav>
@@ -1130,7 +1170,7 @@ export function ContentApp() {
                       onClick={() =>
                         setNoteTarget({
                           header: { ...header },
-                          label: header.name,
+                          label: tripDisplayName(header.name),
                           ref: { tripId: header.tripId, targetKind: 'trip', entityId: header.tripId },
                         })
                       }

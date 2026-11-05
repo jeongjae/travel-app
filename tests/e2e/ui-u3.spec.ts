@@ -234,6 +234,7 @@ test('가이드: 지역 머리 아래에 장소가 묶이고, 검색은 일치�
   // 지역 머리를 누르면 지역 상세가 열리고 거기서만 지역 가이드를 쓴다.
   await north.getByRole('button', { name: '북쪽 동네', exact: true }).click();
   await expect(page.getByRole('heading', { name: '북쪽 동네', exact: true, level: 2 })).toBeVisible();
+  await page.locator('.guide-head .menu-toggle').click();
   await expect(page.getByRole('button', { name: '지역 가이드 작성', exact: true })).toBeVisible();
 });
 

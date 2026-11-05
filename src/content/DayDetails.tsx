@@ -4,6 +4,66 @@ import type { ContentRevision, PlanVersion, RevisionRef } from '../contracts/v2'
 import { AssetImage } from './Guide';
 import { timeLabel } from './ui';
 import { PhraseContext } from './PhraseContext';
+import { planDayPhotos } from './day-photos';
+
+/** 날짜 요약의 사진: 대표 사진 1장과 그날 사진 전체 띠. 활동 목록 위에 둔다. */
+export function DayPhotos({
+  repo,
+  day,
+  items,
+  places,
+  context,
+}: {
+  repo: ContentRepository;
+  day: PlanVersion['days'][number];
+  items: PlanVersion['items'];
+  places: Extract<ContentRevision, { kind: 'place' }>[];
+  context?: RevisionRef[];
+}) {
+  const photoPlan = planDayPhotos(day, items, places);
+  // 캡션이 `장소 · 저작자 · 라이선스` 모양이면 장소 이름을 두 번 쓰지 않는다.
+  const coverCredit = photoPlan.cover?.asset.caption?.replace(`${photoPlan.cover.label} · `, '');
+  return photoPlan.cover ? (
+    <>
+      <figure className="day-cover">
+        <AssetImage
+          repo={repo}
+          tripId={day.tripId}
+          assetId={photoPlan.cover.asset.assetId}
+          context={context}
+          alt={photoPlan.cover.label}
+        />
+        <figcaption>
+          <strong>{photoPlan.cover.label}</strong>
+          {coverCredit ? ` · ${coverCredit}` : ''}
+        </figcaption>
+      </figure>
+      {photoPlan.photos.length > 1 ? (
+        <section className="day-photo-band" aria-label={`사진 ${photoPlan.photos.length}장`}>
+          <h4>사진 {photoPlan.photos.length}장</h4>
+          <ul>
+            {photoPlan.photos.map((photo) => (
+              <li key={photo.asset.assetId}>
+                <AssetImage
+                  repo={repo}
+                  tripId={day.tripId}
+                  assetId={photo.asset.assetId}
+                  context={context}
+                  alt={photo.label}
+                  className="day-photo-thumb"
+                  hideWhenMissing
+                />
+                <span>{photo.label}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </>
+  ) : (
+    <p className="muted day-photo-none">사진 없음</p>
+  );
+}
 
 export function DayDetails({
   repo,
@@ -46,12 +106,6 @@ export function DayDetails({
           {day.time.end ? ` ~ ${timeLabel(day.time.end)}` : ''}
         </p>
       ) : null}
-      {day.assetRefs.slice(0, 1).map((asset) => (
-        <figure key={asset.assetId}>
-          <AssetImage repo={repo} tripId={day.tripId} assetId={asset.assetId} context={context} alt={asset.caption} />
-          <figcaption>{asset.caption}</figcaption>
-        </figure>
-      ))}
       {day.highlights.length ? (
         <p>
           <strong>오늘의 핵심</strong> · {day.highlights.join(' · ')}

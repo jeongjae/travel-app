@@ -10,6 +10,9 @@ import { PhraseContext } from './PhraseContext';
 import { GuideAuthoring } from './GuideAuthoring';
 import { GuideTitleEditor, PlaceInfoEditor, RegionInfoEditor } from './InfoEditors';
 import { isEditableGuide } from './guide-rules';
+import { ActionMenu, type MenuAction } from './ActionMenu';
+import { guideDisplayTitle, guideRegion } from './display-names';
+import { extractHeadings, headingId, readingSections, remarkHeadingIds, sourceSections } from './guide-view';
 
 export function AssetImage({
   repo,
@@ -59,6 +62,7 @@ export function GuideMarkdown({
   body,
   context,
   onNavigate,
+  headingIdFor,
 }: {
   repo: ContentRepository;
   tripId: string;
@@ -66,6 +70,8 @@ export function GuideMarkdown({
   body: string;
   context?: RevisionRef[];
   onNavigate: (kind: ContentRevision['kind'], id: string) => void;
+  /** 주면 본문의 `##`/`###` 머리말에 순서대로 id를 붙여 목차가 이동할 수 있게 한다. */
+  headingIdFor?: (index: number) => string;
 }) {
   const facts = useLiveQuery(
     () =>
@@ -94,7 +100,18 @@ export function GuideMarkdown({
   return (
     <div>
       <Markdown
-        remarkPlugins={[remarkGfm, literalHtml]}
+        remarkPlugins={[
+          remarkGfm,
+          literalHtml,
+          ...(headingIdFor
+            ? [
+                [remarkHeadingIds, { idFor: headingIdFor }] as [
+                  typeof remarkHeadingIds,
+                  { idFor: (index: number) => string },
+                ],
+              ]
+            : []),
+        ]}
         skipHtml
         urlTransform={(url) =>
           url.startsWith('travel://') || url.startsWith('asset://') ? url : defaultUrlTransform(url)
@@ -233,6 +250,23 @@ export function GuideDetail({
   if (!owner) {
     return <p>자료를 찾는 중입니다.</p>;
   }
+  const editableGuide = guide?.kind === 'guide' && !context && isEditableGuide(guide) ? guide : undefined;
+  const editActions: MenuAction[] = [];
+  if (!context && (owner.kind === 'place' || owner.kind === 'region')) {
+    editActions.push({ label: '기본정보 수정', onSelect: () => setDialog('info') });
+  }
+  if (!context && owner.kind === 'region') {
+    editActions.push({ label: '지역 가이드 작성', onSelect: () => setDialog('new-guide') });
+  }
+  if (editableGuide) {
+    editActions.push({ label: '가이드 제목 수정', onSelect: () => setDialog('title') });
+    for (const section of readingSections(editableGuide)) {
+      editActions.push({
+        label: `${section.title} 편집`,
+        onSelect: () => setEditor({ guide: editableGuide, section, expected: header.domainRevision }),
+      });
+    }
+  }
   return (
     <article className="guide-detail">
       {owner.kind === 'place' || owner.kind === 'region'
@@ -256,25 +290,17 @@ export function GuideDetail({
               </figure>
             ))
         : null}
-      <h2>
-        {owner.kind === 'place' || owner.kind === 'region'
-          ? owner.payload.name
-          : owner.kind === 'guide'
-            ? owner.payload.title
-            : owner.entityId}
-      </h2>
+      <div className="guide-head">
+        <h2>
+          {owner.kind === 'place' || owner.kind === 'region'
+            ? owner.payload.name
+            : owner.kind === 'guide'
+              ? guideDisplayTitle(owner.payload.title, guideRegion(owner, regions))
+              : owner.entityId}
+        </h2>
+        {editActions.length ? <ActionMenu label="편집" caption="⋯ 편집" actions={editActions} /> : null}
+      </div>
       <p className="muted">{context ? '당시 고정 내용' : '현재 내용'}</p>
-      {!context && (owner.kind === 'place' || owner.kind === 'region') ? (
-        <div className="button-row">
-          <button onClick={() => setDialog('info')}>기본정보 수정</button>
-          {owner.kind === 'region' ? <button onClick={() => setDialog('new-guide')}>지역 가이드 작성</button> : null}
-        </div>
-      ) : null}
-      {!context && owner.kind === 'guide' && isEditableGuide(owner) ? (
-        <div className="button-row">
-          <button onClick={() => setDialog('title')}>가이드 제목 수정</button>
-        </div>
-      ) : null}
       {owner.kind === 'place' ? (
         <>
           <p>{owner.payload.summary}</p>
@@ -293,7 +319,7 @@ export function GuideDetail({
           <div className="button-row">
             {linkedGuides.map((content) => (
               <button key={content.entityId} onClick={() => onNavigate('guide', content.entityId)}>
-                {content.payload.title}
+                {guideDisplayTitle(content.payload.title, owner)}
               </button>
             ))}
           </div>
@@ -321,74 +347,17 @@ export function GuideDetail({
         </>
       ) : null}
       {guide?.kind === 'guide' ? (
-        <>
-          {owner.kind === 'region' ? (
-            <div className="section-heading">
-              <h3 className="guide-title">{guide.payload.title}</h3>
-              {!context && isEditableGuide(guide) ? (
-                <button onClick={() => setDialog('title')}>가이드 제목 수정</button>
-              ) : null}
-            </div>
-          ) : null}
-          <nav className="guide-toc" aria-label="본문 목차">
-            {guide.payload.sections
-              .toSorted((a, b) => a.order - b.order)
-              .map((section) => (
-                <button
-                  key={section.key}
-                  onClick={() => {
-                    const heading = document.getElementById(`guide-section-${guide.entityId}-${section.key}`);
-                    heading?.focus({ preventScroll: true });
-                    heading?.scrollIntoView({ block: 'start' });
-                  }}
-                >
-                  {section.title}
-                </button>
-              ))}
-          </nav>
-          {guide.payload.sections
-            .toSorted((a, b) => a.order - b.order)
-            .map((s) => (
-              <section key={s.key}>
-                <div className="section-heading">
-                  <h3 id={`guide-section-${guide.entityId}-${s.key}`} tabIndex={-1}>
-                    {s.title}
-                  </h3>
-                  {!context && isEditableGuide(guide) ? (
-                    <button onClick={() => setEditor({ guide, section: s, expected: header.domainRevision })}>
-                      {s.title} 편집
-                    </button>
-                  ) : null}
-                </div>
-                <GuideMarkdown
-                  repo={repo}
-                  tripId={header.tripId}
-                  guide={guide}
-                  body={s.bodyMd}
-                  context={context}
-                  onNavigate={onNavigate}
-                />
-              </section>
-            ))}
-          {'structuredData' in guide.payload ? <StructuredGuide guide={guide} /> : null}
-          {guide.payload.assetRefs.length ? (
-            <p>
-              참고 첨부:{' '}
-              {guide.payload.assetRefs.map((a) => (
-                <AssetLink key={a.assetId} repo={repo} tripId={header.tripId} assetId={a.assetId} context={context} />
-              ))}
-            </p>
-          ) : null}
-          <details>
-            <summary>본문 출처·저장 정보</summary>
-            <p>콘텐츠 revision: {owner.revisionId}</p>
-            {guide.sourceRefs.map((s, n) => (
-              <p key={n}>
-                {s.sourcePath} · {s.locator}
-              </p>
-            ))}
-          </details>
-        </>
+        <GuideBody
+          repo={repo}
+          tripId={header.tripId}
+          guide={guide}
+          title={
+            owner.kind === 'region' ? guideDisplayTitle(guide.payload.title, guideRegion(guide, regions)) : undefined
+          }
+          context={context}
+          onNavigate={onNavigate}
+          revisionId={owner.revisionId}
+        />
       ) : (
         <p>연결된 본문이 없습니다.</p>
       )}
@@ -456,6 +425,111 @@ export function GuideDetail({
         />
       ) : null}
     </article>
+  );
+}
+/** 가이드 본문: ① (지역 화면이면) 제목 ② 목차 ③ 읽을 본문 ④ 맨 아래 원천 정보 접기. */
+function GuideBody({
+  repo,
+  tripId,
+  guide,
+  title,
+  context,
+  onNavigate,
+  revisionId,
+}: {
+  repo: ContentRepository;
+  tripId: string;
+  guide: Extract<ContentRevision, { kind: 'guide' }>;
+  title?: string;
+  context?: RevisionRef[];
+  onNavigate: (kind: ContentRevision['kind'], id: string) => void;
+  revisionId: string;
+}) {
+  const reading = readingSections(guide);
+  const source = sourceSections(guide);
+  const sectionHeadingId = (key: string) => `guide-section-${guide.entityId}-${key}`;
+  const toc = reading.flatMap((section) => {
+    const headings = extractHeadings(section.bodyMd).map((heading) => ({
+      id: headingId(guide.entityId, section.key, heading.index),
+      label: heading.text,
+      level: heading.level,
+    }));
+    return reading.length > 1
+      ? [{ id: sectionHeadingId(section.key), label: section.title, level: 1 }, ...headings]
+      : headings;
+  });
+  const jump = (id: string) => {
+    const heading = document.getElementById(id);
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: 'start' });
+  };
+  return (
+    <>
+      {title ? <h3 className="guide-title">{title}</h3> : null}
+      {toc.length ? (
+        <nav className="guide-toc" aria-label="본문 목차">
+          {toc.map((entry) => (
+            <button
+              key={entry.id}
+              className={`toc-level-${entry.level}`}
+              data-target={entry.id}
+              onClick={() => jump(entry.id)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+      {reading.map((s) => (
+        <section key={s.key}>
+          {reading.length > 1 ? (
+            <h3 id={sectionHeadingId(s.key)} tabIndex={-1}>
+              {s.title}
+            </h3>
+          ) : null}
+          <GuideMarkdown
+            repo={repo}
+            tripId={tripId}
+            guide={guide}
+            body={s.bodyMd}
+            context={context}
+            onNavigate={onNavigate}
+            headingIdFor={(index) => headingId(guide.entityId, s.key, index)}
+          />
+        </section>
+      ))}
+      {'structuredData' in guide.payload ? <StructuredGuide guide={guide} /> : null}
+      {guide.payload.assetRefs.length ? (
+        <p>
+          참고 첨부:{' '}
+          {guide.payload.assetRefs.map((a) => (
+            <AssetLink key={a.assetId} repo={repo} tripId={tripId} assetId={a.assetId} context={context} />
+          ))}
+        </p>
+      ) : null}
+      <details className="guide-source-info">
+        <summary>원천 정보</summary>
+        <p>콘텐츠 revision: {revisionId}</p>
+        {guide.sourceRefs.map((s, n) => (
+          <p key={n}>
+            {s.sourcePath} · {s.locator}
+          </p>
+        ))}
+        {source.map((s) => (
+          <section key={s.key}>
+            <h4>{s.title}</h4>
+            <GuideMarkdown
+              repo={repo}
+              tripId={tripId}
+              guide={guide}
+              body={s.bodyMd}
+              context={context}
+              onNavigate={onNavigate}
+            />
+          </section>
+        ))}
+      </details>
+    </>
   );
 }
 function StructuredGuide({ guide }: { guide: Extract<ContentRevision, { kind: 'guide' }> }) {

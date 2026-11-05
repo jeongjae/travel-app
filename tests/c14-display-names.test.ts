@@ -64,8 +64,8 @@ describe('guideLabels', () => {
     expect(new Set(labels).size).toBe(4);
     expect(labels).toContain('Paris · 생활·도착·귀가 안내');
     expect(labels).toContain('Aix · 생활·도착·귀가 안내');
-    expect(labels).toContain('Paris · Commercial Guide Module');
-    expect(labels).toContain('Aix · Commercial Guide Module');
+    expect(labels).toContain('Paris · 지역 상세 안내');
+    expect(labels).toContain('Aix · 지역 상세 안내');
   });
   it('제목이 하나뿐이면 그대로 두고 순서도 유지한다', () => {
     const labels = guideLabels(

@@ -13,6 +13,30 @@
 - 의미 있는 변경 후 `pnpm run check`, UI/저장 흐름 변경 후 빌드와 `pnpm run test:e2e`를 실행한다. 검증 결과와 미검증 외부 연동을 `docs/handoff.md`에 구분한다.
 - 이전 세션의 동작 중인 서버·로컬 데이터·권한이 그대로 있다고 가정하지 않는다. `git status`와 실제 프로세스를 먼저 확인한다.
 
+## Agent Behavioral Guidelines: Token & Resource Guardrails
+
+Codex·Antigravity·OpenClaw 등 이 저장소의 모든 에이전트 세션에 적용한다. 이 문서의 다른 지침과 충돌하면 다른 지침(필수 검증·보고 항목 포함)을 우선한다.
+
+### 1. Tool Call Restraints
+
+- **No Wildcard Scans:** Do not execute broad directory listings (`ls -R`, `find .`) or open-ended searches. Use specific paths.
+- **Selective Diffs:** When checking git history, run `git diff --stat` first. Inspect individual file diffs only when necessary.
+- **Fail-Fast Loop:** If an error is not resolved within 2 attempts, STOP immediately. Do not generate repetitive trial-and-error commands. State the exact bottleneck in 2 sentences and request user intervention.
+
+### 2. Terminal Output Handling
+
+- Never allow commands to print unbounded stdout/stderr into the session buffer.
+- Always truncate large command outputs:
+  - Good: `cat error.log | grep -i "error" | head -n 30`
+  - Bad: `cat error.log`
+- Suppress progress bars and spinners in package managers and build tools.
+
+### 3. Output Format
+
+- Deliver outputs strictly in concise Markdown.
+- Structure responses as: `[Status] -> [Applied Edits] -> [Next Action]`.
+- Max response length: Under 150 words unless writing implementation code.
+
 ## I-7 · 사람이 유지보수할 수 있는 코드
 
 - 직접 관리하는 소스의 압축 작성을 금지한다. 여러 문장·분기·함수·JSX를 한 줄에 몰아넣지 않는다. 의미 있는 이름과 읽을 수 있는 제어 흐름을 사용한다. 빌드 생성물·외부 라이브러리는 이 규칙의 대상에서 제외한다.

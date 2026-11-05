@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { menuAction, openStorage, openTripMenu, removeActivity } from './helpers/nav';
+import { menuAction, openStorage, openTripMenu, removeActivity, guideMenu } from './helpers/nav';
 
 /**
  * C-04: 현장 기록(방문/건너뜀/예정 외 활동)의 장소 연결, 추가식 정정, 당시 맥락 재조회.
@@ -112,7 +112,7 @@ test('장소를 고른 기록·장소 없는 기록을 남기고 이름이 바�
   // 장소 이름과 요약을 바꾼다.
   await openTab(page, '가이드');
   await page.getByRole('button', { name: '가상 카페', exact: true }).click();
-  await page.getByRole('button', { name: '기본정보 수정', exact: true }).click();
+  await guideMenu(page, '기본정보 수정');
   await page.getByLabel('장소 이름').fill('새 카페 이름');
   await page.getByLabel('한 줄 요약').fill('바뀐 요약');
   await page.getByRole('button', { name: '기본정보 저장', exact: true }).click();
@@ -299,7 +299,7 @@ test('정정이 든 두 여행을 전체 백업해 빈 브라우저에 복원하
   await correctNote(page, '복원할 기록', '복원 전 정정');
   await openTab(page, '가이드');
   await page.getByRole('button', { name: '가상 카페', exact: true }).click();
-  await page.getByRole('button', { name: '기본정보 수정', exact: true }).click();
+  await guideMenu(page, '기본정보 수정');
   await page.getByLabel('장소 이름').fill('바뀐 카페');
   await page.getByRole('button', { name: '기본정보 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();

@@ -142,14 +142,14 @@ test('P1 · P2 · P3 긴 이름은 (N일)로, 원천 상태는 접기 하나로,
   await expect(page.getByText('원천 방문 체크 상태입니다')).toHaveCount(0);
   await shot(page, 'p2-legacy-states');
 
-  // P3: 준비·회화의 단추 이름이 서로 겹치지 않는다.
+  // P3: 같은 제목의 가이드는 서로 다른 지역 절에 놓이고(C-15) 영문 원제목은 보이지 않는다.
   await openMore(page, '준비·회화');
-  const guideButtons = page.getByRole('navigation', { name: '여행 자료' }).getByRole('button');
-  await expect(guideButtons).toHaveCount(2);
-  const names = await guideButtons.allTextContents();
-  expect(new Set(names).size).toBe(names.length);
-  expect(names.filter((name) => name.includes('Commercial Guide Module'))).toHaveLength(2);
-  expect(names.every((name) => !name.includes('Commercial Guide Module') || name.includes(' · '))).toBe(true);
+  const links = page.getByRole('navigation', { name: '여행 자료' });
+  await expect(links.getByRole('button')).toHaveCount(2);
+  const sectionTitles = await links.getByRole('heading', { level: 3 }).allTextContents();
+  expect(new Set(sectionTitles).size).toBe(sectionTitles.length);
+  expect(await links.getByRole('button').allTextContents()).toEqual(['지역 상세 안내', '지역 상세 안내']);
+  await expect(links.getByText('Commercial Guide Module')).toHaveCount(0);
   await shot(page, 'p3-guide-buttons');
 });
 
@@ -184,5 +184,10 @@ test('실제 패키지 대조: 머리·원천 상태·가이드 단추 수치', 
   console.log(
     `C14-REAL header="${headerText}"(${headerText.length}자) legacy="${legacy}" guideButtons=${names.length} unique=${new Set(names).size}`,
   );
-  expect(new Set(names).size).toBe(names.length);
+  // C-15 이후 단추 이름은 지역 절 안에서만 구분된다.
+  const sections = page.getByRole('navigation', { name: '여행 자료' }).getByRole('region');
+  for (const section of await sections.all()) {
+    const labels = await section.getByRole('button').allTextContents();
+    expect(new Set(labels).size).toBe(labels.length);
+  }
 });

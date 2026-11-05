@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { menuAction, openMore, openStorage, openTripMenu, removeActivity } from './helpers/nav';
+import { menuAction, openMore, openStorage, openTripMenu, removeActivity, guideMenu } from './helpers/nav';
 
 /**
  * C-05: 날짜별 회고(읽기 전용). 가상 여행에서 계획→기록·정정→계획/장소 변경→회고 날짜 선택→
@@ -136,7 +136,7 @@ async function buildScenario(page: Page) {
   // 장소 이름과 요약을 바꾼다. 회고는 기록 당시 내용을 읽어야 한다.
   await openTab(page, '가이드');
   await page.getByRole('button', { name: '가상 카페', exact: true }).click();
-  await page.getByRole('button', { name: '기본정보 수정', exact: true }).click();
+  await guideMenu(page, '기본정보 수정');
   await page.getByLabel('장소 이름').fill('새 카페 이름');
   await page.getByLabel('한 줄 요약').fill('바뀐 요약');
   await page.getByRole('button', { name: '기본정보 저장', exact: true }).click();
