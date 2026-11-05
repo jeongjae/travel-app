@@ -24,7 +24,7 @@ import { guideLabels, regionDisplayName, tripDisplayName } from './display-names
 import { prepSections } from './prep-groups';
 import { activityPhoto, planDayPhotos } from './day-photos';
 import { LegEditor, StayEditor, type LegEditorState, type StayEditorState } from './StayLegEditors';
-import { DayDetails } from './DayDetails';
+import { DayDetails, DayPhotos } from './DayDetails';
 import { ActionMenu } from './ActionMenu';
 import {
   clockLabel,
@@ -693,6 +693,9 @@ export function ContentApp() {
                     onNavigate={navigate}
                   />
                 ) : null}
+                {activeDay ? (
+                  <DayPhotos repo={repo} day={activeDay} items={plan.items} places={activePlaces} context={context} />
+                ) : null}
                 <div className="day-toolbar">
                   <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
                   <button disabled={historical} onClick={() => setPlanEditor({ header: { ...header }, plan })}>
@@ -862,16 +865,7 @@ export function ContentApp() {
                   {timelinePlacement.trailing.map(renderRecordCard)}
                 </div>
                 <DayBookings items={dayItems} />
-                {activeDay ? (
-                  <DayDetails
-                    repo={repo}
-                    day={activeDay}
-                    items={plan.items}
-                    places={activePlaces}
-                    context={context}
-                    onNavigate={navigate}
-                  />
-                ) : null}
+                {activeDay ? <DayDetails repo={repo} day={activeDay} context={context} onNavigate={navigate} /> : null}
                 {activeDay ? (
                   <div className="button-row stay-leg-actions" role="group" aria-label="숙박·이동 추가">
                     <button

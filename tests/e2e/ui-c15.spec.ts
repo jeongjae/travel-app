@@ -219,6 +219,13 @@ test('Q3 날짜 대표 사진과 활동 썸네일이 보이고 사진이 없는 
   await importSynthetic(page, 'c15-photo');
   await expect(page.locator('.day-cover')).toContainText('가상 장소 1');
   await expect(page.locator('.day-cover img')).toBeVisible();
+  // 대표 사진은 활동 목록 위에 있다.
+  const coverAboveTimeline = await page.evaluate(() => {
+    const cover = document.querySelector('.day-cover');
+    const timeline = document.querySelector('.day-timeline');
+    return Boolean(cover && timeline && cover.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(coverAboveTimeline).toBe(true);
   const firstCard = page.locator('article.timeline-stop').first();
   await expect(firstCard.locator('.activity-thumb')).toBeVisible();
   await expect(firstCard.locator('.activity-photo figcaption')).toHaveText('가상 장소 1');
