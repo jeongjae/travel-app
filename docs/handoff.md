@@ -1,12 +1,12 @@
 # travel-app 현재 상태
 
-2026-11-05 · **main·Pages `a05dca8`(U3까지) 배포 / U4(C-13) 조건부 통과·R1 보강 대기 / U4 재수행 대기 / C-09 패키지 PC 배포 사이트 가져오기 진행 중**
+2026-11-05 · **main·Pages `ec6c461`(U4까지) 배포 / U4 사용자 재수행 대기 / C-14 지시 발행 / C-09 패키지 PC 배포 사이트 가져옴(REG-02 화면 확인 대기)**
 
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). 이전 상세는 [history](history/handoff-2026-11-04-before-c12-review.md).
-- [UI 정리 계획](ui-polish-plan.md): U1 확인 완료, U2 [검토 통과](claude-task-c10-review.md), U3 [검토 통과](claude-task-c12-review.md)(`5b44859`), U4 [조건부 통과](claude-task-c13-review.md)(R1 시험 보강).
-- main `a05dca8` = U3까지 + CI 러너 고정(11/04 배포 성공). `codex/c13-ui-u4` 미병합(R1 뒤).
+- [UI 정리 계획](ui-polish-plan.md): U1 확인 완료, U2 [검토 통과](claude-task-c10-review.md), U3 [검토 통과](claude-task-c12-review.md)(`5b44859`), U4 [검토 통과](claude-task-c13-review.md)·배포.
+- main `ec6c461` = U4까지 + CI 러너 고정(11/05 Pages 배포 성공). 다음 [C-14](claude-task-c14-paris-display.md)는 `codex/c14-paris-display`.
 - [D 설계](phase-d-design.md)·[D 계획](phase-d-plan.md) v0.2(벤치마킹 반영): 사용자 검토 대기, 구현·유료 호출 미착수.
 - REG-02 수정(C-09): 후보 `local-data/phase2/c09-candidate/package/pilot.zip` `712369b3…` 평소 공간 적용은 사용자 결정 대기.
 - REG-03 해소(C-11), CL-14·16~19·21 해소. 남은 후속은 [변경 기록](change-log.md).
@@ -21,8 +21,8 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: [C-13 R1](claude-task-c13-review.md) 시험 보강 → Codex 확인 → main 병합·배포.
-2. 사용자: PC Chrome 배포 사이트 평소 공간에 C-09 패키지 가져오기 결과 확인.
+1. Claude: [C-14](claude-task-c14-paris-display.md) 파리 패키지 표시 정리 → Codex 검토 → main·배포.
+2. 사용자: 파리 날짜 사진 2~3일 확인(REG-02). U4 대본 v2 재수행은 배포 사이트 `?workspace=content&review=sapporo-u4`에서 가능.
 3. 사용자: U4 대본 v2 축약 재수행(약 30분, `review=sapporo-u4`) → Q-U2·Q-U3·S6-d·CL-20 확인.
 4. 사용자 결정: C-09 후보 패키지 적용, main 병합·배포, D 설계 검토.
 - 기존 여행 삭제 금지. pnpm 12.14.0/Node 24.13.1, 캐시 `.cache/corepack`·`.cache/ms-playwright`.
