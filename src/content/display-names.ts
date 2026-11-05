@@ -36,10 +36,42 @@ function sourceLabel(path: string): string {
     .trim();
 }
 
-/** 제목이 원천 키(`aix · 지역 가이드`)처럼 소문자 이름으로 시작하면 그 이름만 첫 글자를 대문자로 보인다. */
-function keyedTitle(title: string): string {
-  const match = /^([a-z][a-z-]*)( · .*)$/.exec(title);
-  return match ? `${regionDisplayName(match[1])}${match[2]}` : title;
+/** 원천 파일 이름에서 찾은 지역(없으면 undefined). `04_Barcelona_Sitges_v2.0.md` → barcelona. */
+function regionFromSourcePath(path: string, regions: Region[]): Region | undefined {
+  const normalized = sourceLabel(path).toLowerCase().replace(/\s+/g, ' ');
+  return regions.find((region) => normalized.split(' ').includes(region.entityId.toLowerCase()));
+}
+
+/** 가이드가 속한 지역: 소유 지역, 없으면 원천 파일 이름에서 찾은 지역. 여행 공통 자료는 undefined. */
+export function guideRegion(guide: Guide, regions: Region[]): Region | undefined {
+  const owner = guide.payload.ownerRef;
+  if (owner.targetKind === 'region') {
+    return regions.find((region) => region.entityId === owner.entityId);
+  }
+  const path = guide.sourceRefs[0]?.sourcePath ?? '';
+  return path ? regionFromSourcePath(path, regions) : undefined;
+}
+
+const COMMERCIAL_TITLE = 'Commercial Guide Module';
+
+/**
+ * 가이드 제목의 표시용 이름(저장 제목은 그대로). `Commercial Guide Module`은 본문이 지역 한 곳의 상세 안내
+ * (핵심 판단·일정·숙소·이동·먹거리)이므로 `지역 상세 안내`로, 원천 키로 시작하는 제목은 지역 표시 이름으로 보인다.
+ */
+export function guideDisplayTitle(title: string, region?: Region): string {
+  if (title === COMMERCIAL_TITLE) {
+    return '지역 상세 안내';
+  }
+  const match = /^([a-z][a-z0-9-]*)( · .*)$/.exec(title);
+  if (!match) {
+    return title;
+  }
+  return `${regionDisplayName(region?.payload.name ?? match[1])}${match[2]}`;
+}
+
+/** 원천 공통 안내의 `원천 공통 안내 · ` 접두는 여행 전체 절 안에서는 군더더기이므로 표시에서 뺀다. */
+export function stripCommonPrefix(title: string): string {
+  return title.replace(/^원천 공통 안내 · /, '');
 }
 
 export type GuideLabel = { content: Guide; label: string; group: string };
@@ -49,30 +81,26 @@ export type GuideLabel = { content: Guide; label: string; group: string };
  * 앞에 붙인다. 제목이 하나뿐이면 그대로 둔다. 결과는 묶음 이름, 제목 순이다.
  */
 export function guideLabels(guides: Guide[], regions: Region[]): GuideLabel[] {
-  const regionById = new Map(regions.map((region) => [region.entityId, region]));
   const titleCount = new Map<string, number>();
   for (const guide of guides) {
     titleCount.set(guide.payload.title, (titleCount.get(guide.payload.title) ?? 0) + 1);
   }
   const groupOf = (guide: Guide): string => {
-    const owner = guide.payload.ownerRef;
-    if (owner.targetKind === 'region') {
-      const region = regionById.get(owner.entityId);
-      return regionDisplayName(region?.payload.name ?? owner.entityId);
+    const region = guideRegion(guide, regions);
+    if (region) {
+      return regionDisplayName(region.payload.name);
+    }
+    if (guide.payload.ownerRef.targetKind === 'region') {
+      return regionDisplayName(guide.payload.ownerRef.entityId);
     }
     const path = guide.sourceRefs[0]?.sourcePath ?? '';
-    const normalized = sourceLabel(path).toLowerCase().replace(/\s+/g, ' ');
-    const matched = regions.find((region) => normalized.split(' ').includes(region.entityId.toLowerCase()));
-    if (matched) {
-      return regionDisplayName(matched.payload.name);
-    }
     return path ? sourceLabel(path) : '';
   };
   const anyDuplicate = [...titleCount.values()].some((count) => count > 1);
   const labels = guides.map((content) => {
     const group = groupOf(content);
     const duplicated = (titleCount.get(content.payload.title) ?? 0) > 1;
-    const title = keyedTitle(content.payload.title);
+    const title = guideDisplayTitle(content.payload.title, guideRegion(content, regions));
     return {
       content,
       group,

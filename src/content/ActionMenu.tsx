@@ -15,10 +15,13 @@ export type MenuAction = {
  */
 export function ActionMenu({
   label,
+  caption,
   actions,
   children,
 }: {
   label: string;
+  /** 있으면 `⋯` 옆에 보이는 글자. 없으면 `⋯`만 보인다. */
+  caption?: string;
   actions: MenuAction[];
   children?: ReactNode;
 }) {
@@ -61,7 +64,7 @@ export function ActionMenu({
         aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
       >
-        <span aria-hidden="true">⋯</span>
+        {caption ? <span>{caption}</span> : <span aria-hidden="true">⋯</span>}
       </button>
       {open ? (
         <div className="action-menu-panel" id={panelId} ref={panelRef}>
