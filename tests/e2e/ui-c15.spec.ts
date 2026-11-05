@@ -171,13 +171,11 @@ test('Q2 준비·회화는 여행 전체 절이 먼저, 지역 절은 여행 순
   await importSynthetic(page, 'c15-prep');
   await openMore(page, '준비·회화');
   const links = page.getByRole('navigation', { name: '여행 자료' });
-  const titles = await links.getByRole('heading', { level: 3 }).allTextContents();
-  expect(titles[0]).toBe('여행 전체');
-  expect(titles.slice(1)).toEqual(['가상 지역 2']);
+  await expect(links.getByRole('heading', { level: 3 })).toHaveText(['여행 전체', '가상 지역 2']);
   const trip = links.getByRole('region', { name: '여행 전체' });
-  expect(await trip.getByRole('button').allTextContents()).toEqual(['01. 이 가이드북을 사용하는 법', '전체 일정']);
+  await expect(trip.getByRole('button')).toHaveText(['01. 이 가이드북을 사용하는 법', '전체 일정']);
   const region = links.getByRole('region', { name: '가상 지역 2' });
-  expect(await region.getByRole('button').allTextContents()).toEqual(['지역 가이드', '지역 상세 안내']);
+  await expect(region.getByRole('button')).toHaveText(['지역 가이드', '지역 상세 안내']);
   await expect(links.getByText('Commercial Guide Module')).toHaveCount(0);
   await shot(page, 'q2-prep');
 });
@@ -200,7 +198,7 @@ test('Q2 가이드 상세는 제목·목차·본문 순이고 편집은 메뉴 �
   await page.keyboard.press('Escape');
   // 목차는 본문 머리말이고 눌러 이동한다. 전환 단추·원천 속성 섹션은 읽기 영역에 없다.
   const toc = page.getByRole('navigation', { name: '본문 목차' });
-  expect(await toc.getByRole('button').allTextContents()).toEqual(['첫째 머리', '둘째 머리', '셋째 머리']);
+  await expect(toc.getByRole('button')).toHaveText(['첫째 머리', '둘째 머리', '셋째 머리']);
   await toc.getByRole('button', { name: '셋째 머리', exact: true }).click();
   await expect(page.getByRole('heading', { name: '셋째 머리', level: 2 })).toBeInViewport();
   await expect(page.getByText('원천 지역 속성')).toBeHidden();
