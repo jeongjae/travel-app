@@ -76,7 +76,7 @@ it('장거리 이동의 양 끝 활동 시각에서 도착·출발을 얻고 도
   const { dataset } = await aiV2Fixture();
   const plan = dataset.plans[0];
   const day = plan.days[0];
-  expect(deriveDayTimes(plan, day)).toEqual({ arrival: null, departure: null });
+  expect(deriveDayTimes(plan, day)).toEqual({ arrival: null, departure: null, blocked: [] });
   const flight = structuredClone(plan);
   flight.legs[0].mode = 'flight';
   flight.items[1].time = {

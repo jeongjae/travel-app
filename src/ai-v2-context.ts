@@ -52,21 +52,38 @@ function clockOf(time: TimeSpec | undefined) {
 }
 
 /**
- * 도착·출발 시각. 이동(leg) 자체에는 시각 필드가 없으므로, 그날 처음·마지막 이동이 장거리일 때
- * 그 이동의 도착 활동·출발 활동 시각으로 얻는다. 얻지 못하면 요청 화면 입력을 쓴다.
+ * 그날 장거리 이동으로 정해지는 시간 제약. 이동(leg)에는 시각 필드가 없어 양 끝 활동의 시작 시각으로 얻는다.
+ * - 그날 첫 활동에서 떠나는 이동: 도착 시각. 그 전에는 제안할 수 없다.
+ * - 그날 마지막 활동으로 끝나고 앞에 다른 활동이 있는 이동: 출발 시각. 그 뒤에는 제안할 수 없다.
+ * - 그 밖의 이동: 앞뒤 일정이 모두 있으므로 이동 구간만 막는다. 창을 하나로 합치지 않는다.
  */
 export function deriveDayTimes(plan: PlanVersion, day: Day) {
   const items = plan.items.filter((item) => item.dayId === day.dayId).sort((a, b) => a.order - b.order);
-  const position = (leg: Leg) => items.findIndex((item) => item.activityId === leg.fromActivityId);
-  const legs = plan.legs.filter((leg) => leg.dayId === day.dayId).sort((a, b) => position(a) - position(b));
-  const startOf = (activityId: string | undefined) =>
-    clockOf(items.find((item) => item.activityId === activityId)?.time.start);
-  const first = legs[0];
-  const last = legs.at(-1);
-  return {
-    arrival: first && longDistanceLeg.test(first.mode) ? startOf(first.toActivityId) : null,
-    departure: last && longDistanceLeg.test(last.mode) ? startOf(last.fromActivityId) : null,
-  };
+  const position = (activityId: string) => items.findIndex((item) => item.activityId === activityId);
+  const startOf = (activityId: string) => clockOf(items.find((item) => item.activityId === activityId)?.time.start);
+  const legs = plan.legs
+    .filter((leg) => leg.dayId === day.dayId && longDistanceLeg.test(leg.mode))
+    .sort((a, b) => position(a.fromActivityId) - position(b.fromActivityId));
+  let arrival: string | null = null;
+  let departure: string | null = null;
+  const blocked: { from: string; to: string }[] = [];
+  legs.forEach((leg) => {
+    const from = startOf(leg.fromActivityId);
+    const to = startOf(leg.toActivityId);
+    const startsDay = position(leg.fromActivityId) === 0;
+    const endsDay = position(leg.toActivityId) === items.length - 1;
+    if (startsDay) {
+      arrival = to;
+    } else if (endsDay) {
+      departure = from;
+    } else if (from && to && from < to) {
+      blocked.push({ from, to });
+    }
+  });
+  if (arrival && departure && arrival > departure) {
+    return { arrival: null, departure: null, blocked };
+  }
+  return { arrival, departure, blocked };
 }
 
 /** `supersedes`로 대체된 기록을 빼서 정정 전 값이 전송되지 않게 한다. */
@@ -166,6 +183,7 @@ export function buildAiV2Payload(dataset: TripDataset, selection: AiV2Selection)
         title: day.title,
         arrival: entered?.arrival || derived.arrival,
         departure: entered?.departure || derived.departure,
+        blocked: derived.blocked,
       };
     }),
     items: items.map((item) => ({
