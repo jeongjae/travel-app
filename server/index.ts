@@ -55,11 +55,6 @@ export async function makeApiServer(manager: JobManager, configured: boolean, v2
           send(503, { error: 'v2 AI 실행은 서버 설정 OPENAI_V2_ENABLED=1로 명시적으로 켜야 합니다.' });
           return;
         }
-        if (req.method === 'GET' && path.startsWith('/api/ai/v2/jobs?')) {
-          const tripId = new URL(path, 'http://127.0.0.1').searchParams.get('tripId');
-          send(200, tripId ? v2.list(tripId) : []);
-          return;
-        }
         if (req.method === 'POST' && path === '/api/ai/v2/jobs') {
           if (!req.headers['content-type']?.startsWith('application/json')) {
             send(415, { error: 'JSON 요청만 허용합니다.' });

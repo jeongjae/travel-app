@@ -175,11 +175,27 @@ export type AiV2Usage = {
   totalTokens: number;
   webSearchCalls: number;
 };
+/** 재검증에 필요한 식별자·시각만. 요청 원문, 기록, 활동 제목·요약은 들어가지 않으므로 저장해도 된다. */
+export type AiV2ValidationScope = {
+  fromDate: string;
+  trip: { startDate: string; endDate: string };
+  days: {
+    dayId: string;
+    date: string;
+    arrival?: string;
+    departure?: string;
+    blocked?: { from: string; to: string }[];
+  }[];
+  items: { activityId: string; dayId: string; start: string | null; end: string | null; fixed: boolean }[];
+  places: { id: string }[];
+  followingDay?: { date: string; firstStart?: string; arrival?: string };
+};
+
 /** 서버는 초안 재료까지만 만든다. 전체 활동을 아는 브라우저가 저장할 변경안을 완성한다. */
 export type AiV2JobResult = {
   output: AiV2Output;
   sources: AiV2Source[];
-  planning: AiV2PlanningDto;
+  scope: AiV2ValidationScope;
   warnings: string[];
 };
 

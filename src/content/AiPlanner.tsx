@@ -124,7 +124,7 @@ export default function AiPlanner({
         setJob(value);
         if (active.has(value.status)) {
           timer = setTimeout(() => void poll(), 2000);
-        } else if (value.status === 'awaiting-decision' && value.result?.planning) {
+        } else if (value.status === 'awaiting-decision' && value.result?.scope) {
           const current = await repo.get(value.tripId);
           const plan = current.plans.find((candidate) => candidate.planVersionId === value.basePlanVersionId);
           if (!plan) {
@@ -137,7 +137,7 @@ export default function AiPlanner({
               tripId: value.tripId,
               baseDomainRevision: value.baseDomainRevision,
               plan,
-              planning: value.result.planning,
+              scope: value.result.scope,
               collectedAt: value.updatedAt,
             },
             value.result.output,

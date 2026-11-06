@@ -3,6 +3,7 @@ import { buildPackage } from '../../src/transfer/package';
 import { digestBytes } from '../../src/contracts/v2';
 import { fixtureAssets } from '../fixtures/pilot';
 import { aiV2Fixture } from '../fixtures/ai-v2';
+import { toValidationScope } from '../../src/ai-v2-semantics';
 import { aiV2Limits, aiV2LocalServer, type AiV2Output, type AiV2Request } from '../../src/ai-v2-contract';
 import type { AiV2Job } from '../../server/ai-v2-jobs';
 import { openMore } from './helpers/nav';
@@ -81,7 +82,7 @@ async function setup(page: Page, options: SetupOptions = {}) {
         result: {
           output,
           sources: fixture.research.sources,
-          planning: input.planning,
+          scope: toValidationScope(input.planning),
           warnings: [],
         },
       };

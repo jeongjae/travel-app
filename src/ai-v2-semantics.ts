@@ -6,7 +6,7 @@ import {
   type PlanVersion,
   type Proposal,
 } from './contracts/v2/index.ts';
-import type { AiV2Output, AiV2PlanningDto, AiV2Source } from './ai-v2-contract.ts';
+import type { AiV2Output, AiV2PlanningDto, AiV2Source, AiV2ValidationScope } from './ai-v2-contract.ts';
 
 export type AiV2Result = { proposal: Omit<Proposal, 'commitSeq'>; evidence: ContentRevision[] };
 /** 저장 스키마를 바꾸지 않고 항목별 사유를 함께 보존하는 근거 행의 표식. */
@@ -46,11 +46,44 @@ export function isUnrealisticTime(time: string | null) {
   return time !== null && Number(time.slice(0, 2)) < earliestRealisticHour;
 }
 
+/** 저장·응답에 남겨도 되는 재검증 값만 필드별로 옮긴다. 입력에 다른 값이 있어도 따라오지 않는다. */
+export function toValidationScope(planning: AiV2PlanningDto | AiV2ValidationScope): AiV2ValidationScope {
+  const { followingDay } = planning;
+  return {
+    fromDate: planning.fromDate,
+    trip: { startDate: planning.trip.startDate, endDate: planning.trip.endDate },
+    days: planning.days.map((day) => ({
+      dayId: day.dayId,
+      date: day.date,
+      ...(day.arrival ? { arrival: day.arrival } : {}),
+      ...(day.departure ? { departure: day.departure } : {}),
+      ...(day.blocked?.length ? { blocked: day.blocked.map(({ from, to }) => ({ from, to })) } : {}),
+    })),
+    items: planning.items.map((item) => ({
+      activityId: item.activityId,
+      dayId: item.dayId,
+      start: item.start,
+      end: item.end,
+      fixed: item.fixed,
+    })),
+    places: planning.places.map((place) => ({ id: place.id })),
+    ...(followingDay
+      ? {
+          followingDay: {
+            date: followingDay.date,
+            ...(followingDay.firstStart ? { firstStart: followingDay.firstStart } : {}),
+            ...(followingDay.arrival ? { arrival: followingDay.arrival } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
 /**
  * 서버와 브라우저가 같은 규칙으로 쓰는 AI 출력 검증. 어긋나면 던지고, 저장은 되지만 사용자에게
  * 보일 주의점은 돌려준다. 예약 활동 자체의 변경은 거부하지 않고 화면의 "확인 필요"로 넘긴다.
  */
-export function validateAiV2Output(planning: AiV2PlanningDto, output: AiV2Output, sources: AiV2Source[]) {
+export function validateAiV2Output(planning: AiV2ValidationScope, output: AiV2Output, sources: AiV2Source[]) {
   const warnings: string[] = [];
   const urls = new Set(sources.map((source) => source.url));
   output.evidence.forEach((entry) => {
@@ -193,7 +226,7 @@ export type AiV2LocalContext = {
   baseDomainRevision: number;
   /** 작업 기준의 전체 계획. 서버로 보내지 않은 필드를 그대로 보존하기 위해 브라우저에서 넣는다. */
   plan: PlanVersion;
-  planning: AiV2PlanningDto;
+  scope: AiV2ValidationScope;
   collectedAt: string;
 };
 
@@ -206,8 +239,8 @@ export function materializeV2Proposal(
   output: AiV2Output,
   research: { sources: AiV2Source[] },
 ): AiV2Result {
-  const { plan, planning, tripId } = local;
-  validateAiV2Output(planning, output, research.sources);
+  const { plan, scope, tripId } = local;
+  validateAiV2Output(scope, output, research.sources);
   const proposalId = `ai-${local.id}`;
   const official = officialHosts(plan);
   const activityIdOf = (index: number) => {

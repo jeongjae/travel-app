@@ -1,6 +1,6 @@
 import { buildAiV2Payload, consentedRequest } from '../../src/ai-v2-context';
 import { aiV2Limits, aiV2LocalServer, type AiV2Output, type AiV2Policy } from '../../src/ai-v2-contract';
-import type { AiV2LocalContext } from '../../src/ai-v2-semantics';
+import { toValidationScope, type AiV2LocalContext } from '../../src/ai-v2-semantics';
 import type { Research } from '../../server/ai';
 import { pilotTrip } from './pilot';
 
@@ -51,7 +51,7 @@ export async function aiV2Fixture() {
     tripId: dataset.header.tripId,
     baseDomainRevision: dataset.header.domainRevision,
     plan: dataset.plans[0],
-    planning: input.planning,
+    scope: toValidationScope(input.planning),
     collectedAt: '2026-01-05T00:00:00.000Z',
   };
   return { dataset, payload, policy, input, local, output, research };
