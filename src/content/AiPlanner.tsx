@@ -6,7 +6,7 @@ import {
   buildAiV2Payload,
   consentedRequest,
   currentPlan,
-  deriveDayTimes,
+  displayedDayTimes,
   selectableRecords,
   selectedDays,
   type AiV2DayTimes,
@@ -211,8 +211,8 @@ export default function AiPlanner({
   const days = dataset ? selectedDays(dataset, fromDate, count) : [];
   const records = dataset && includeRecords ? selectableRecords(dataset, fromDate, count) : [];
   const fixedCount = preview?.planning.items.filter((item) => item.fixed).length ?? 0;
-  const setDayTime = (dayId: string, field: 'arrival' | 'departure', value: string) => {
-    setDayTimes((previous) => ({ ...previous, [dayId]: { ...previous[dayId], [field]: value } }));
+  const setDayTime = (dayId: string, change: AiV2DayTimes[string]) => {
+    setDayTimes((previous) => ({ ...previous, [dayId]: { ...previous[dayId], ...change } }));
   };
   return (
     <section className="content-row">
@@ -261,28 +261,39 @@ export default function AiPlanner({
       {dataset && days.length ? (
         <details>
           <summary>도착·출발 시각 (이 요청에만 사용)</summary>
-          <p className="muted">이동 시각에서 얻지 못한 날은 직접 넣으세요. 이 시간 밖의 제안은 거부합니다.</p>
+          <p className="muted">여기 보이는 값 그대로 보냅니다. 지우면 보내지 않고 제약으로도 쓰지 않습니다.</p>
           {days.map((day) => {
-            const derived = deriveDayTimes(currentPlan(dataset), day);
-            const entered = dayTimes[day.dayId];
+            const shown = displayedDayTimes(currentPlan(dataset), day, dayTimes);
             return (
-              <div className="button-row" key={day.dayId}>
-                <label>
-                  {day.date} 도착
-                  <input
-                    type="time"
-                    value={entered?.arrival ?? derived.arrival ?? ''}
-                    onChange={(event) => setDayTime(day.dayId, 'arrival', event.target.value)}
-                  />
-                </label>
-                <label>
-                  {day.date} 출발
-                  <input
-                    type="time"
-                    value={entered?.departure ?? derived.departure ?? ''}
-                    onChange={(event) => setDayTime(day.dayId, 'departure', event.target.value)}
-                  />
-                </label>
+              <div key={day.dayId}>
+                <div className="button-row">
+                  <label>
+                    {day.date} 도착{shown.arrival && shown.arrivalEstimated ? ' (이동에서 추정)' : ''}
+                    <input
+                      type="time"
+                      value={shown.arrival}
+                      onChange={(event) => setDayTime(day.dayId, { arrival: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    {day.date} 출발{shown.departure && shown.departureEstimated ? ' (이동에서 추정)' : ''}
+                    <input
+                      type="time"
+                      value={shown.departure}
+                      onChange={(event) => setDayTime(day.dayId, { departure: event.target.value })}
+                    />
+                  </label>
+                </div>
+                {shown.transit.length ? (
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={shown.ignoreTransit}
+                      onChange={(event) => setDayTime(day.dayId, { ignoreTransit: event.target.checked })}
+                    />
+                    {day.date} 이동 구간({shown.transit.map((gap) => `${gap.from}~${gap.to}`).join(', ')}) 제약 끄기
+                  </label>
+                ) : null}
               </div>
             );
           })}

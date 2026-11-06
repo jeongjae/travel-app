@@ -12,7 +12,7 @@ import {
 import type { PlanVersion, TimeSpec, TripDataset } from './contracts/v2/index.ts';
 import { nextDate } from './ai-v2-semantics.ts';
 
-export type AiV2DayTimes = Record<string, { arrival?: string; departure?: string }>;
+export type AiV2DayTimes = Record<string, { arrival?: string; departure?: string; ignoreTransit?: boolean }>;
 export type AiV2Selection = {
   prompt: string;
   requestKind: AiV2RequestKind;
@@ -85,6 +85,24 @@ export function deriveDayTimes(plan: PlanVersion, day: Day) {
     return { arrival: null, departure: null, blocked };
   }
   return { arrival, departure, blocked };
+}
+
+/**
+ * 화면에 보일 값이자 전송할 값. 사용자가 비우면(빈 문자열) 추정값으로 되돌아가지 않는다.
+ * 전송 내용도 이 함수로 만들어 화면과 본문이 갈라지지 않게 한다.
+ */
+export function displayedDayTimes(plan: PlanVersion, day: Day, dayTimes?: AiV2DayTimes) {
+  const derived = deriveDayTimes(plan, day);
+  const entered = dayTimes?.[day.dayId];
+  return {
+    arrival: entered?.arrival ?? derived.arrival ?? '',
+    departure: entered?.departure ?? derived.departure ?? '',
+    arrivalEstimated: entered?.arrival === undefined,
+    departureEstimated: entered?.departure === undefined,
+    blocked: entered?.ignoreTransit ? [] : derived.blocked,
+    transit: derived.blocked,
+    ignoreTransit: Boolean(entered?.ignoreTransit),
+  };
 }
 
 /** `supersedes`로 대체된 기록을 빼서 정정 전 값이 전송되지 않게 한다. */
@@ -200,16 +218,15 @@ export function buildAiV2Payload(dataset: TripDataset, selection: AiV2Selection)
     fromDate: selection.fromDate,
     trip: { startDate: dataset.header.startDate, endDate: dataset.header.endDate },
     days: days.map((day) => {
-      const derived = deriveDayTimes(plan, day);
-      const entered = selection.dayTimes?.[day.dayId];
+      const shown = displayedDayTimes(plan, day, selection.dayTimes);
       return {
         dayId: day.dayId,
         date: day.date,
         cityText: day.cityText,
         title: day.title,
-        arrival: entered?.arrival || derived.arrival,
-        departure: entered?.departure || derived.departure,
-        blocked: derived.blocked,
+        ...(shown.arrival ? { arrival: shown.arrival } : {}),
+        ...(shown.departure ? { departure: shown.departure } : {}),
+        ...(shown.blocked.length ? { blocked: shown.blocked } : {}),
       };
     }),
     items: items.map((item) => ({

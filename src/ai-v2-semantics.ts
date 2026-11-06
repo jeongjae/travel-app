@@ -99,7 +99,7 @@ export function validateAiV2Output(planning: AiV2PlanningDto, output: AiV2Output
     if (day.departure && span.end > toMinutes(day.departure)) {
       throw new Error(`${day.date} 출발 시각 ${day.departure} 이후의 제안입니다.`);
     }
-    day.blocked.forEach((gap) => {
+    (day.blocked ?? []).forEach((gap) => {
       if (span.start < toMinutes(gap.to) && toMinutes(gap.from) < span.end) {
         throw new Error(`${day.date} 이동 구간 ${gap.from}~${gap.to}와 겹칩니다.`);
       }

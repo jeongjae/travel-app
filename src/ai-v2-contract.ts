@@ -9,6 +9,11 @@ const clock = z
   .string()
   .regex(/^\d{2}:\d{2}$/)
   .nullable();
+// 비어 있으면 키 자체를 보내지 않는다. null을 보내지 않으려고 clock과 나눠 둔다.
+const optionalClock = z
+  .string()
+  .regex(/^\d{2}:\d{2}$/)
+  .optional();
 export const aiV2RequestKindSchema = z.enum(['add', 'edit', 'remove']);
 export type AiV2RequestKind = z.infer<typeof aiV2RequestKindSchema>;
 
@@ -34,10 +39,13 @@ export const aiV2PlanningDtoSchema = z.strictObject({
         date,
         cityText: z.string(),
         title: z.string(),
-        arrival: clock,
-        departure: clock,
+        arrival: optionalClock,
+        departure: optionalClock,
         // 낮에 끼어 도착·출발로 표현할 수 없는 장거리 이동 구간. 이 안에는 제안할 수 없다.
-        blocked: z.array(z.strictObject({ from: z.string(), to: z.string() })).max(10),
+        blocked: z
+          .array(z.strictObject({ from: z.string(), to: z.string() }))
+          .max(10)
+          .optional(),
       }),
     )
     .min(1)

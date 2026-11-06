@@ -301,3 +301,47 @@ test('요약 카드를 보이고 확인 필요 항목은 일괄 적용에서 빠
   expect(fixture.errors).toEqual([]);
   expect(fixture.external).toEqual([]);
 });
+
+function flightDay(dataset: Awaited<ReturnType<typeof aiV2Fixture>>['dataset']) {
+  const plan = dataset.plans[0];
+  plan.legs[0].mode = 'flight';
+  plan.items[1].time = {
+    start: { precision: 'local', date: plan.days[0].date, localTime: '14:20', timeZoneStatus: 'unknown' },
+  };
+}
+
+test('비운 도착 시각은 전송 본문에 키가 없다', async ({ page }) => {
+  const fixture = await setup(page, {
+    prepare: flightDay,
+    beforeConsent: async (current) => {
+      await current.getByText('도착·출발 시각 (이 요청에만 사용)', { exact: true }).click();
+      const arrival = current.getByLabel(/2026-10-31 도착/);
+      await expect(arrival).toHaveValue('14:20');
+      await expect(current.getByText(/2026-10-31 도착 \(이동에서 추정\)/)).toBeVisible();
+      await arrival.fill('');
+      await expect(arrival).toHaveValue('');
+      await current.getByRole('button', { name: '전송할 내용 미리보기', exact: true }).click();
+    },
+  });
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  const [day] = fixture.bodies[0].planning.days;
+  expect(Object.keys(day)).not.toContain('arrival');
+  expect(JSON.stringify(day)).not.toContain('14:20');
+  expect(fixture.errors).toEqual([]);
+});
+
+test('채운 도착 시각은 화면 값과 전송 값이 같다', async ({ page }) => {
+  const fixture = await setup(page, {
+    prepare: flightDay,
+    beforeConsent: async (current) => {
+      await current.getByText('도착·출발 시각 (이 요청에만 사용)', { exact: true }).click();
+      const arrival = current.getByLabel(/2026-10-31 도착/);
+      await arrival.fill('15:30');
+      await expect(arrival).toHaveValue('15:30');
+      await current.getByRole('button', { name: '전송할 내용 미리보기', exact: true }).click();
+    },
+  });
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  expect(fixture.bodies[0].planning.days[0].arrival).toBe('15:30');
+  expect(fixture.errors).toEqual([]);
+});
