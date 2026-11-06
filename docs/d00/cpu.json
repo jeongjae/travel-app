@@ -1,0 +1,10 @@
+{
+  "bytes": 112133,
+  "days": 7,
+  "items": 70,
+  "places": 150,
+  "firstRunMs": 6.07,
+  "medianMs": 3.39,
+  "maxMs": 4.36,
+  "runtime": "Node (workerd 아님, 근사)"
+}

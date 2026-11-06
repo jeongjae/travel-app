@@ -1,0 +1,129 @@
+{
+  "withoutRecords": {
+    "researchKeys": [
+      "include",
+      "input",
+      "instructions",
+      "max_output_tokens",
+      "max_tool_calls",
+      "model",
+      "store",
+      "tool_choice"
+    ],
+    "researchInput": [
+      "CANARY-day-cityText",
+      "CANARY-day-title",
+      "CANARY-prompt-free-text",
+      "CANARY-unreferenced-place-name"
+    ],
+    "researchHasPromptVerbatim": true,
+    "planInput": [
+      "CANARY-day-backupText",
+      "CANARY-day-cityText",
+      "CANARY-day-fatigueText",
+      "CANARY-day-food",
+      "CANARY-day-highlights",
+      "CANARY-day-needsReview",
+      "CANARY-day-photo-caption",
+      "CANARY-day-sourceStatus",
+      "CANARY-day-title",
+      "CANARY-day-transport",
+      "CANARY-header-name",
+      "CANARY-item-bookingId",
+      "CANARY-item-mapTargetId",
+      "CANARY-item-menuText",
+      "CANARY-item-officialUrl",
+      "CANARY-item-sourceFlags",
+      "CANARY-item-summary",
+      "CANARY-item-title",
+      "CANARY-leg-durationText",
+      "CANARY-leg-lineText",
+      "CANARY-marker-detail",
+      "CANARY-marker-label",
+      "CANARY-marker-type",
+      "CANARY-plan-reason",
+      "CANARY-prompt-free-text",
+      "CANARY-unreferenced-place-name",
+      "CANARY-unreferenced-place-summary"
+    ],
+    "researchBytes": 485,
+    "planBytes": 3853
+  },
+  "withRecords": {
+    "researchKeys": [
+      "include",
+      "input",
+      "instructions",
+      "max_output_tokens",
+      "max_tool_calls",
+      "model",
+      "store",
+      "tool_choice"
+    ],
+    "researchInput": [
+      "CANARY-day-cityText",
+      "CANARY-day-title",
+      "CANARY-prompt-free-text",
+      "CANARY-unreferenced-place-name"
+    ],
+    "researchHasPromptVerbatim": true,
+    "planInput": [
+      "CANARY-day-backupText",
+      "CANARY-day-cityText",
+      "CANARY-day-fatigueText",
+      "CANARY-day-food",
+      "CANARY-day-highlights",
+      "CANARY-day-needsReview",
+      "CANARY-day-photo-caption",
+      "CANARY-day-sourceStatus",
+      "CANARY-day-title",
+      "CANARY-day-transport",
+      "CANARY-header-name",
+      "CANARY-item-bookingId",
+      "CANARY-item-mapTargetId",
+      "CANARY-item-menuText",
+      "CANARY-item-officialUrl",
+      "CANARY-item-sourceFlags",
+      "CANARY-item-summary",
+      "CANARY-item-title",
+      "CANARY-latest-record-note",
+      "CANARY-leg-durationText",
+      "CANARY-leg-lineText",
+      "CANARY-marker-detail",
+      "CANARY-marker-label",
+      "CANARY-marker-type",
+      "CANARY-other-day-memo-body",
+      "CANARY-plan-reason",
+      "CANARY-prompt-free-text",
+      "CANARY-r-new-title",
+      "CANARY-r-old-title",
+      "CANARY-superseded-record-note",
+      "CANARY-unreferenced-place-name",
+      "CANARY-unreferenced-place-summary"
+    ],
+    "researchBytes": 485,
+    "planBytes": 4553
+  },
+  "semantic": {
+    "bookedItemTimeChanged": true,
+    "bookedItemRemoved": true,
+    "endBeforeStart": true,
+    "addAtThreeAm": true
+  },
+  "leg": {
+    "decide": "applied",
+    "legsAfter": 0,
+    "itemStillThere": false
+  },
+  "http": {
+    "listWithoutAuth": {
+      "status": 200,
+      "returnsResult": true
+    },
+    "getWithoutAuth": 200,
+    "cancelWithoutAuth": 200,
+    "pagesOriginToday": 403,
+    "v1PostShapeCheck": 400,
+    "corsHeader": null
+  }
+}

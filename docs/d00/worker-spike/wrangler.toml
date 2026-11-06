@@ -1,0 +1,16 @@
+name = "d00-spike"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+OPENAI_BASE = "http://127.0.0.1:8799"
+ALLOW_ORIGIN = "https://jeongjae.github.io"
+
+[[durable_objects.bindings]]
+name = "JOBS"
+class_name = "JobStore"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["JobStore"]

@@ -1,0 +1,9 @@
+{
+  "platform": "win32",
+  "runs": 300,
+  "outcomes": {
+    "2회 작성 후에도 날짜·참조·변경안 검증을 통과하지 못했습니다. | file=failed": 294,
+    "EPERM: operation not permitted, rename '…' -> '…' | file=failed": 5,
+    "2회 작성 후에도 날짜·참조·변경안 검증을 통과하지 못했습니다. | file=validating": 1
+  }
+}

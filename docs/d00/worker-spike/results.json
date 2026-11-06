@@ -1,0 +1,21 @@
+{
+  "note": "로컬 workerd(wrangler 4.158.0, 로그인 없음)와 가짜 OpenAI. 실제 외부 호출 없음. local-data/d00-worker-spike에서 실행(port.worker.js의 상대 경로 기준).",
+  "noAuth": 401,
+  "wrongOrigin": 403,
+  "preflight": { "status": 204, "allow": "https://jeongjae.github.io" },
+  "concurrentStatuses": [200, 200, 200, 200, 202],
+  "conflict": 409,
+  "dup": { "status": "done", "polls": 3, "upstreamCreates": 1 },
+  "keyAtUpstreamOnly": true,
+  "backgroundBody": { "background": true, "store": false, "input": "fictional" },
+  "beforeKill": "calling",
+  "afterRestart": { "status": "unknown", "extraCreates": 0 },
+  "persistedAcrossRestart": "done",
+  "portability": {
+    "abortSignalAny": true,
+    "requestParse": 70,
+    "digest": 64,
+    "toJsonSchema": true,
+    "materialize": "pending"
+  }
+}
