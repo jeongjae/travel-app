@@ -149,7 +149,7 @@ it('예약 활동의 시각 변경과 제거는 확인 필요이고 일괄 적�
   const moved = reviewed(fixture, editing(fixture, { startTime: '10:00' })).reviews;
   expect(moved[0].needsConfirmation).toBe(true);
   expect(operationsToApply(moved, new Set())).toEqual([]);
-  expect(operationsToApply(moved, new Set([0]))).toHaveLength(1);
+  expect(operationsToApply(moved, new Set([moved[0].activityId]))).toHaveLength(1);
   const removed = reviewed(
     fixture,
     editing(fixture, { type: 'remove', title: '', summary: '', startTime: null, endTime: null, placeId: null }),

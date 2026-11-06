@@ -190,6 +190,28 @@ export function reviewProposal(proposal: Proposal, plan: PlanVersion, evidence: 
 }
 
 /** 일괄 적용에 넣을 항목. 확인 필요 항목은 사용자가 따로 표시한 것만 들어간다. */
-export function operationsToApply(reviews: OperationReview[], confirmed: ReadonlySet<number>) {
-  return reviews.filter((review) => !review.needsConfirmation || confirmed.has(review.index));
+export function operationsToApply(reviews: OperationReview[], confirmed: ReadonlySet<string>) {
+  return reviews.filter((review) => !review.needsConfirmation || confirmed.has(review.activityId));
+}
+
+/** 확인 표시는 활동 ID에 묶고 revision별로 둔다. 재적용으로 revision이 바뀌면 다시 체크해야 한다. */
+export type ConfirmationState = { revisionId: string; activityIds: ReadonlySet<string> };
+
+export function confirmationsFor(state: ConfirmationState, revisionId: string): ReadonlySet<string> {
+  return state.revisionId === revisionId ? state.activityIds : new Set();
+}
+
+export function withConfirmation(
+  state: ConfirmationState,
+  revisionId: string,
+  activityId: string,
+  value: boolean,
+): ConfirmationState {
+  const next = new Set(confirmationsFor(state, revisionId));
+  if (value) {
+    next.add(activityId);
+  } else {
+    next.delete(activityId);
+  }
+  return { revisionId, activityIds: next };
 }

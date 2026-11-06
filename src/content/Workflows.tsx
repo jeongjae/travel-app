@@ -5,7 +5,15 @@ import type { PlanVersion, Proposal, TripDataset } from '../contracts/v2';
 import type { Review, Choice, Slot } from '../transfer/reimport';
 import { command, errorText, ErrorText, Modal } from './ui';
 import { operationReasonsRef } from '../ai-v2-semantics';
-import { operationsToApply, reviewProposal, type FactStatus, type OperationReview } from './proposal-review';
+import {
+  confirmationsFor,
+  operationsToApply,
+  reviewProposal,
+  withConfirmation,
+  type ConfirmationState,
+  type FactStatus,
+  type OperationReview,
+} from './proposal-review';
 const AiPlanner = lazy(() => import('./AiPlanner'));
 export function ProposalPanel({
   repo,
@@ -222,7 +230,11 @@ function ProposalReview({
   onApply: (keep: Proposal['operations']) => void;
   onReject: () => void;
 }) {
-  const [confirmed, setConfirmed] = useState<ReadonlySet<number>>(new Set());
+  const [confirmation, setConfirmation] = useState<ConfirmationState>({
+    revisionId: proposal.proposalRevisionId,
+    activityIds: new Set(),
+  });
+  const confirmed = confirmationsFor(confirmation, proposal.proposalRevisionId);
   const evidence = useLiveQuery(
     () =>
       Promise.all(
@@ -244,16 +256,10 @@ function ProposalReview({
             key={review.index}
             review={review}
             pending={pending}
-            confirmed={confirmed.has(review.index)}
-            onConfirm={(value) => {
-              const next = new Set(confirmed);
-              if (value) {
-                next.add(review.index);
-              } else {
-                next.delete(review.index);
-              }
-              setConfirmed(next);
-            }}
+            confirmed={confirmed.has(review.activityId)}
+            onConfirm={(value) =>
+              setConfirmation(withConfirmation(confirmation, proposal.proposalRevisionId, review.activityId, value))
+            }
           />
         ))}
       </ul>
