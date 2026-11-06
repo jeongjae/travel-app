@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-06 · **main·Pages C-15까지 배포 / D v0.3 확정(Q-D0)·T-D0 지시 발행 / U4 사용자 재수행 대기**
+2026-11-06 · **main·Pages C-15까지 배포 / D v0.3·T-D0 통과·T-D1 지시 준비 / U4 사용자 재수행 대기**
 
 새 Codex 세션은 먼저 [세션 인계](codex-session-handoff-2026-11-05.md)를 읽는다.
 
@@ -12,7 +12,7 @@
 - [C-14 검토](claude-task-c14-review.md) 통과(CL-22 해소). [C-15 검토](claude-task-c15-review.md) 통과(R1 확인, 사용자 답변 11/06).
 - REG-02: 표시 문제로 재분류 → C-15 Q3 대표 사진 규칙으로 수정. 사용자 평소 공간 확인 뒤 종결.
 - 평소 공간: PC Chrome 배포 사이트에 파리 패키지 `712369b3…` 가져옴(11/05, 사용자).
-- D v0.3([설계 §12](phase-d-design.md)·[계획 §8](phase-d-plan.md)): 항목 단위 AI, 개인용 단순화, Pages+Cloudflare Worker, iPhone은 D 후반. [T-D0 지시](claude-task-d00-baseline.md).
+- D v0.3([설계 §12](phase-d-design.md)·[계획 §8](phase-d-plan.md)): 항목 단위 AI, 개인용 단순화, Pages+Cloudflare Worker, iPhone은 D 후반. [T-D0 검토](claude-task-d00-review.md): 전송 공백 등 차단 13건은 T-D4 전 해소.
 - 원본·verified ZIP `d1832280…bbe0`·백업 보존. 미추적 `docs/status-review-2026-10-26.md`·`research_notes/` 커밋 제외.
 
 ## 최근 검증·한계
@@ -24,7 +24,7 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: T-D0 수행(`codex/d00-baseline`, 제품 변경 없음) → Codex 검토 → T-D1 지시.
+1. 사용자: 인증·background 보관·Workers 요금제 결정 → Codex: T-D1 지시.
 2. 사용자: 평소 공간 파리 화면 확인 → REG-02 종결.
 3. 사용자: U4 대본 v2 재수행(`?workspace=content&review=sapporo-u4`, 약 30분) → Q-U2·Q-U3·S6-d·CL-20.
 4. 사용자 결정(첫 실제 호출 전): U-D2 모델·예산, U-D3 전송·보관.
