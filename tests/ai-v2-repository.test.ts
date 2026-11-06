@@ -192,3 +192,41 @@ it('두 번째 근거의 기존 ID 충돌은 먼저 처리한 새 근거까지 �
   await expect(repository.execute(stage)).rejects.toThrow('CONFLICT');
   expect(await snapshot(database)).toEqual(before);
 });
+
+it('자정을 넘는 활동은 여행 마지막 날에도 저장소 검증을 지나 새 계획에 다음 날짜 종료로 남는다', async () => {
+  const { repository, dataset, local, output, research } = await setup();
+  const lastDay = local.plan.days.at(-1)!;
+  const overnight = structuredClone(output);
+  overnight.operations[0] = {
+    ...overnight.operations[0],
+    type: 'add',
+    activityId: '',
+    dayId: lastDay.dayId,
+    placeId: null,
+    startTime: '23:00',
+    endTime: '00:30',
+  };
+  const result = materializeV2Proposal(local, overnight, research);
+  const evidence = result.evidence.map(({ actor, recordedAt, commitSeq, ...content }) => content);
+  const payload = { proposal: result.proposal, evidence };
+  await repository.execute({
+    ...command(dataset.header.tripId, 'StageAiProposal', payload, dataset.header.domainRevision, {
+      requestId: crypto.randomUUID(),
+    }),
+    payload,
+  });
+  await repository.execute(
+    command(
+      dataset.header.tripId,
+      'DecideProposal',
+      { proposalId: result.proposal.proposalId, decision: 'apply', confirmedByUser: true },
+      undefined,
+      { expectedProposalRevision: 1 },
+    ),
+  );
+  const applied = await repository.get(dataset.header.tripId);
+  const current = applied.plans.find((plan) => plan.planVersionId === applied.header.currentPlanVersionId)!;
+  const added = current.items.find((item) => item.activityId === `ai-${local.id}-item-0`)!;
+  expect(added.time.start).toMatchObject({ date: lastDay.date, localTime: '23:00' });
+  expect(added.time.end).toMatchObject({ date: '2026-11-03', localTime: '00:30' });
+});
