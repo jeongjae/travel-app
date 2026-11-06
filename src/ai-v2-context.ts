@@ -10,6 +10,7 @@ import {
   type AiV2RequestKind,
 } from './ai-v2-contract.ts';
 import type { PlanVersion, TimeSpec, TripDataset } from './contracts/v2/index.ts';
+import { nextDate } from './ai-v2-semantics.ts';
 
 export type AiV2DayTimes = Record<string, { arrival?: string; departure?: string }>;
 export type AiV2Selection = {
@@ -143,6 +144,31 @@ export function defaultResearchQuestion(kind: AiV2RequestKind, dates: string[], 
   return `${when} ${where} 일정 ${requestKindLabel[kind]}에 필요한 운영시간, 휴무일, 요금, 예약 필요 여부를 공식 출처에서 확인`;
 }
 
+/** 선택 범위 다음 날의 시각만 알린다. 그날의 제목·활동 내용은 보내지 않는다. */
+function followingDayOf(plan: PlanVersion, days: Day[]) {
+  const last = days.at(-1);
+  const date = last ? nextDate(last.date) : undefined;
+  const day = plan.days.find((candidate) => candidate.date === date);
+  if (!day || !date) {
+    return {};
+  }
+  const starts = plan.items
+    .filter((item) => item.dayId === day.dayId)
+    .flatMap((item) => {
+      const start = clockOf(item.time.start);
+      return start ? [start] : [];
+    })
+    .sort();
+  const { arrival } = deriveDayTimes(plan, day);
+  return {
+    followingDay: {
+      date,
+      ...(starts[0] ? { firstStart: starts[0] } : {}),
+      ...(arrival ? { arrival } : {}),
+    },
+  };
+}
+
 /** 전송 내용 생성. 저장 모델을 복사하지 않고 허용한 필드만 옮기며, 동의는 여기서 정하지 않는다. */
 export function buildAiV2Payload(dataset: TripDataset, selection: AiV2Selection): AiV2Payload {
   const plan = currentPlan(dataset);
@@ -209,6 +235,7 @@ export function buildAiV2Payload(dataset: TripDataset, selection: AiV2Selection)
         durationText: leg.durationText ?? null,
       })),
     places,
+    ...followingDayOf(plan, days),
     records,
   };
   const dates = days.map((day) => day.date);

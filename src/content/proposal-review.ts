@@ -5,6 +5,8 @@ import {
   isVolatileFact,
   officialHosts,
   operationReasonsRef,
+  timeSpan,
+  toMinutes,
   type SourceKind,
 } from '../ai-v2-semantics';
 
@@ -53,10 +55,6 @@ function legMinutes(text: string | undefined) {
   return (hours ? Number(hours[1]) * 60 : 0) + (minutes ? Number(minutes[1]) : 0);
 }
 
-function toMinutes(clock: string) {
-  return Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
-}
-
 function operationReasons(evidence: Evidence[]): Record<string, string> {
   const row = evidence.find((entry) => entry.payload.sourceUrlOrRef === operationReasonsRef);
   try {
@@ -72,20 +70,20 @@ function scheduleConflicts(item: Item, plan: PlanVersion) {
   if (!start) {
     return [];
   }
-  const end = clockOf(item.time.end) ?? start;
-  const others = plan.items
-    .filter((other) => other.dayId === item.dayId && other.activityId !== item.activityId)
-    .map((other) => ({ other, start: clockOf(other.time.start), end: clockOf(other.time.end) }));
+  const span = timeSpan(start, clockOf(item.time.end));
   const conflicts: string[] = [];
-  others.forEach(({ other, start: otherStart, end: otherEnd }) => {
-    if (!otherStart) {
-      return;
-    }
-    const otherFinish = otherEnd ?? otherStart;
-    if (start < otherFinish && otherStart < end) {
-      conflicts.push(`${other.title}(${otherStart}) 시간과 겹칩니다.`);
-    }
-  });
+  plan.items
+    .filter((other) => other.dayId === item.dayId && other.activityId !== item.activityId)
+    .forEach((other) => {
+      const otherStart = clockOf(other.time.start);
+      if (!otherStart) {
+        return;
+      }
+      const otherSpan = timeSpan(otherStart, clockOf(other.time.end));
+      if (span.start < otherSpan.end && otherSpan.start < span.end) {
+        conflicts.push(`${other.title}(${otherStart}) 시간과 겹칩니다.`);
+      }
+    });
   plan.legs
     .filter((leg) => leg.fromActivityId === item.activityId || leg.toActivityId === item.activityId)
     .forEach((leg) => {
@@ -99,7 +97,7 @@ function scheduleConflicts(item: Item, plan: PlanVersion) {
       if (!neighbor || !neighborClock) {
         return;
       }
-      const gap = leaving ? toMinutes(neighborClock) - toMinutes(end) : toMinutes(start) - toMinutes(neighborClock);
+      const gap = leaving ? toMinutes(neighborClock) - span.end : span.start - toMinutes(neighborClock);
       const needed = legMinutes(leg.durationText);
       if (gap < needed) {
         conflicts.push(`${neighbor.title}까지 이동(${leg.durationText ?? leg.mode}) 시간이 부족합니다.`);

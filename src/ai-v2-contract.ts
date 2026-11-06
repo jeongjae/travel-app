@@ -70,6 +70,8 @@ export const aiV2PlanningDtoSchema = z.strictObject({
     )
     .max(300),
   places: z.array(z.strictObject({ id, name: z.string(), summary: z.string() })).max(300),
+  // 선택 범위 바로 다음 날의 시각만. 자정을 넘는 제안의 겹침 판단에 쓴다.
+  followingDay: z.strictObject({ date, firstStart: z.string().optional(), arrival: z.string().optional() }).optional(),
   records: z
     .array(
       z.strictObject({

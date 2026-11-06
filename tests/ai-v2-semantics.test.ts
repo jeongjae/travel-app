@@ -124,12 +124,12 @@ it('다른 고정 활동과 겹치는 시간대를 거부하고 겹치지 않으
   expect(validateAiV2Output(planning, clear, fixture.research.sources)).toEqual([]);
 });
 
-it('종료가 시작보다 빠르면 거부하고 03시는 경고만 한다', async () => {
+it('12시간을 넘게 역전된 시각은 거부하고 03시는 경고만 한다', async () => {
   const fixture = await aiV2Fixture();
   const { planning } = fixture.input;
   expect(() =>
     validateAiV2Output(planning, editing(fixture, { startTime: '18:00', endTime: '09:00' }), fixture.research.sources),
-  ).toThrow('종료 시각');
+  ).toThrow('12시간');
   const warnings = validateAiV2Output(
     planning,
     editing(fixture, { startTime: '03:00', endTime: '03:30' }),

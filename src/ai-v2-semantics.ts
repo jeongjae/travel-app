@@ -13,13 +13,33 @@ export type AiV2Result = { proposal: Omit<Proposal, 'commitSeq'>; evidence: Cont
 export const operationReasonsRef = 'ai-operation-reasons';
 const earliestRealisticHour = 5;
 
-function overlaps(startA: string, endA: string | null, startB: string, endB: string | null) {
-  const finishA = endA ?? startA;
-  const finishB = endB ?? startB;
-  if (startA === finishA || startB === finishB) {
-    return startA <= finishB && startB <= finishA;
+const minutesPerDay = 24 * 60;
+const maxOvernightMinutes = 12 * 60;
+
+export function toMinutes(clock: string) {
+  return Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+}
+
+export type TimeSpan = { start: number; end: number };
+
+/** 분 단위 구간. 종료가 시작보다 이르면 다음 날로 넘어간 것으로 본다. */
+export function timeSpan(start: string, end: string | null | undefined): TimeSpan {
+  const from = toMinutes(start);
+  const to = end ? toMinutes(end) : from;
+  return { start: from, end: to < from ? to + minutesPerDay : to };
+}
+
+export function spansOverlap(a: TimeSpan, b: TimeSpan) {
+  if (a.start === a.end || b.start === b.end) {
+    return a.start <= b.end && b.start <= a.end;
   }
-  return startA < finishB && startB < finishA;
+  return a.start < b.end && b.start < a.end;
+}
+
+export function nextDate(date: string) {
+  const next = new Date(`${date}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
 }
 
 export function isUnrealisticTime(time: string | null) {
@@ -64,35 +84,67 @@ export function validateAiV2Output(planning: AiV2PlanningDto, output: AiV2Output
       throw new Error('알 수 없는 장소입니다.');
     }
     const { startTime, endTime } = operation;
-    if (startTime && endTime && endTime < startTime) {
-      throw new Error('종료 시각이 시작 시각보다 빠릅니다.');
-    }
     const earliest = startTime ?? endTime;
     const latest = endTime ?? startTime;
     if (!earliest || !latest) {
       return;
     }
-    if (day.arrival && earliest < day.arrival) {
+    const span = timeSpan(earliest, latest);
+    if (span.end - span.start > maxOvernightMinutes && latest < earliest) {
+      throw new Error('종료가 시작보다 이르면 다음 날로 봅니다. 자정을 넘는 일정은 12시간 이내여야 합니다.');
+    }
+    if (day.arrival && span.start < toMinutes(day.arrival)) {
       throw new Error(`${day.date} 도착 시각 ${day.arrival} 이전의 제안입니다.`);
     }
-    if (day.departure && latest > day.departure) {
+    if (day.departure && span.end > toMinutes(day.departure)) {
       throw new Error(`${day.date} 출발 시각 ${day.departure} 이후의 제안입니다.`);
     }
     day.blocked.forEach((gap) => {
-      if (earliest < gap.to && gap.from < latest) {
+      if (span.start < toMinutes(gap.to) && toMinutes(gap.from) < span.end) {
         throw new Error(`${day.date} 이동 구간 ${gap.from}~${gap.to}와 겹칩니다.`);
       }
-      if (earliest === latest && earliest > gap.from && earliest < gap.to) {
-        throw new Error(`${day.date} 이동 구간 ${gap.from}~${gap.to} 안의 제안입니다.`);
-      }
     });
-    planning.items
-      .filter((item) => item.dayId === day.dayId && item.fixed && item.activityId !== operation.activityId)
+    const others = planning.items.filter((item) => item.activityId !== operation.activityId);
+    others
+      .filter((item) => item.dayId === day.dayId && item.fixed)
       .forEach((item) => {
-        if (item.start && overlaps(earliest, latest, item.start, item.end)) {
+        if (item.start && spansOverlap(span, timeSpan(item.start, item.end))) {
           throw new Error(`고정 활동 ${item.start} 시간대와 겹칩니다.`);
         }
       });
+    const previous = planning.days.find((candidate) => nextDate(candidate.date) === day.date);
+    others
+      .filter((item) => item.dayId === previous?.dayId && item.fixed)
+      .forEach((item) => {
+        const carried = item.start ? timeSpan(item.start, item.end) : undefined;
+        if (
+          carried &&
+          carried.end > minutesPerDay &&
+          spansOverlap(span, { start: 0, end: carried.end - minutesPerDay })
+        ) {
+          throw new Error(`고정 활동 ${item.start} 시간대와 겹칩니다.`);
+        }
+      });
+    if (span.end > minutesPerDay) {
+      const tomorrow = nextDate(day.date);
+      const following = planning.days.find((candidate) => candidate.date === tomorrow);
+      const outside = planning.followingDay?.date === tomorrow ? planning.followingDay : undefined;
+      const overflow = span.end - minutesPerDay;
+      const arrival = following?.arrival ?? outside?.arrival;
+      if (arrival && overflow > toMinutes(arrival)) {
+        throw new Error(`${tomorrow} 도착 시각 ${arrival}을 넘어가는 제안입니다.`);
+      }
+      const starts = following
+        ? others.filter((item) => item.dayId === following.dayId).flatMap((item) => (item.start ? [item.start] : []))
+        : outside?.firstStart
+          ? [outside.firstStart]
+          : [];
+      starts.forEach((start) => {
+        if (overflow > toMinutes(start)) {
+          throw new Error(`자정을 넘어 ${tomorrow} ${start} 활동과 겹칩니다.`);
+        }
+      });
+    }
     if (isUnrealisticTime(earliest)) {
       warnings.push(`${operation.title || operation.activityId}: ${earliest}은 비현실적인 시각일 수 있습니다.`);
     }
@@ -218,14 +270,16 @@ export function materializeV2Proposal(
     if (operation.type === 'remove') {
       return { type: 'remove-item' as const, activityId };
     }
-    const clock = (value: string | null) =>
+    const clock = (value: string | null, date = day.date) =>
       value
-        ? { precision: 'local' as const, date: day.date, localTime: value, timeZoneStatus: 'unknown' as const }
-        : { precision: 'unspecified' as const, date: day.date };
+        ? { precision: 'local' as const, date, localTime: value, timeZoneStatus: 'unknown' as const }
+        : { precision: 'unspecified' as const, date };
+    const { startTime, endTime } = operation;
+    const endDate = startTime && endTime && endTime < startTime ? nextDate(day.date) : day.date;
     const time =
       operation.startTime === null && operation.endTime === null && old?.dayId === day.dayId
         ? old.time
-        : { start: clock(operation.startTime), ...(operation.endTime ? { end: clock(operation.endTime) } : {}) };
+        : { start: clock(startTime), ...(endTime ? { end: clock(endTime, endDate) } : {}) };
     const item = planItemSchema.parse({
       ...(old ?? {
         tripId,
