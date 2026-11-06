@@ -37,6 +37,7 @@ export async function makeApiServer(manager: JobManager, configured: boolean, v2
         dailyJobLimit: 20,
         maxSearchCalls: 2,
         maxPlanningAttempts: 2,
+        ...(v2 ? { policy: v2.policy() } : {}),
       });
       return;
     }

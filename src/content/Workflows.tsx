@@ -4,6 +4,8 @@ import type { ContentRepository } from '../repository';
 import type { PlanVersion, Proposal, TripDataset } from '../contracts/v2';
 import type { Review, Choice, Slot } from '../transfer/reimport';
 import { command, errorText, ErrorText, Modal } from './ui';
+import { operationReasonsRef } from '../ai-v2-semantics';
+import { operationsToApply, reviewProposal, type FactStatus, type OperationReview } from './proposal-review';
 const AiPlanner = lazy(() => import('./AiPlanner'));
 export function ProposalPanel({
   repo,
@@ -27,17 +29,43 @@ export function ProposalPanel({
       latest.set(p.proposalId, p);
     }
   });
-  async function decide(p: Proposal, decision: 'apply' | 'reject') {
+  async function decide(p: Proposal, decision: 'apply' | 'reject', keep?: Proposal['operations']) {
     setBusy(true);
     setError('');
     try {
+      let expectedProposalRevision = p.proposalRevision;
+      if (decision === 'apply' && keep && keep.length < p.operations.length) {
+        // 확인하지 않은 항목은 뺀 새 revision을 먼저 저장한다. 전체 항목은 이전 revision으로 남는다.
+        const { commitSeq: _, ...rest } = p;
+        const activityIdOf = (operation: Proposal['operations'][number]) =>
+          operation.type === 'remove-item' ? operation.activityId : operation.item.activityId;
+        const keptIds = new Set(keep.map(activityIdOf));
+        const narrowed = {
+          ...rest,
+          proposalRevision: p.proposalRevision + 1,
+          proposalRevisionId: crypto.randomUUID(),
+          previousProposalRevisionId: p.proposalRevisionId,
+          operations: keep,
+          impact: { ...p.impact, activityIds: p.impact.activityIds.filter((id) => keptIds.has(id)) },
+        };
+        await repo.execute(
+          command(
+            header.tripId,
+            'SaveProposal',
+            { proposal: narrowed, baseDomainRevision: narrowed.baseDomainRevision },
+            undefined,
+            { expectedProposalRevision },
+          ),
+        );
+        expectedProposalRevision = narrowed.proposalRevision;
+      }
       await repo.execute(
         command(
           header.tripId,
           'DecideProposal',
           { proposalId: p.proposalId, decision, confirmedByUser: true },
           undefined,
-          { expectedProposalRevision: p.proposalRevision },
+          { expectedProposalRevision },
         ),
       );
       onSaved();
@@ -73,30 +101,15 @@ export function ProposalPanel({
             <p className="notice">기준이 오래됐습니다. 적용할 수 없습니다. 최신 내용으로 다시 작성하세요.</p>
           ) : null}
           <p>예약 영향: {p.impact.reservationText}</p>
-          <ProposalEvidence repo={repo} proposal={p} />
-          <ul>
-            {p.operations.map((o, n) => (
-              <li key={n}>
-                {o.type === 'upsert-item'
-                  ? `${o.item.title} (이전: ${plan.items.find((i) => i.activityId === o.item.activityId)?.title ?? '새 활동'})`
-                  : `활동 제거: ${o.activityId}`}
-              </li>
-            ))}
-          </ul>
-          {p.status === 'pending' ? (
-            <div className="button-row">
-              <button
-                disabled={busy || p.baseDomainRevision !== header.domainRevision}
-                className="primary"
-                onClick={() => void decide(p, 'apply')}
-              >
-                확인 후 적용
-              </button>
-              <button disabled={busy} onClick={() => void decide(p, 'reject')}>
-                변경안 거절
-              </button>
-            </div>
-          ) : null}
+          <ProposalReview
+            repo={repo}
+            proposal={p}
+            plan={plan}
+            busy={busy}
+            stale={p.baseDomainRevision !== header.domainRevision}
+            onApply={(keep) => void decide(p, 'apply', keep)}
+            onReject={() => void decide(p, 'reject')}
+          />
           <details>
             <summary>변경안 이력</summary>
             {proposals
@@ -124,7 +137,92 @@ export function ProposalPanel({
     </section>
   );
 }
-function ProposalEvidence({ repo, proposal }: { repo: ContentRepository; proposal: Proposal }) {
+const factLabels: Record<Exclude<FactStatus, 'none'>, string> = {
+  verified: '변하는 사실: 공식 출처 확인',
+  unverified: '변하는 사실: 미확인',
+};
+
+function OperationCard({
+  review,
+  confirmed,
+  onConfirm,
+  pending,
+}: {
+  review: OperationReview;
+  confirmed: boolean;
+  onConfirm: (value: boolean) => void;
+  pending: boolean;
+}) {
+  const { sources } = review;
+  const total = sources.official + sources.press + sources.community;
+  return (
+    <li className="proposal-card">
+      <h4>{review.removed ? `활동 제거: ${review.title}` : `${review.title} (이전: ${review.previousTitle})`}</h4>
+      <p>사유: {review.reason}</p>
+      <p className="muted">
+        출처 {total}건 · 공식 {sources.official} · 언론 {sources.press} · 블로그·커뮤니티·기타 {sources.community}
+        {review.checkedAt
+          ? ` · 확인 ${review.checkedAt}`
+          : review.collectedAt
+            ? ` · 수집 ${review.collectedAt} (확인 시각 없음)`
+            : ''}
+      </p>
+      {review.factStatus !== 'none' ? (
+        <p className={`proposal-flag proposal-fact-${review.factStatus}`}>{factLabels[review.factStatus]}</p>
+      ) : null}
+      {review.droppedLegs.length ? (
+        <div className="proposal-flag proposal-conflict">
+          <strong>적용하면 사라지는 이동</strong>
+          <ul>
+            {review.droppedLegs.map((leg) => (
+              <li key={leg}>{leg}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {review.conflicts.map((conflict) => (
+        <p className="proposal-flag proposal-conflict" key={conflict}>
+          충돌: {conflict}
+        </p>
+      ))}
+      {review.warnings.map((warning) => (
+        <p className="proposal-flag proposal-fact-unverified" key={warning}>
+          주의: {warning}
+        </p>
+      ))}
+      {review.needsConfirmation ? (
+        <div className="proposal-flag proposal-conflict">
+          <strong>확인 필요: 예약 활동의 시각 변경·제거입니다.</strong>
+          {pending ? (
+            <label>
+              <input type="checkbox" checked={confirmed} onChange={(event) => onConfirm(event.target.checked)} />
+              예약을 직접 확인했고 이 항목도 적용
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function ProposalReview({
+  repo,
+  proposal,
+  plan,
+  busy,
+  stale,
+  onApply,
+  onReject,
+}: {
+  repo: ContentRepository;
+  proposal: Proposal;
+  plan: PlanVersion;
+  busy: boolean;
+  stale: boolean;
+  onApply: (keep: Proposal['operations']) => void;
+  onReject: () => void;
+}) {
+  const [confirmed, setConfirmed] = useState<ReadonlySet<number>>(new Set());
   const evidence = useLiveQuery(
     () =>
       Promise.all(
@@ -133,23 +231,69 @@ function ProposalEvidence({ repo, proposal }: { repo: ContentRepository; proposa
     [repo, proposal.proposalRevisionId],
     [],
   );
+  const rows = evidence.flatMap((content) => (content?.kind === 'evidence' ? [content] : []));
+  const pending = proposal.status === 'pending';
+  const reviews = reviewProposal(proposal, plan, rows);
+  const kept = operationsToApply(reviews, confirmed);
+  const excluded = reviews.length - kept.length;
   return (
-    <ul aria-label="변경안 조사 근거">
-      {evidence.map((content) =>
-        content?.kind === 'evidence' ? (
-          <li key={content.entityId}>
-            {content.payload.sourceType === 'web' ? (
-              <a href={content.payload.sourceUrlOrRef} target="_blank" rel="noreferrer">
-                {content.payload.label || content.payload.sourceUrlOrRef}
-              </a>
-            ) : (
-              <span>{content.payload.label || content.payload.sourceUrlOrRef}</span>
-            )}
-            {content.payload.claim ? <p>{content.payload.claim}</p> : null}
-          </li>
-        ) : null,
-      )}
-    </ul>
+    <>
+      <ul className="proposal-cards" aria-label="변경안 항목">
+        {reviews.map((review) => (
+          <OperationCard
+            key={review.index}
+            review={review}
+            pending={pending}
+            confirmed={confirmed.has(review.index)}
+            onConfirm={(value) => {
+              const next = new Set(confirmed);
+              if (value) {
+                next.add(review.index);
+              } else {
+                next.delete(review.index);
+              }
+              setConfirmed(next);
+            }}
+          />
+        ))}
+      </ul>
+      <details>
+        <summary>전체 근거</summary>
+        <ul aria-label="변경안 조사 근거">
+          {rows.map((content) =>
+            content.payload.sourceUrlOrRef !== operationReasonsRef ? (
+              <li key={content.entityId}>
+                {content.payload.sourceType === 'web' ? (
+                  <a href={content.payload.sourceUrlOrRef} target="_blank" rel="noreferrer">
+                    {content.payload.label || content.payload.sourceUrlOrRef}
+                  </a>
+                ) : (
+                  <span>{content.payload.label || content.payload.sourceUrlOrRef}</span>
+                )}
+                {content.payload.claim ? <p>{content.payload.claim}</p> : null}
+              </li>
+            ) : null,
+          )}
+        </ul>
+      </details>
+      {pending ? (
+        <>
+          {excluded > 0 ? <p className="notice">확인 필요 {excluded}건은 표시하지 않으면 적용에서 빠집니다.</p> : null}
+          <div className="button-row">
+            <button
+              disabled={busy || stale || kept.length === 0}
+              className="primary"
+              onClick={() => onApply(kept.map((review) => proposal.operations[review.index]))}
+            >
+              확인 후 적용
+            </button>
+            <button disabled={busy} onClick={onReject}>
+              변경안 거절
+            </button>
+          </div>
+        </>
+      ) : null}
+    </>
   );
 }
 function MockEditor({

@@ -539,3 +539,54 @@ dialog th {
   border-radius: 8px;
   object-fit: cover;
 }
+
+/* T-D1: 변경안 항목별 요약 카드 */
+.proposal-cards {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.proposal-card {
+  border: 1px solid rgb(0 0 0 / 15%);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.proposal-card h4 {
+  margin: 0 0 0.25rem;
+}
+
+.proposal-flag {
+  border-left: 3px solid currentcolor;
+  padding-left: 0.5rem;
+  margin: 0.35rem 0;
+}
+
+.proposal-fact-verified {
+  color: #1a7f4b;
+}
+
+.proposal-fact-unverified {
+  color: #a15c00;
+}
+
+.proposal-conflict {
+  color: var(--danger, #b42318);
+}
+
+.ai-preview {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  min-width: 0;
+}
+
+.ai-preview pre {
+  max-width: 100%;
+  overflow-x: auto;
+}

@@ -1,8 +1,19 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson, digestBytes } from '../src/contracts/v2/index.ts';
-import { aiV2RequestSchema, type AiV2Request, type AiV2Status } from '../src/ai-v2-contract.ts';
-import { materializeV2Proposal, type AiV2Provider, type AiV2Result } from './ai-v2.ts';
+import {
+  aiV2Limits,
+  aiV2LocalServer,
+  aiV2RequestSchema,
+  consentFingerprint,
+  type AiV2JobResult,
+  type AiV2Policy,
+  type AiV2Request,
+  type AiV2Status,
+  type AiV2Usage,
+} from '../src/ai-v2-contract.ts';
+import { validateAiV2Output } from '../src/ai-v2-semantics.ts';
+import type { AiV2Provider } from './ai-v2.ts';
 
 export type AiV2Job = {
   id: string;
@@ -15,7 +26,8 @@ export type AiV2Job = {
   model: string;
   attempt: number;
   sources: { url: string; title: string }[];
-  result?: AiV2Result;
+  usage: AiV2Usage;
+  result?: AiV2JobResult;
   error?: string;
 };
 const running = new Set<AiV2Status>(['queued', 'researching', 'planning', 'validating']);
@@ -64,6 +76,10 @@ export class AiV2Jobs {
   get(id: string) {
     return this.jobs.get(id)?.job;
   }
+  /** 동의가 묶이는 서버·모델·한도. 상태 API로 화면에 알리고 요청을 받을 때 다시 계산한다. */
+  policy(): AiV2Policy {
+    return { server: aiV2LocalServer, model: this.provider.model, limits: { ...aiV2Limits } };
+  }
   list(tripId: string) {
     return [...this.jobs.values()]
       .map((row) => row.job)
@@ -72,29 +88,20 @@ export class AiV2Jobs {
   }
   async create(raw: unknown) {
     const input = aiV2RequestSchema.parse(raw);
-    const { header, plan } = input.context;
+    const { scope, planning } = input;
+    const dayIds = new Set(planning.days.map((day) => day.dayId));
     if (
-      header.tripId !== plan.tripId ||
-      header.currentPlanVersionId !== plan.planVersionId ||
-      input.fromDate < header.startDate ||
-      input.fromDate > header.endDate ||
-      !plan.days.length ||
-      plan.days.length > 7 ||
-      plan.days.some(
-        (day) =>
-          day.tripId !== header.tripId ||
-          day.planVersionId !== plan.planVersionId ||
-          day.date < input.fromDate ||
-          day.date > header.endDate,
-      ) ||
-      plan.items.some(
-        (item) =>
-          item.tripId !== header.tripId ||
-          item.planVersionId !== plan.planVersionId ||
-          !plan.days.some((day) => day.dayId === item.dayId),
-      )
+      planning.fromDate < planning.trip.startDate ||
+      planning.fromDate > planning.trip.endDate ||
+      planning.days.some((day) => day.date < planning.fromDate || day.date > planning.trip.endDate) ||
+      planning.items.some((item) => !dayIds.has(item.dayId))
     ) {
       throw new Error('AI 요청의 여행·계획·선택 날짜가 일치하지 않습니다. 최대 7일을 선택하세요.');
+    }
+    const policy = this.policy();
+    const { fingerprint: agreed, ...agreedPolicy } = input.consent;
+    if (agreed !== (await consentFingerprint(input, policy)) || canonicalJson(agreedPolicy) !== canonicalJson(policy)) {
+      throw new Error('동의한 전송 내용·서버·모델·한도가 이 요청과 다릅니다. 미리보기를 다시 확인하세요.');
     }
     const fingerprint = await digestBytes(new TextEncoder().encode(canonicalJson(input)));
     const previous = this.jobs.get(input.id);
@@ -104,7 +111,7 @@ export class AiV2Jobs {
       }
       return previous.job;
     }
-    if (this.controllers.size >= 2 || this.list(header.tripId).some((job) => running.has(job.status))) {
+    if (this.controllers.size >= 2 || this.list(scope.tripId).some((job) => running.has(job.status))) {
       throw new Error('이미 실행 중인 AI 작업이 있습니다.');
     }
     if (
@@ -115,15 +122,16 @@ export class AiV2Jobs {
     }
     const job: AiV2Job = {
       id: input.id,
-      tripId: header.tripId,
-      baseDomainRevision: header.domainRevision,
-      basePlanVersionId: plan.planVersionId,
+      tripId: scope.tripId,
+      baseDomainRevision: scope.baseDomainRevision,
+      basePlanVersionId: scope.basePlanVersionId,
       status: 'queued',
       createdAt: now(),
       updatedAt: now(),
       model: this.provider.model,
       attempt: 0,
       sources: [],
+      usage: { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, webSearchCalls: 0 },
     };
     const controller = new AbortController();
     this.jobs.set(job.id, { job, fingerprint });
@@ -154,6 +162,16 @@ export class AiV2Jobs {
   private async execute(input: AiV2Request, job: AiV2Job, controller: AbortController) {
     const signal = controller.signal;
     const timeout = setTimeout(() => controller.abort(), 300_000);
+    // 실패한 호출의 사용량도 남도록 응답을 받는 즉시 더한다. 표시는 T-D2에서 한다.
+    const addUsage = (usage: AiV2Usage) => {
+      job.usage = {
+        calls: job.usage.calls + usage.calls,
+        inputTokens: job.usage.inputTokens + usage.inputTokens,
+        outputTokens: job.usage.outputTokens + usage.outputTokens,
+        totalTokens: job.usage.totalTokens + usage.totalTokens,
+        webSearchCalls: job.usage.webSearchCalls + usage.webSearchCalls,
+      };
+    };
     const update = async (status: AiV2Status) => {
       signal.throwIfAborted();
       job.status = status;
@@ -162,22 +180,25 @@ export class AiV2Jobs {
     };
     try {
       await update('researching');
-      const research = await this.provider.research(input, signal);
+      const research = await this.provider.research(input.research, signal, addUsage);
       job.sources = research.sources;
       let repair = '';
-      for (let attempt = 1; attempt <= 2; attempt++) {
+      for (let attempt = 1; attempt <= aiV2Limits.maxPlanningAttempts; attempt++) {
         job.attempt = attempt;
         await update('planning');
-        const output = await this.provider.plan(input, research, repair, signal);
+        const output = await this.provider.plan(input.planning, research, repair, signal, addUsage);
         await update('validating');
+        let warnings: string[];
         try {
-          job.result = materializeV2Proposal(input, output, research);
-          await update('awaiting-decision');
-          return;
-        } catch {
-          repair =
-            'The proposal failed local date/reference/shape checks. Recheck known activity/place/day IDs and cited source URLs; preserve untouched fields.';
+          warnings = validateAiV2Output(input.planning, output, research.sources);
+        } catch (validation) {
+          const detail = validation instanceof Error ? validation.message : 'invalid output';
+          repair = `The proposal failed local date/reference/time/shape checks: ${detail} Recheck known activity/place/day IDs, arrival/departure and fixed time windows, and cited source URLs; preserve untouched fields.`;
+          continue;
         }
+        job.result = { output, sources: research.sources, planning: input.planning, warnings };
+        await update('awaiting-decision');
+        return;
       }
       throw new Error('2회 작성 후에도 날짜·참조·변경안 검증을 통과하지 못했습니다.');
     } catch (error) {

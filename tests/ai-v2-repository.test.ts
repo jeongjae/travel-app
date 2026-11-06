@@ -40,7 +40,7 @@ async function setup() {
       packageDigest: provenance.packageDigest,
     }),
   );
-  const result = materializeV2Proposal(fixture.input, fixture.output, fixture.research);
+  const result = materializeV2Proposal(fixture.local, fixture.output, fixture.research);
   const evidence = result.evidence.map(({ actor, recordedAt, commitSeq, ...content }) => content);
   const payload = { proposal: result.proposal, evidence };
   const stage = {
