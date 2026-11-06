@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>travel-app · 하루 일정과 회고 설계 시안</title>
+    <style>
+      * { box-sizing: border-box; }
+      :root { color-scheme: light; --ink: #20332d; --green: #2d6553; --soft: #edf4ef; --muted: #526760; }
+      body {
+        margin: 0;
+        background: #f6f9f7;
+        color: var(--ink);
+        font: 16px/1.55 "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+        word-break: keep-all;
+      }
+      main { max-width: 920px; margin: auto; padding: 32px 20px 48px; }
+      h1, h2, h3, p, figure { margin: 0; }
+      h1 { font-size: clamp(24px, 4vw, 34px); }
+      h2 { font-size: 25px; line-height: 1.3; }
+      h3 { font-size: 18px; }
+      .intro { color: var(--muted); margin: 6px 0 24px; }
+      .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+      .screen { background: white; border: 1px solid #c5d2cc; border-radius: 18px; overflow: hidden; }
+      .trip, .tabs { padding: 12px 18px; background: var(--soft); }
+      .trip { font-weight: 700; }
+      .body { padding: 20px; }
+      .dates, .tabs { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 14px; }
+      .dates { padding: 7px 14px; border-bottom: 1px solid #dbe5df; }
+      .dates span, .tabs span { padding: 8px 2px; }
+      .dates .selected { background: var(--green); color: white; border-radius: 20px; padding: 8px 12px; }
+      .tabs .selected { color: var(--green); font-weight: 800; border-bottom: 3px solid; }
+      .meta, .time, .link, figcaption { color: var(--muted); }
+      .meta { margin: 5px 0 18px; }
+      .stop { padding: 12px 0; border-top: 1px solid #c5d2cc; }
+      .time { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; }
+      .actions { display: flex; align-items: center; gap: 15px; margin-top: 10px; }
+      .action { display: inline-block; padding: 10px 15px; border-radius: 10px; color: white; background: var(--green); font-weight: 700; }
+      .leg { margin: 4px 0 10px 4px; padding: 5px 14px; border-left: 2px solid #9db5a8; color: var(--muted); }
+      .summary { background: var(--soft); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+      .link { text-decoration: underline; text-underline-offset: 3px; }
+      figcaption { padding: 10px 2px; font-size: 14px; }
+      @media (max-width: 710px) {
+        main { padding: 20px 12px; }
+        .pair { grid-template-columns: minmax(0, 420px); justify-content: center; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>하루 일정과 날짜별 회고</h1>
+      <p class="intro">검토용 정적 시안 · 같은 가상 여행을 현장과 귀가 후에 본 예시입니다. 시각과 장소는 설명용입니다.</p>
+      <div class="pair">
+        <figure>
+          <div class="screen">
+            <div class="trip">삿포로 겨울 산책 ▾</div>
+            <div class="dates"><span>12/31</span><span class="selected">1/1 금</span><span>1/2</span><span>1/3</span></div>
+            <div class="body">
+              <h2>1월 1일 금요일</h2>
+              <p class="meta">2일차 · 삿포로 · 활동 2개</p>
+              <div class="stop">
+                <div class="time">다음 일정 · 10:00</div>
+                <h3>겨울 정원 산책</h3>
+                <div class="actions"><span class="action">방문 기록</span><span class="link">장소 안내</span><span>⋯</span></div>
+              </div>
+              <div class="leg">도보 약 10분</div>
+              <div class="stop">
+                <div class="time">11:00</div>
+                <h3>작은 미술관</h3>
+                <div class="actions"><span class="link">방문 기록</span><span class="link">장소 안내</span><span>⋯</span></div>
+              </div>
+              <p class="meta">숙박 · 시내 숙소</p>
+            </div>
+            <div class="tabs"><span class="selected">오늘</span><span>일정</span><span>가이드</span><span>기록</span><span>더보기</span></div>
+          </div>
+          <figcaption>현장에서는 다음 활동과 방문 기록을 먼저 보고, 이어지는 두 장소 사이에서 이동 시간을 읽습니다.</figcaption>
+        </figure>
+        <figure>
+          <div class="screen">
+            <div class="trip">삿포로 겨울 산책 ▾</div>
+            <div class="body">
+              <p class="link">기록 목록으로</p>
+              <h2>날짜별 회고</h2>
+              <p class="meta">1월 1일 금요일 ▾ · 현재 계획 ▾</p>
+              <div class="summary"><strong>방문 1건 · 건너뜀 1건</strong></div>
+              <div class="stop">
+                <h3>겨울 정원 산책</h3>
+                <p>계획 10:00</p><p><strong>방문 10:15</strong> · 현장에서 기록</p>
+                <span class="link">기록 당시 내용</span>
+              </div>
+              <div class="stop">
+                <h3>작은 미술관</h3>
+                <p>계획 11:00</p><p><strong>건너뜀</strong> · 시각 미상</p>
+              </div>
+              <p class="link">계획 변경 이유와 근거 보기</p>
+            </div>
+            <div class="tabs"><span>오늘</span><span>일정</span><span>가이드</span><span class="selected">기록</span><span>더보기</span></div>
+          </div>
+          <figcaption>귀가 후에는 같은 활동에서 계획과 방문 결과를 비교하고, 필요할 때 당시 본문을 엽니다.</figcaption>
+        </figure>
+      </div>
+    </main>
+  </body>
+</html>

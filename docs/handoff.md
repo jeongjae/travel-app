@@ -8,6 +8,7 @@
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). 이전 상세는 [history](history/handoff-2026-11-06-before-d0.md).
 - 배포: Pages = main `e0c4013` 코드(U1~U4 + C-14 + C-15).
+- [상용 앱 비교·UI 개선 설계서](design/commercial-ui-design.md) 검토 준비. [오늘·회고 정적 시안](design/ui-review-2026-11-06/concept.html)에서 이동과 방문 결과의 읽는 순서를 확인한다.
 - [UI 정리 계획](ui-polish-plan.md): U1~U4 검토 통과·배포. CL-20은 U4 [대본 v2](u4-sapporo-scenario.md) 사용자 재수행 뒤 해소.
 - [C-14 검토](claude-task-c14-review.md) 통과(CL-22 해소). [C-15 검토](claude-task-c15-review.md) 통과(R1 확인, 사용자 답변 11/06).
 - REG-02: 표시 문제로 재분류 → C-15 Q3 대표 사진 규칙으로 수정. 사용자 평소 공간 확인 뒤 종결.
