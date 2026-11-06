@@ -91,3 +91,4 @@
 - 2026-11-06: C-15 사용자 답변 — `지역 상세 안내` 이름 확인, 어색한 4일 v5 후보 유지 동의, AGENTS.md 토큰 지침(`ddda730`) 의도적 변경 확인. 사용자 요청으로 D 설계·계획 검토 착수.
 - 2026-11-06: Q-D0 사용자 결정(항목 단위 AI·개인용 단순화·Pages+Cloudflare Worker·iPhone D 후반) → D 설계·계획 v0.3, [T-D0](claude-task-d00-baseline.md) 지시 발행.
 - 2026-11-06: T-D0 검토 통과(제품 변경 0, 전송 공백 G1~G13 차단 분류, Worker·패스키 권고 수용). main fast-forward. 사용자 결정 대기: 인증·background 보관·요금제.
+- 2026-11-06: 사용자 결정(패스키·background 10분 보관 수용·Workers Free·D 먼저 UI 뒤) → [T-D1](claude-task-d01-send-semantics.md) 지시 발행.

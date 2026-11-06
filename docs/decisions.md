@@ -1,5 +1,14 @@
 # 결정 기록
 
+## 2026-11-06 · T-D0 후속 결정
+
+- 근거: [T-D0 결과](claude-task-d00-result.md) §6, [T-D0 검토](claude-task-d00-review.md).
+- **인증: 패스키** + 짧은 수명 Bearer 토큰(쿠키 없음). iPhone 실동작이 막히면 TOTP로 전환.
+- **OpenAI background 모드 약 10분 임시 보관 수용**(U-D3 일부). 전송 최소화(T-D1)가 전제.
+- **Cloudflare Workers Free로 시작.** CPU 한도 초과 시 Paid 재결정. 배포는 T-D4 별도 승인.
+- **순서: D 먼저.** PC의 미커밋 UI 개선 설계서(`docs/design/commercial-ui-design.md`)는 D 이후 검토.
+- 미결정: U-D2 모델·월 한도·일일 횟수(T-D4 전).
+
 ## 2026-11-06 · D단계 범위·운영 방향 (Q-D0)
 
 - 근거: [D 재검토](phase-d-review-2026-11-06.md). 사용자 선택 4건.

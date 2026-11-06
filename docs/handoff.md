@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-06 · **main·Pages C-15까지 배포 / D v0.3·T-D0 통과·T-D1 지시 준비 / U4 사용자 재수행 대기**
+2026-11-06 · **main·Pages C-15까지 배포 / D v0.3·T-D0 통과·T-D1 지시 발행 / U4 사용자 재수행 대기**
 
 새 Codex 세션은 먼저 [세션 인계](codex-session-handoff-2026-11-05.md)를 읽는다.
 
@@ -24,7 +24,7 @@
 
 ## 다음 작업·확인 관문
 
-1. 사용자: 인증·background 보관·Workers 요금제 결정 → Codex: T-D1 지시.
+1. Claude: [T-D1](claude-task-d01-send-semantics.md) 수행(`codex/d01-send-semantics`) → Codex 검토. 결정: 패스키·background 수용·Workers Free·D 먼저.
 2. 사용자: 평소 공간 파리 화면 확인 → REG-02 종결.
 3. 사용자: U4 대본 v2 재수행(`?workspace=content&review=sapporo-u4`, 약 30분) → Q-U2·Q-U3·S6-d·CL-20.
 4. 사용자 결정(첫 실제 호출 전): U-D2 모델·예산, U-D3 전송·보관.
