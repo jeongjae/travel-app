@@ -9,6 +9,9 @@
   },
   "scripts": {
     "dev": "node scripts/run-app.mjs dev",
+    "dev:node": "node scripts/run-app.mjs dev node",
+    "worker:dev": "wrangler dev --config worker/wrangler.toml --ip 127.0.0.1 --port 8787 --persist-to .cache/wrangler-dev",
+    "fake-openai": "node scripts/fake-openai.ts",
     "dev:ui": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "ai:server": "node --env-file-if-exists=.env.local server/index.ts",
     "typecheck": "tsc --noEmit",
@@ -16,6 +19,7 @@
     "test:watch": "vitest",
     "build": "pnpm run typecheck && vite build",
     "preview": "node scripts/run-app.mjs preview",
+    "preview:node": "node scripts/run-app.mjs preview node",
     "preview:ui": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test:e2e": "node scripts/playwright.mjs test",
     "browser:install": "node scripts/playwright.mjs install chromium",

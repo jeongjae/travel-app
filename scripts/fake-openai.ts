@@ -11,6 +11,8 @@ type Config = {
   sources: { url: string; title: string }[];
   /** 작성 호출 순서대로 돌려줄 출력. 모자라면 마지막 값을 다시 쓴다. */
   outputs: unknown[];
+  /** true면 생성 호출의 연결을 응답 없이 끊는다(결과 불명 재현). */
+  dropCreate: boolean;
 };
 
 type Stored = { kind: 'research' | 'planning'; polls: number; planningIndex: number };
@@ -21,6 +23,7 @@ const defaults = (): Config => ({
   researchText: '가상 조사 결과',
   sources: [{ url: 'https://example.org/fictional-official', title: '가상 공식 자료' }],
   outputs: [],
+  dropCreate: false,
 });
 
 let config = defaults();
@@ -91,6 +94,10 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   const body = req.method === 'POST' ? await readBody(req) : undefined;
   requests.push({ method: req.method ?? '', path, body });
   if (path === '/v1/responses' && req.method === 'POST') {
+    if (config.dropCreate) {
+      req.socket.destroy();
+      return;
+    }
     const id = `resp_fake_${++sequence}`;
     const kind = body?.tools ? 'research' : 'planning';
     const planningIndex = kind === 'planning' ? planningCalls++ : 0;

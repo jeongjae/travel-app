@@ -179,6 +179,7 @@ it('v1 경로는 Worker에 없고, 초기화 경로는 로컬 시험 설정에�
   const harness = workerHarness();
   expect((await call(harness, 'POST', '/api/ai/jobs')).status).toBe(404);
   expect((await call(harness, 'POST', '/__test/reset')).status).toBe(404);
+  expect((await call(harness, 'POST', '/__test/clock', { body: { advanceMs: 1 } })).status).toBe(404);
   const production = createApp(
     { ...testVars, RP_ID: 'jeongjae.github.io', E2E_RESET: '1' },
     { sql: harness.sql, now: () => harness.clock.now, schedule: () => undefined },

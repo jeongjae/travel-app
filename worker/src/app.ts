@@ -14,6 +14,8 @@ export type AppContext = {
   /** 로컬 E2E에서만 켠다. 모든 표를 비운다. */
   allowReset: boolean;
   onReset?: () => void;
+  /** 로컬 E2E에서 토큰 만료·24시간 보관을 재현하려고 시계를 앞으로 민다. */
+  advanceClock?: (ms: number) => void;
 };
 
 const jobPath = /^\/api\/ai\/v2\/jobs\/([a-f0-9-]{36})(\/cancel)?$/;
@@ -105,6 +107,10 @@ export async function handleRequest(request: Request, app: AppContext): Promise<
       app.store.resetAll();
       app.onReset?.();
       return reply(200, { reset: true });
+    }
+    if (path === '/__test/clock' && request.method === 'POST' && app.allowReset) {
+      app.advanceClock?.(Math.max(0, Number(body.advanceMs) || 0));
+      return reply(200, { advanced: true });
     }
     if (path.startsWith('/api/ai/v2/')) {
       // status를 포함한 v2 경로 전부가 인증을 요구한다.

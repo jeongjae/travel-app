@@ -7,10 +7,16 @@ if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(base)) {
   throw new Error('VITE_BASE_PATH는 / 또는 /저장소명/ 형태여야 합니다.');
 }
 
+// 로컬 AI 서버(8787). Worker의 패스키 인증 경로(/auth)도 같은 출처로 넘긴다.
+const aiProxy = {
+  '/api': { target: 'http://127.0.0.1:8787', changeOrigin: true },
+  '/auth': { target: 'http://127.0.0.1:8787', changeOrigin: true },
+};
+
 export default defineConfig({
   base,
-  server: { proxy: { '/api': { target: 'http://127.0.0.1:8787', changeOrigin: true } } },
-  preview: { proxy: { '/api': { target: 'http://127.0.0.1:8787', changeOrigin: true } } },
+  server: { proxy: aiProxy },
+  preview: { proxy: aiProxy },
   build: {
     rolldownOptions: {
       output: {

@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import type { AiV2Job } from '../../server/ai-v2-jobs.ts';
+import type { AiV2Job } from '../ai-v2-jobs-core.ts';
 import { jobStatusLabel } from './ai-job-label.ts';
-import { consentFingerprint, type AiV2Payload, type AiV2Policy, type AiV2RequestKind } from '../ai-v2-contract.ts';
+import {
+  aiV2RunningStatuses,
+  consentFingerprint,
+  type AiV2Payload,
+  type AiV2RequestKind,
+  type AiV2ServerStatus,
+} from '../ai-v2-contract.ts';
 import {
   buildAiV2Payload,
   consentedRequest,
@@ -16,11 +22,22 @@ import { materializeV2Proposal } from '../ai-v2-semantics.ts';
 import type { ContentRepository } from '../repository';
 import type { TripDataset } from '../contracts/v2';
 import { command, ErrorText, errorText } from './ui';
-import { staticHosting } from '../hosting';
+import { aiApiAvailable } from '../hosting';
+import {
+  AiApiError,
+  aiFetch,
+  needsLogin,
+  nextPollStep,
+  readAuthState,
+  saveToken,
+  type AuthState,
+} from './ai-client.ts';
+import AiAuthPanel from './AiAuthPanel.tsx';
 
-const active = new Set(['queued', 'researching', 'planning', 'validating']);
+const active = new Set<string>(aiV2RunningStatuses);
 const labels: Record<string, string> = {
   queued: '대기',
+  calling: 'OpenAI 호출 중',
   researching: '출처 조사',
   planning: '변경안 작성',
   validating: '날짜·참조 검사',
@@ -41,22 +58,8 @@ const excludedFromSend = [
   '고르지 않은 현장 기록과 정정 전 기록',
 ];
 
-async function api<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(path, {
-    cache: 'no-store',
-    ...(body === undefined
-      ? {}
-      : {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Travel-App': '1' },
-          body: JSON.stringify(body),
-        }),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || 'AI 서버에 연결하지 못했습니다.');
-  }
-  return data as T;
+function usageText(usage: AiV2Job['usage']) {
+  return `토큰 ${usage.totalTokens.toLocaleString('ko-KR')} (입력 ${usage.inputTokens.toLocaleString('ko-KR')} · 출력 ${usage.outputTokens.toLocaleString('ko-KR')}) · 호출 ${usage.calls}회 · 웹 검색 ${usage.webSearchCalls}회`;
 }
 
 export default function AiPlanner({
@@ -81,7 +84,11 @@ export default function AiPlanner({
     [agreedFingerprint, setAgreedFingerprint] = useState('');
   const [job, setJob] = useState<AiV2Job | null>(null),
     [jobId, setJobId] = useState(() => localStorage.getItem(scopeKey) || '');
-  const [status, setStatus] = useState<{ configured: boolean; model?: string; policy?: AiV2Policy } | null>(null);
+  const [status, setStatus] = useState<AiV2ServerStatus | null>(null);
+  const [authState, setAuthState] = useState<AuthState>('checking');
+  const [statusVersion, setStatusVersion] = useState(0);
+  const [pollVersion, setPollVersion] = useState(0);
+  const [connectionLost, setConnectionLost] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [saved, setSaved] = useState(false);
@@ -89,43 +96,100 @@ export default function AiPlanner({
   onSavedRef.current = onSaved;
   const dataset = useLiveQuery(() => repo.get(header.tripId), [repo, header.tripId, header.domainRevision]);
   const policy = status?.policy;
+  // 인증 단계: Worker는 패스키 로그인 뒤에만 상태(정책·잔여 횟수)를 읽는다.
   useEffect(() => {
-    if (staticHosting) {
-      setStatus({ configured: false });
+    if (!aiApiAvailable) {
       return;
     }
     let live = true;
-    void api<{ configured: boolean; model?: string; policy?: AiV2Policy }>('/api/ai/v2/status')
+    void readAuthState().then((value) => {
+      if (live) {
+        setAuthState(value);
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const canCallApi = authState === 'logged-in' || authState === 'none';
+  /** 401이면 토큰을 버리고 재로그인 안내로 바꾼다. 만료는 따로 알린다. */
+  const handleAuthError = (exception: unknown) => {
+    if (!needsLogin(exception)) {
+      return false;
+    }
+    saveToken(null);
+    setAuthState(exception instanceof AiApiError && exception.code === 'token_expired' ? 'expired' : 'logged-out');
+    return true;
+  };
+  const handleAuthErrorRef = useRef(handleAuthError);
+  handleAuthErrorRef.current = handleAuthError;
+  useEffect(() => {
+    if (!canCallApi) {
+      setStatus(null);
+      return;
+    }
+    let live = true;
+    void aiFetch<AiV2ServerStatus>('/api/ai/v2/status')
       .then((value) => {
         if (live) {
           setStatus(value);
         }
       })
-      .catch(() => {
-        if (live) {
+      .catch((exception) => {
+        if (live && !handleAuthErrorRef.current(exception)) {
           setStatus({ configured: false });
         }
       });
     return () => {
       live = false;
     };
-  }, []);
+  }, [canCallApi, statusVersion]);
   useEffect(() => {
     let live = true;
     let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
     async function poll() {
       try {
-        const value = await api<AiV2Job>(`/api/ai/v2/jobs/${jobId}`);
+        let value: AiV2Job;
+        try {
+          value = await aiFetch<AiV2Job>(`/api/ai/v2/jobs/${jobId}`);
+        } catch (exception) {
+          if (!live) {
+            return;
+          }
+          const step = nextPollStep(exception, failures);
+          if (step.action === 'login') {
+            handleAuthErrorRef.current(exception);
+            return;
+          }
+          // 연결 오류·5xx는 지수 백오프로 다시 묻고, 한도를 넘으면 사용자에게 넘긴다.
+          if (step.action === 'retry') {
+            failures += 1;
+            timer = setTimeout(() => void poll(), step.delay);
+            return;
+          }
+          if (step.action === 'lost') {
+            setConnectionLost(true);
+            return;
+          }
+          throw exception;
+        }
         if (!live) {
           return;
         }
+        failures = 0;
+        setConnectionLost(false);
         if (value.tripId !== header.tripId) {
           throw new Error('다른 여행의 AI 작업입니다.');
         }
         setJob(value);
         if (active.has(value.status)) {
           timer = setTimeout(() => void poll(), 2000);
-        } else if (value.status === 'awaiting-decision' && value.result?.scope) {
+          return;
+        }
+        // 끝난 작업의 사용량이 오늘 합계에 들어가도록 상태를 다시 읽는다.
+        setStatusVersion((version) => version + 1);
+        if (value.status === 'awaiting-decision' && value.result?.scope) {
           const current = await repo.get(value.tripId);
           const plan = current.plans.find((candidate) => candidate.planVersionId === value.basePlanVersionId);
           if (!plan) {
@@ -164,14 +228,14 @@ export default function AiPlanner({
         }
       }
     }
-    if (jobId && !staticHosting) {
+    if (jobId && aiApiAvailable && canCallApi) {
       void poll();
     }
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [jobId, header.tripId, repo]);
+  }, [jobId, header.tripId, repo, canCallApi, pollVersion]);
   const selectionKey = JSON.stringify([
     prompt,
     requestKind,
@@ -200,7 +264,7 @@ export default function AiPlanner({
       live = false;
     };
   }, [preview, policy]);
-  if (staticHosting) {
+  if (!aiApiAvailable) {
     return (
       <p className="notice">
         이 웹 버전에서는 AI 서버가 연결되지 않습니다. 저장된 변경안의 검토·적용과 기기 내 일정·기록·백업을 사용할 수
@@ -223,6 +287,19 @@ export default function AiPlanner({
         {status?.configured ? `OpenAI · ${status.model}` : 'v2 AI 실행 설정 대기'} · 최대 7일 · 웹 조사 최대 2회 · 작성
         최대 2회
       </p>
+      <AiAuthPanel
+        state={authState}
+        onChange={(next) => {
+          setError('');
+          setAuthState(next);
+        }}
+      />
+      {status?.dailyJobLimit !== undefined ? (
+        <p className="muted" aria-label="오늘 AI 사용량">
+          오늘 남은 요청 {status.remainingToday}/{status.dailyJobLimit} · 오늘 사용 토큰{' '}
+          {(status.usageToday?.totalTokens ?? 0).toLocaleString('ko-KR')} (금액은 표시하지 않습니다)
+        </p>
+      ) : null}
       <ErrorText error={error} />
       <label>
         변경 요청
@@ -401,9 +478,10 @@ export default function AiPlanner({
             />
             위 내용 전송과 OpenAI API 유료 실행에 동의
           </label>
+          {!canCallApi ? <p className="muted">로그인한 뒤에 동의하고 전송할 수 있습니다.</p> : null}
           <button
             className="primary"
-            disabled={!consent || !policy || !status?.configured || busy || !navigator.onLine}
+            disabled={!canCallApi || !consent || !policy || !status?.configured || busy || !navigator.onLine}
             onClick={async () => {
               if (!policy) {
                 return;
@@ -412,14 +490,17 @@ export default function AiPlanner({
               setError('');
               setSaved(false);
               try {
-                const next = await api<AiV2Job>('/api/ai/v2/jobs', await consentedRequest(preview, policy));
+                const next = await aiFetch<AiV2Job>('/api/ai/v2/jobs', await consentedRequest(preview, policy));
                 localStorage.setItem(scopeKey, next.id);
                 setJob(next);
                 setJobId(next.id);
                 setPreview(null);
                 setAgreedFingerprint('');
+                setStatusVersion((version) => version + 1);
               } catch (exception) {
-                setError(errorText(exception));
+                if (!handleAuthError(exception)) {
+                  setError(errorText(exception));
+                }
               } finally {
                 setBusy(false);
               }
@@ -434,13 +515,31 @@ export default function AiPlanner({
           <p>
             {jobStatusLabel(job.status, labels, job.error)} · 작성 {job.attempt}회{saved ? ' · 변경안에 저장됨' : ''}
           </p>
+          {job.usage ? <p className="muted">이 작업 사용량: {usageText(job.usage)}</p> : null}
           {job.error ? <ErrorText error={job.error} /> : null}
+          {connectionLost ? (
+            <p>
+              연결 끊김 — AI 서버에서 작업 상태를 받지 못했습니다.{' '}
+              <button
+                onClick={() => {
+                  setConnectionLost(false);
+                  setPollVersion((version) => version + 1);
+                }}
+              >
+                다시 시도
+              </button>
+            </p>
+          ) : null}
           {active.has(job.status) ? (
             <button
               onClick={() => {
-                void api<AiV2Job>(`/api/ai/v2/jobs/${job.id}/cancel`, {})
+                void aiFetch<AiV2Job>(`/api/ai/v2/jobs/${job.id}/cancel`, {})
                   .then(setJob)
-                  .catch((exception) => setError(errorText(exception)));
+                  .catch((exception) => {
+                    if (!handleAuthError(exception)) {
+                      setError(errorText(exception));
+                    }
+                  });
               }}
             >
               AI 작업 중단

@@ -3,16 +3,23 @@ import { buildPackage } from '../../src/transfer/package';
 import { digestBytes } from '../../src/contracts/v2';
 import { fixtureAssets } from '../fixtures/pilot';
 import { aiV2Fixture } from '../fixtures/ai-v2';
-import { toValidationScope } from '../../src/ai-v2-semantics';
-import { aiV2Limits, aiV2LocalServer, type AiV2Output, type AiV2Request } from '../../src/ai-v2-contract';
-import type { AiV2Job } from '../../server/ai-v2-jobs';
+import type { AiV2Output, AiV2Request } from '../../src/ai-v2-contract';
 import { openMore } from './helpers/nav';
+import {
+  addVirtualAuthenticator,
+  configureFakeOpenAi,
+  e2eWorker,
+  registerPasskeyInApp,
+  resetBackends,
+} from './helpers/worker';
+
+// T-D2: 모의 라우트 대신 로컬 Worker(wrangler dev) + 가짜 OpenAI + 가상 패스키로 같은 시나리오를 돈다.
+test.use({ baseURL: e2eWorker.appOrigin });
 
 async function openProposals(page: Page) {
   await openMore(page, '변경안');
 }
 
-const model = 'fictional-provider-no-api';
 const shotsDirectory = process.env.UI_D01_SHOTS;
 
 async function shot(page: Page, name: string) {
@@ -28,78 +35,13 @@ type SetupOptions = {
   prepare?: (dataset: Awaited<ReturnType<typeof aiV2Fixture>>['dataset']) => void;
 };
 
-async function setup(page: Page, options: SetupOptions = {}) {
-  const { delayed = false } = options;
-  const fixture = await aiV2Fixture();
-  const output = options.output?.(fixture) ?? fixture.output;
-  options.prepare?.(fixture.dataset);
-  const bodies: AiV2Request[] = [];
-  const errors: string[] = [];
-  const external: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      errors.push(message.text());
-    }
-  });
-  page.on('request', (request) => {
-    if (/^https?:/.test(request.url()) && new URL(request.url()).hostname !== '127.0.0.1') {
-      external.push(request.url());
-    }
-  });
-  let stored: AiV2Job | undefined;
-  let calls = 0;
-  let ready = !delayed;
-  await page.route('**/api/ai/v2/**', async (route) => {
-    const request = route.request();
-    if (request.url().endsWith('/status')) {
-      await route.fulfill({
-        json: {
-          configured: true,
-          model,
-          policy: { server: aiV2LocalServer, model, limits: { ...aiV2Limits } },
-        },
-      });
-      return;
-    }
-    if (request.method() === 'POST' && request.url().endsWith('/jobs')) {
-      calls++;
-      const input = request.postDataJSON() as AiV2Request;
-      bodies.push(input);
-      expect(JSON.stringify(input)).not.toContain('SYNTHETIC-PRIVATE');
-      stored = {
-        id: input.id,
-        tripId: input.scope.tripId,
-        baseDomainRevision: input.scope.baseDomainRevision,
-        basePlanVersionId: input.scope.basePlanVersionId,
-        status: ready ? 'awaiting-decision' : 'researching',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        model,
-        attempt: 1,
-        sources: fixture.research.sources,
-        usage: { calls: 2, inputTokens: 1, outputTokens: 1, totalTokens: 2, webSearchCalls: 1 },
-        result: {
-          output,
-          sources: fixture.research.sources,
-          scope: toValidationScope(input.planning),
-          warnings: [],
-        },
-      };
-      await route.fulfill({ status: 202, json: stored });
-      return;
-    }
-    await route.fulfill({
-      status: stored ? 200 : 404,
-      json: stored ? { ...stored, status: ready ? 'awaiting-decision' : 'researching' } : { error: '모의 작업 없음' },
-    });
-  });
+async function importFixtureTrip(page: Page, dataset: Awaited<ReturnType<typeof aiV2Fixture>>['dataset']) {
   await page.goto('/?workspace=content');
   const assets = new Map<string, Uint8Array>();
   for (const bytes of Object.values(fixtureAssets)) {
     assets.set(await digestBytes(bytes), bytes);
   }
-  const packaged = await buildPackage(fixture.dataset, assets, {
+  const packaged = await buildPackage(dataset, assets, {
     sourceRepository: 'synthetic/ai-v2',
     sourceCommit: 'fictional-only',
     lineageId: 'synthetic-ai-v2',
@@ -112,8 +54,46 @@ async function setup(page: Page, options: SetupOptions = {}) {
     buffer: Buffer.from(await packaged.blob.arrayBuffer()),
   });
   await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: fixture.dataset.header.name, exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: dataset.header.name, exact: true })).toBeVisible();
+}
+
+async function setup(page: Page, options: SetupOptions = {}) {
+  const { delayed = false } = options;
+  const fixture = await aiV2Fixture();
+  const output = options.output?.(fixture) ?? fixture.output;
+  options.prepare?.(fixture.dataset);
+  await resetBackends();
+  await configureFakeOpenAi({
+    outputs: [output],
+    hold: delayed,
+    pollsBeforeDone: 0,
+    sources: fixture.research.sources,
+  });
+  const bodies: AiV2Request[] = [];
+  const errors: string[] = [];
+  const external: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      errors.push(message.text());
+    }
+  });
+  page.on('request', (request) => {
+    if (!/^https?:/.test(request.url())) {
+      return;
+    }
+    const url = new URL(request.url());
+    if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') {
+      external.push(request.url());
+    }
+    if (request.method() === 'POST' && url.pathname === '/api/ai/v2/jobs') {
+      bodies.push(request.postDataJSON() as AiV2Request);
+    }
+  });
+  await addVirtualAuthenticator(page);
+  await importFixtureTrip(page, fixture.dataset);
   await openProposals(page);
+  await registerPasskeyInApp(page);
   await page.getByLabel('변경 요청', { exact: true }).fill('실제 API를 사용하지 않는 가상 조사 요청');
   await page.getByRole('button', { name: '전송할 내용 미리보기', exact: true }).click();
   await options.beforeConsent?.(page);
@@ -129,21 +109,20 @@ async function setup(page: Page, options: SetupOptions = {}) {
     bodies,
     errors,
     external,
-    calls: () => calls,
-    finish: () => {
-      ready = true;
-    },
+    calls: () => bodies.length,
+    privateLeaks: () => bodies.filter((body) => JSON.stringify(body).includes('SYNTHETIC-PRIVATE')).length,
+    finish: () => configureFakeOpenAi({ hold: false }),
   };
 }
 
 test('v2 모의 결과의 초안 저장·재진입·확인 적용은 한 요청으로 수행한다', async ({ page }) => {
   const fixture = await setup(page);
-  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible({ timeout: 20_000 });
   await page.reload();
   await expect(page.getByRole('heading', { name: '가상 활동 1', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: fixture.output.operations[0].title, exact: true })).toHaveCount(0);
   await openProposals(page);
-  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible({ timeout: 20_000 });
   const proposal = page
     .locator('article.content-row')
     .filter({ has: page.getByRole('heading', { name: fixture.output.reason }) });
@@ -156,6 +135,7 @@ test('v2 모의 결과의 초안 저장·재진입·확인 적용은 한 요청�
   ).toBeVisible();
   await expect(page.getByText('SYNTHETIC-PRIVATE-RESERVATION', { exact: false }).first()).toBeVisible();
   expect(fixture.calls()).toBe(1);
+  expect(fixture.privateLeaks()).toBe(0);
   expect(fixture.errors).toEqual([]);
   expect(fixture.external).toEqual([]);
   expect(await page.locator('vite-error-overlay').count()).toBe(0);
@@ -171,7 +151,7 @@ test('v2 조사 중 현장 기록이 추가되면 오래된 결과 자동 저장
   await page.getByLabel('기록 메모').fill('오래된 초안 차단 검증용');
   await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  fixture.finish();
+  await fixture.finish();
   await openProposals(page);
   await expect(page.getByRole('alert').filter({ hasText: 'CONFLICT' })).toBeVisible();
   await expect(page.getByRole('heading', { name: fixture.output.reason, exact: true })).toHaveCount(0);
@@ -197,7 +177,7 @@ test('미리보기에서 고친 조사 질문이 그대로 전송되고 요청 �
       await shot(current, 'preview');
     },
   });
-  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible({ timeout: 20_000 });
   const [body] = fixture.bodies;
   expect(body.research.question).toBe(edited);
   expect(JSON.stringify(body.research)).not.toContain('실제 API를 사용하지 않는 가상 조사 요청');
@@ -230,7 +210,7 @@ test('동의 뒤 조사 질문을 고치면 동의가 풀리고 고른 기록만
       await expect(current.getByText(/기록 1건/)).toBeVisible();
     },
   });
-  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible({ timeout: 20_000 });
   expect(fixture.bodies[0].planning.records).toHaveLength(1);
   expect(fixture.errors).toEqual([]);
 });
@@ -279,7 +259,7 @@ test('요약 카드를 보이고 확인 필요 항목은 일괄 적용에서 빠
       };
     },
   });
-  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible({ timeout: 20_000 });
   const proposal = page
     .locator('article.content-row')
     .filter({ has: page.getByRole('heading', { name: '카드 검증용 가상 변경안' }) });
@@ -324,7 +304,7 @@ test('비운 도착 시각은 전송 본문에 키가 없다', async ({ page }) 
       await current.getByRole('button', { name: '전송할 내용 미리보기', exact: true }).click();
     },
   });
-  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible({ timeout: 20_000 });
   const [day] = fixture.bodies[0].planning.days;
   expect(Object.keys(day)).not.toContain('arrival');
   expect(JSON.stringify(day)).not.toContain('14:20');
@@ -342,7 +322,7 @@ test('채운 도착 시각은 화면 값과 전송 값이 같다', async ({ page
       await current.getByRole('button', { name: '전송할 내용 미리보기', exact: true }).click();
     },
   });
-  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible();
+  await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible({ timeout: 20_000 });
   expect(fixture.bodies[0].planning.days[0].arrival).toBe('15:30');
   expect(fixture.errors).toEqual([]);
 });
