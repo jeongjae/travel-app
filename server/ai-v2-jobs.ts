@@ -67,6 +67,9 @@ export function toStoredJob(raw: AiV2Job): AiV2Job {
 }
 
 const running = new Set<AiV2Status>(['queued', 'researching', 'planning', 'validating']);
+/** 작업이 끝난 뒤 AI 출력을 jobs.json에 남기는 시간. 보존 기한은 이 상수 한 곳에서 정한다. */
+export const outputRetentionMs = 24 * 60 * 60 * 1000;
+export const outputExpiredMessage = '결과가 만료되어 다시 요청해야 합니다.';
 const now = () => new Date().toISOString();
 export class AiV2Jobs {
   private jobs = new Map<string, { job: AiV2Job; fingerprint: string }>();
@@ -90,14 +93,35 @@ export class AiV2Jobs {
         const row = { job: toStoredJob(stored.job), fingerprint: stored.fingerprint };
         if (running.has(row.job.status)) {
           row.job.status = 'interrupted';
+          row.job.updatedAt = now();
           row.job.error = '서버가 재시작되었습니다. 최신 컨텍스트로 새 요청을 만드세요.';
         }
         this.jobs.set(row.job.id, row);
       }
+      this.expireOutputs();
       await this.persist();
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw new Error('v2 AI 작업 저장소를 읽지 못했습니다. 원본 파일을 보존했습니다.');
+      }
+    }
+  }
+  /**
+   * 끝난 지 보존 기한이 지난 작업의 AI 출력(result·error 문구)을 지운다. 시작할 때와 새 작업을 저장할 때만 부른다.
+   * 새 필드 없이 error 문자열로 만료를 알리고, 변경안 대기 상태였다면 결과가 없으므로 failed로 바꾼다.
+   */
+  private expireOutputs(at = Date.now()) {
+    for (const { job } of this.jobs.values()) {
+      if (running.has(job.status) || (!job.result && !job.error) || job.error === outputExpiredMessage) {
+        continue;
+      }
+      if (at - Date.parse(job.updatedAt) < outputRetentionMs) {
+        continue;
+      }
+      delete job.result;
+      job.error = outputExpiredMessage;
+      if (job.status === 'awaiting-decision') {
+        job.status = 'failed';
       }
     }
   }
@@ -161,6 +185,7 @@ export class AiV2Jobs {
     ) {
       throw new Error('AI 작업 보관/일일 실행 한도에 도달했습니다.');
     }
+    this.expireOutputs();
     const job: AiV2Job = {
       id: input.id,
       tripId: scope.tripId,
