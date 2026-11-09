@@ -9,6 +9,8 @@
 
 T-D1 종결 통합 지시의 4단계를 여기로 합친다. T-D2는 깨끗한 체크아웃이 필요하므로 UI 작업은 **보관 커밋**으로 치운다(이전 "커밋하지 않는다" 지시를 이 문서가 대체한다).
 
+**11/09 13:20 PC 상태(Codex 확인)**: 체크아웃 `codex/ui-resume`(= `34b9dfc`), stash 비움, UI 4건 스테이징 완료, 공백 파일 2건 되돌려짐. 따라서 1~2는 끝났고 **3의 커밋·push부터** 한다. `docs/t-d01-closeout-plan.md`·`docs/status-review-2026-10-26.md`는 추가하지 않는다.
+
 1. `git fetch`; `main` = `origin/main` = `34b9dfc` 확인. 다르면 멈추고 보고.
 2. `docs/u4-sapporo-scenario.md`·`docs/claude-task-d00-result.md` 미커밋 변경은 공백·파일모드만이다(Codex 확인). `git checkout -- 두 파일`을 시도하고, 권한 거부되면 그대로 두고 보고한다(아래 작업에 영향 없음).
 3. `main`에서 `codex/ui-resume` 생성 → `git stash pop`(handoff.md 1줄이 충돌하면 stash 쪽을 버리고 그 1줄을 결과 문서에 적는다) → 미추적 UI 4건(`docs/claude-task-ui01-day-retro.md`, `docs/design/commercial-ui-design.md`, `docs/design/commercial-ui-development-plan.md`, `docs/design/ui-review-2026-11-06/`) `git add` → 커밋 `wip(ui): UI design drafts restored from stash (not reviewed)` → push. `docs/status-review-2026-10-26.md`·Obsidian 흔적은 추가하지 않는다. 이 커밋은 검토 대상이 아니며 UI 후속 지시(CL-23·25·26)에서 다룬다.
