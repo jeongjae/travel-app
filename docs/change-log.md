@@ -57,6 +57,19 @@
 
 상세 증거는 [잔여 검증](deferred-verification.md)·[iPhone 절차](phase-2-prime-runbook.md)·[현재 상태](handoff.md)를 따른다.
 
+
+## D 단계 후속 (T-D1 → T-D2 후보)
+
+| ID | 항목·영향 | 상태·재개 조건 | 근거 |
+|---|---|---|---|
+| CL-23 | 부분 적용 뒤 화면에서 되돌리기 없음(원본은 이전 revision 보존) | T-D2. 사용자 결정 D-1 이월 | [T-D1 결과](claude-task-d01-result.md) |
+| CL-24 | `GET /api/ai/v2/jobs/{id}` 무인증(UUID 필수, 24h 보존). 서버는 127.0.0.1 전용 | T-D2 인증(패스키 결정과 함께) | [T-D1 검토](claude-task-d01-review.md) B2 |
+| CL-25 | 항목별 사유가 근거 행 JSON으로 저장돼 가이드 화면에 그대로 노출 | UI 작업 복원 뒤 표시 정리 | T-D1 결과 §후속 |
+| CL-26 | `officialUrl` 입력 경로 없음 → 수동·AI 추가 활동은 항상 "기타" 출처 분류 | T-D2 또는 UI 후속 | T-D1 결과 §후속 |
+| CL-27 | 앱의 rename EPERM 간헐 실패(시험 격리로 0/20, 원인 잔존) | T-D2 | T-D1 결과 |
+| CL-28 | `deriveDayTimes`가 자정을 넘는 낮 이동 구간을 조용히 버림. `get()` 만료 정리는 메모리만 바꿔 `jobs.json`은 다음 저장까지 출력 유지 | T-D2 기록. 낮음 | T-D1 검토 N3·R7 메모 |
+| CL-29 | 추정 규칙 경계: 활동 2개인 이동일(출발 공항→도착 호텔)은 도착만 생겨 출발지 오전 제안 거부 | 사용자 실데이터 확인(5단계) 뒤 재결정 | T-D1 검토 B4 |
+
 ## 처리 이력
 
 - 2026-10-29: T-05 오탐·구 기준 호환·추가 필드 검증은 R2 독립 검토 통과. [증거](claude-task-05-review.md).
@@ -92,3 +105,6 @@
 - 2026-11-06: Q-D0 사용자 결정(항목 단위 AI·개인용 단순화·Pages+Cloudflare Worker·iPhone D 후반) → D 설계·계획 v0.3, [T-D0](claude-task-d00-baseline.md) 지시 발행.
 - 2026-11-06: T-D0 검토 통과(제품 변경 0, 전송 공백 G1~G13 차단 분류, Worker·패스키 권고 수용). main fast-forward. 사용자 결정 대기: 인증·background 보관·요금제.
 - 2026-11-06: 사용자 결정(패스키·background 10분 보관 수용·Workers Free·D 먼저 UI 뒤) → [T-D1](claude-task-d01-send-semantics.md) 지시 발행.
+- 2026-11-06: T-D1 Claude 구현 보고(45ce310·abc311c) → Codex 의뢰문이 구현 세션에 전달돼 자체 재검토, 차단 결함 R1(시간 창 뒤집힘)·R2(비운 입력 전송)·데이터 R3(원문 jobs.json 저장)·R4 발견. 사용자 결정 4건(D-1 이월·D-2 추정 유지·야간 허용·R3 (a)) → R1~R4 수정(d126e61~800f209), CI 성공.
+- 2026-11-06: B2(AI 출력 무인증 노출) 사용자 결정 (가) → R5 24h 보존 지시. 11/7~8 전달 경로 부재로 지연.
+- 2026-11-09: R5 완료(bd6c7bb·bed2e18). Codex 역할 독립 검토 조건부 통과(R6 만료 라벨 필수·R7 선택). R6·R7 완료 `9f5cb88`. CL-23~29 기록. main 병합·Pages 배포는 handoff 참조.

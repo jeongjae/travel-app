@@ -92,3 +92,23 @@
 - `decisions.md` 기록 5건: D-1 T-D2 이월 / D-2 추정 유지·leg 시각 필드 없음 / 야간 허용 12h / R3 (a) / R5 24h 보존·인증 T-D2.
 - T-D2 후보: rename EPERM · jobs 조회 인증 · 부분 적용 되돌리기 · 사유 JSON 표시 · officialUrl 입력 경로 · (R7 미수행 시) 조회 시 만료 정리·blocked 형식 · N3 자정 넘는 구간 · B4 실데이터 결과.
 - 사용자 확인 상태: **미확인** 유지. 시험·검토 통과는 확인 완료가 아니다.
+
+## 6. R6·R7 확인 (Codex 역할, 2026-11-09 12:55)
+
+대상 `9f5cb88`. diff 7파일(+132/−29): `server/ai-v2-jobs.ts`(상수 import, `get()` 정리 호출), `src/ai-v2-contract.ts`(상수 이동, `blockedClock` 정규식), `src/content/ai-job-label.ts`(신규 9줄), `AiPlanner.tsx`(라벨 호출 1줄), 시험 3건 추가·1건 순서 조정, 결과 문서 2줄.
+
+| 항목 | 결과 |
+|---|---|
+| R6 상수 위치 | `src/ai-v2-contract.ts`로 이동, 서버·화면 동일 import ✔ |
+| R6 라벨 | `jobStatusLabel`: `error === outputExpiredMessage` → "만료", 그 외 `labels[status]` ✔. 시험 3단언 |
+| R6 문서 | §R3 만료 표시, §이동 구간 끄기 1회용 명시 ✔ |
+| R7 get 정리 | `get()` 진입 시 `expireOutputs()` ✔. 시험: create 없이 25h → result 없음·만료 문구 |
+| R7 blocked 형식 | `^\d{2}:\d{2}$` 정규식, 거부·허용 시험 ✔ |
+| 기존 시험 변경 | "새 작업 저장 시 정리" 시험의 사전 확인을 나이 조작 전으로 이동 — R7로 `get()`이 정리하게 된 결과이며 단언 약화 아님 ✔ |
+| 데이터 경계 | `c678390..9f5cb88` 4경로 0건 ✔ |
+| 스키마·enum | 변경 없음 ✔ |
+| CI | `9f5cb88` `travel-app checks` success(run 42556509010) ✔ |
+
+메모(낮음, CL-28 기록): `get()`의 정리는 메모리만 바꾸고 persist하지 않아 `jobs.json`은 다음 저장까지 출력을 유지한다(폴링마다 쓰기를 피한 선택). `aiV2Limits` 위 주석이 새 상수 위로 어긋남(외관, 다음 코드 변경 때 정리).
+
+**판정: 통과.** 사용자 확인 상태는 **확인 대기**(검토 준비 완료). 병합·배포는 handoff 참조.
