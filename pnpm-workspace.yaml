@@ -2,3 +2,6 @@
 saveExact: true
 cacheDir: .cache/pnpm/cache
 storeDir: .cache/pnpm/store
+allowBuilds:
+  esbuild: true
+  workerd: true
