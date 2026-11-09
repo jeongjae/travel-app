@@ -1,5 +1,14 @@
 # 결정 기록
 
+## 2026-11-09 · T-D2 가정 (Codex 기록, 사용자 확인 대기)
+
+- 근거: [T-D2 지시 §1](claude-task-d02-worker-auth.md), [T-D2 검토 §5](claude-task-d02-review.md). 아래는 Codex 가정값으로 구현됐고 사용자가 바꾸면 그 값으로 고친다.
+- 토큰 수명 1시간, 일일 요청 20회(Asia/Seoul 날짜), 요청 본문 512 KiB, 보관 200건, 출력 보존 24시간.
+- 1회 등록 코드는 Worker 비밀값 `REGISTRATION_CODE`. 첫 등록 뒤 무효. 로컬은 `.dev.vars`에 본인 기입.
+- RP ID 운영 `jeongjae.github.io` / 로컬 `localhost` — 환경 설정값, 코드 분기 없음.
+- **U-D2-1 미결**: 실행 중 요청 원문·조사 본문의 DO 임시 저장(완료 시 삭제) 허용 여부. Codex 권고: 허용(T-D3 구현).
+- 운영 한도 상수(`aiV2JobLimits`)는 동의 지문에 묶인 `aiV2Limits`와 분리한다(한도 운영값 변경이 기존 동의를 무효화하지 않도록). Claude 제안·Codex 수용.
+
 ## 2026-11-06~09 · T-D1 후속 결정 (사용자 확정)
 
 - 근거: [T-D1 결과](claude-task-d01-result.md), [T-D1 검토](claude-task-d01-review.md), 수정 지시 [R1~R4](claude-task-d01-fix.md)·[R5](claude-task-d01-r5.md).

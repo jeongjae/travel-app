@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-09 · **T-D1 종결 / T-D2 구현·Claude 자체 검사 통과 — Codex 검토 대기·사용자 미확인 / U4 재수행 대기**
+2026-11-09 · **T-D2 Codex 검토 통과·main 병합 / 사용자 확인 대기(화면·결정 3건) / U4 재수행 대기**
 
 새 Codex 세션은 먼저 [세션 인계](codex-session-handoff-2026-11-05.md)를 읽는다.
 
@@ -17,13 +17,13 @@
 ## 최근 검증·한계
 
 - T-D1: GitHub CI(check·check:pilot·test:e2e) `9f5cb88` 성공. 단위 check exit 0, E2E 181/5 skip. 데이터 경계 4경로 변경 0건.
-- T-D2(로컬): check exit 0(434/1 skip), E2E는 `wrangler dev`+가짜 OpenAI+가상 패스키. 데이터 경계 0건. 배포·실제 API 0건.
+- T-D2(로컬): CI `e45e887` 성공, check 434/1 skip, E2E `wrangler dev`+가짜 OpenAI+가상 패스키. 데이터 경계 0건. 배포·실제 API 0건. 후속 CL-30~33.
 - 미검증: 실제 Cloudflare(CPU 10ms·DO 축출), iOS 패스키·교차 출처, 실제 OpenAI background, 실데이터 추정 규칙(CL-29).
 - CI는 `ubuntu-24.04` 고정(`a05dca8`). 실제 키/API 실행 없음. AI 인증(패스키)·모델/예산 미결정.
 
 ## 다음 작업·확인 관문
 
-1. Codex: [T-D2 결과](claude-task-d02-result.md) 검토(위험 6건 먼저). 사용자: `design/ui-d02/` 화면 확인·결정 3건(결과 문서 끝).
+1. 사용자: [T-D2 검토](claude-task-d02-review.md) §5 결정 3건(U-D2-1 실행 중 원문 임시 저장 등)과 `design/ui-d02/` 화면 확인 → 확인 완료 시 T-D3 지시서(Codex).
 2. 사용자: 실데이터로 CL-29 영향 날 수 보고.
 3. 사용자: U4 대본 v2 재수행(`?workspace=content&review=sapporo-u4`) → CL-20. 평소 공간 파리 확인 → REG-02.
 4. 사용자 결정(T-D4 전): U-D2 모델·예산·U-D3. UI 후속(CL-23·25·26)은 UI 복원 뒤 별도 지시.
