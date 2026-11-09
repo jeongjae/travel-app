@@ -1,0 +1,22 @@
+# 로컬 `wrangler dev` 전용 설정. 배포(wrangler deploy)·계정 설정은 T-D4 승인 뒤에 한다.
+name = "travel-app-ai"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[vars]
+# WebAuthn RP ID와 허용 origin. 운영 값(jeongjae.github.io)은 배포 환경 설정으로 바꾼다. 코드 분기는 없다.
+RP_ID = "localhost"
+RP_NAME = "travel-app"
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173"
+OPENAI_BASE = "https://api.openai.com/v1"
+OPENAI_MODEL = "gpt-5.4-mini"
+
+[[durable_objects.bindings]]
+name = "AI_STORE"
+class_name = "AiStoreObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AiStoreObject"]

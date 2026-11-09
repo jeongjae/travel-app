@@ -27,6 +27,7 @@ export default [
       'coverage/**',
       'test-results/**',
       'playwright-report/**',
+      '**/.wrangler/**',
     ],
   },
   {

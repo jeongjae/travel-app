@@ -6,6 +6,25 @@ import { canonicalJson, date, digestBytes, id, sha256, uint, webUrl } from './co
 export const outputExpiredMessage = '결과가 만료되어 다시 요청해야 합니다.';
 export const aiV2Limits = { maxDays: 7, maxSearchCalls: 2, maxPlanningAttempts: 2 } as const;
 export const aiV2LocalServer = 'local-node';
+/** Worker 경로가 동의 정책에 싣는 서버 이름. */
+export const aiV2WorkerServer = 'cloudflare-worker';
+
+/**
+ * 동의 지문 밖의 운영 한도. 바꿔도 이전 동의가 무효가 되지 않으므로 aiV2Limits와 나눠 둔다.
+ * 일일 횟수의 날짜는 사용자 시간대(dailyTimeZone) 기준이다.
+ */
+export const aiV2JobLimits = {
+  dailyJobs: 20,
+  dailyTimeZone: 'Asia/Seoul',
+  maxStoredJobs: 200,
+  maxRunningJobs: 2,
+  maxBodyBytes: 512 * 1024,
+  outputRetentionMs: 24 * 60 * 60 * 1000,
+  pollIntervalMs: 2000,
+  jobTimeoutMs: 15 * 60 * 1000,
+  tokenLifetimeMs: 60 * 60 * 1000,
+  challengeLifetimeMs: 5 * 60 * 1000,
+} as const;
 
 const clock = z
   .string()
@@ -211,8 +230,30 @@ export const aiV2StatusSchema = z.enum([
   'failed',
   'cancelled',
   'interrupted',
+  // Worker 경로 전용. 외부 호출 직전(calling), 호출 여부 불명(unknown), 보존 기한 경과(expired).
+  'calling',
+  'unknown',
+  'expired',
 ]);
 export type AiV2Status = z.infer<typeof aiV2StatusSchema>;
+/** 아직 끝나지 않은 작업 상태. 화면 폴링과 서버의 실행 중 판정이 같은 목록을 쓴다. */
+export const aiV2RunningStatuses: readonly AiV2Status[] = [
+  'queued',
+  'calling',
+  'researching',
+  'planning',
+  'validating',
+];
+
+/** 상태 API 응답. Worker는 잔여 횟수·오늘 사용량을 더한다. */
+export type AiV2ServerStatus = {
+  configured: boolean;
+  model?: string;
+  policy?: AiV2Policy;
+  dailyJobLimit?: number;
+  remainingToday?: number;
+  usageToday?: { jobs: number; totalTokens: number };
+};
 export const aiV2JobIdentitySchema = z.strictObject({
   id: z.uuid(),
   tripId: id,

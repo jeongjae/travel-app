@@ -174,7 +174,7 @@ it('서버 재시작 시 진행 중 작업은 interrupted로 표시하고 재과
 it('API는 키 값을 노출하지 않고 외부 Origin 및 앱 헤더 없는 쓰기를 거부한다', async () => {
   const input = request(),
     m = await manager(provider(input)),
-    server = await makeApiServer(m, true);
+    server = await makeApiServer(m, true, undefined, true);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();

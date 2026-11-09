@@ -1,7 +1,9 @@
 // T-D0 프로브를 승격한 시험. 필드마다 표식을 심고 실제 provider body에서 찾아 허용 목록 밖 값이 0인지 단언한다.
 import { expect, it, vi } from 'vitest';
 import { OpenAiV2Provider } from '../server/ai-v2';
-import { buildAiV2Payload } from '../src/ai-v2-context';
+import { buildAiV2Payload, consentedRequest } from '../src/ai-v2-context';
+import { aiV2Limits, aiV2WorkerServer } from '../src/ai-v2-contract';
+import { workerHarness } from './worker/harness';
 import type { TripDataset } from '../src/contracts/v2';
 import { aiV2Fixture } from './fixtures/ai-v2';
 
@@ -99,7 +101,7 @@ function canariesIn(text: string) {
   return [...new Set(text.match(/CANARY-[A-Za-z0-9-]+/g) ?? [])].sort();
 }
 
-async function capture(recordIds: string[]) {
+async function canaryPayload(recordIds: string[]) {
   const fixture = await aiV2Fixture();
   const day1 = plantCanaries(fixture.dataset);
   const payload = buildAiV2Payload(fixture.dataset, {
@@ -109,6 +111,27 @@ async function capture(recordIds: string[]) {
     count: 2,
     recordIds,
   });
+  return { fixture, payload };
+}
+
+/** Worker 경로: 같은 요청을 DO 작업으로 돌려 가짜 OpenAI가 받은 본문과 DO에 남은 행을 본다. */
+async function captureWorker(recordIds: string[]) {
+  const { fixture, payload } = await canaryPayload(recordIds);
+  const harness = workerHarness();
+  harness.openai.outputs = [fixture.output];
+  const policy = { server: aiV2WorkerServer, model: 'fictional-model', limits: { ...aiV2Limits } };
+  await harness.app.jobs.create(await consentedRequest(payload, policy));
+  await harness.drain();
+  const [research, planning] = harness.openai.bodies;
+  return {
+    research: String(research.input),
+    planning: String(planning.input),
+    stored: JSON.stringify(harness.rawJobs()),
+  };
+}
+
+async function capture(recordIds: string[]) {
+  const { fixture, payload } = await canaryPayload(recordIds);
   const bodies: Record<string, unknown>[] = [];
   vi.stubGlobal(
     'fetch',
@@ -165,4 +188,18 @@ it('고른 기록의 최신 유효값만 추가되고 정정 전·다른 날짜�
     [...allowedForPlanning, 'CANARY-latest-record-note', 'CANARY-r-new-title'].sort(),
   );
   expect(canariesIn(research)).toEqual(['CANARY-referenced-place-name']);
+});
+
+it('Worker 경로의 조사·작성 본문도 Node 경로와 같은 허용 집합이고 DO 행에는 표식이 없다', async () => {
+  for (const recordIds of [[], ['r-new', 'r-old', 'r-memo']]) {
+    const node = await capture(recordIds);
+    const worker = await captureWorker(recordIds);
+    expect(canariesIn(worker.research)).toEqual(canariesIn(node.research));
+    expect(canariesIn(worker.planning)).toEqual(canariesIn(node.planning));
+    expect(worker.research).toBe(node.research);
+    // 조사 결과 문장은 가짜마다 다르므로 작성 호출의 요청 DTO 부분만 같은지 본다.
+    expect(JSON.parse(worker.planning).input).toEqual(JSON.parse(node.planning).input);
+    expect(canariesIn(worker.stored)).toEqual([]);
+    expect(worker.stored).not.toContain('ABC123');
+  }
 });

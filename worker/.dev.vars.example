@@ -1,0 +1,8 @@
+# worker/.dev.vars로 복사해 로컬 값만 채운다. .dev.vars는 커밋하지 않는다(.gitignore).
+# 실제 OpenAI 키를 넣으면 유료 호출이 된다. 가짜 OpenAI로 시험하려면 OPENAI_BASE를 바꾼다.
+OPENAI_API_KEY=
+# OPENAI_BASE=http://127.0.0.1:8799/v1
+# 32자 이상 무작위 값. 바꾸면 발급된 토큰이 모두 무효가 된다(전체 해지).
+TOKEN_SECRET=
+# 첫 패스키 등록에 한 번만 쓰는 코드. 등록 후에는 다시 쓸 수 없다.
+REGISTRATION_CODE=

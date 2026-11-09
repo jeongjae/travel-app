@@ -5,7 +5,13 @@ import { OpenAiProvider } from './ai.ts';
 import { AiV2Jobs } from './ai-v2-jobs.ts';
 import { OpenAiV2Provider } from './ai-v2.ts';
 
-export async function makeApiServer(manager: JobManager, configured: boolean, v2?: AiV2Jobs) {
+/** v1(`/api/ai/jobs`)은 Worker로 옮기지 않는다(G13). Node 서버에서도 OPENAI_V1_ENABLED=1일 때만 연다. */
+export async function makeApiServer(
+  manager: JobManager,
+  configured: boolean,
+  v2?: AiV2Jobs,
+  v1Enabled = process.env.OPENAI_V1_ENABLED === '1',
+) {
   return createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const send = (status: number, value: unknown) => {
       res.writeHead(status, {
@@ -26,7 +32,7 @@ export async function makeApiServer(manager: JobManager, configured: boolean, v2
     }
     const path = req.url ?? '';
     if (req.method === 'GET' && path === '/api/ai/status') {
-      send(200, { configured, model: manager.provider.model });
+      send(200, { configured: configured && v1Enabled, model: manager.provider.model });
       return;
     }
     if (req.method === 'GET' && path === '/api/ai/v2/status') {
@@ -86,6 +92,10 @@ export async function makeApiServer(manager: JobManager, configured: boolean, v2
         send(404, { error: '없는 v2 API 경로입니다.' });
         return;
       }
+      if (!v1Enabled) {
+        send(404, { error: 'v1 AI 경로는 꺼져 있습니다. OPENAI_V1_ENABLED=1로 명시적으로 켜야 합니다.' });
+        return;
+      }
       if (req.method === 'POST' && path === '/api/ai/jobs') {
         if (!req.headers['content-type']?.startsWith('application/json')) {
           send(415, { error: 'JSON 요청만 허용합니다.' });
@@ -136,7 +146,11 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename
   const v2 =
     process.env.OPENAI_V2_ENABLED === '1'
       ? new AiV2Jobs(
-          new OpenAiV2Provider(key, process.env.OPENAI_MODEL || 'gpt-5.4-mini'),
+          new OpenAiV2Provider(
+            key,
+            process.env.OPENAI_MODEL || 'gpt-5.4-mini',
+            process.env.OPENAI_BASE || 'https://api.openai.com/v1',
+          ),
           resolve('local-data/ai-v2-jobs'),
         )
       : undefined;

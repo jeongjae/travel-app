@@ -226,6 +226,14 @@ it('모의 HTTP 서버가 명시적 비활성·동의 누락·1MiB 초과를 차
     expect((await fetch(base + '/api/ai/v2/jobs', { method: 'POST', headers: { 'X-Travel-App': '1' } })).status).toBe(
       503,
     );
+    // G13: v1 경로는 OPENAI_V1_ENABLED=1 없이는 열리지 않는다.
+    expect((await fetch(base + '/api/ai/status').then((response) => response.json())).configured).toBe(false);
+    const v1 = await fetch(base + '/api/ai/jobs', {
+      method: 'POST',
+      headers: { 'X-Travel-App': '1', 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    expect(v1.status).toBe(404);
   } finally {
     await new Promise<void>((accept) => disabled.close(() => accept()));
   }

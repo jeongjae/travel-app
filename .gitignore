@@ -19,3 +19,7 @@ backup/
 .obsidian/
 travel-app/
 research_notes/
+
+# Cloudflare Worker local secrets and state
+.dev.vars
+.wrangler/

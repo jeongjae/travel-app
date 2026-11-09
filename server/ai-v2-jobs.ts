@@ -1,75 +1,33 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { canonicalJson, digestBytes } from '../src/contracts/v2/index.ts';
 import {
+  aiV2JobLimits,
   aiV2Limits,
   aiV2LocalServer,
-  aiV2RequestSchema,
-  consentFingerprint,
   outputExpiredMessage,
-  type AiV2JobResult,
-  type AiV2PlanningDto,
   type AiV2Policy,
   type AiV2Request,
   type AiV2Status,
   type AiV2Usage,
 } from '../src/ai-v2-contract.ts';
+import {
+  addUsage,
+  checkAiV2Request,
+  emptyUsage,
+  failureText,
+  planningExhaustedMessage,
+  repairInstruction,
+  toStoredJob,
+  type AiV2Job,
+} from '../src/ai-v2-jobs-core.ts';
 import { toValidationScope, validateAiV2Output } from '../src/ai-v2-semantics.ts';
 import type { AiV2Provider } from './ai-v2.ts';
 
-export type AiV2Job = {
-  id: string;
-  tripId: string;
-  baseDomainRevision: number;
-  basePlanVersionId: string;
-  status: AiV2Status;
-  createdAt: string;
-  updatedAt: string;
-  model: string;
-  attempt: number;
-  sources: { url: string; title: string }[];
-  usage: AiV2Usage;
-  result?: AiV2JobResult;
-  error?: string;
-};
-const emptyUsage: AiV2Usage = { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, webSearchCalls: 0 };
-
-/**
- * 저장·응답에 남길 수 있는 필드의 유일한 목록. 여기 없는 값은 저장 직전과 응답 직전에 제거한다.
- * 이전 형식(`result.planning`)도 재검증 값만 옮기므로 요청 원문·기록이 따라오지 않는다.
- */
-export function toStoredJob(raw: AiV2Job): AiV2Job {
-  const legacy = raw.result as (AiV2JobResult & { planning?: AiV2PlanningDto }) | undefined;
-  const scopeSource = legacy?.scope ?? legacy?.planning;
-  return {
-    id: raw.id,
-    tripId: raw.tripId,
-    baseDomainRevision: raw.baseDomainRevision,
-    basePlanVersionId: raw.basePlanVersionId,
-    status: raw.status,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
-    model: raw.model,
-    attempt: raw.attempt,
-    sources: raw.sources,
-    usage: raw.usage ?? emptyUsage,
-    ...(legacy?.output && scopeSource
-      ? {
-          result: {
-            output: legacy.output,
-            sources: legacy.sources,
-            scope: toValidationScope(scopeSource),
-            warnings: legacy.warnings ?? [],
-          },
-        }
-      : {}),
-    ...(raw.error ? { error: raw.error } : {}),
-  };
-}
+export { toStoredJob, type AiV2Job } from '../src/ai-v2-jobs-core.ts';
 
 const running = new Set<AiV2Status>(['queued', 'researching', 'planning', 'validating']);
 /** 작업이 끝난 뒤 AI 출력을 jobs.json에 남기는 시간. 보존 기한은 이 상수 한 곳에서 정한다. */
-export const outputRetentionMs = 24 * 60 * 60 * 1000;
+export const outputRetentionMs = aiV2JobLimits.outputRetentionMs;
 const now = () => new Date().toISOString();
 export class AiV2Jobs {
   private jobs = new Map<string, { job: AiV2Job; fingerprint: string }>();
@@ -153,23 +111,8 @@ export class AiV2Jobs {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
   async create(raw: unknown) {
-    const input = aiV2RequestSchema.parse(raw);
-    const { scope, planning } = input;
-    const dayIds = new Set(planning.days.map((day) => day.dayId));
-    if (
-      planning.fromDate < planning.trip.startDate ||
-      planning.fromDate > planning.trip.endDate ||
-      planning.days.some((day) => day.date < planning.fromDate || day.date > planning.trip.endDate) ||
-      planning.items.some((item) => !dayIds.has(item.dayId))
-    ) {
-      throw new Error('AI 요청의 여행·계획·선택 날짜가 일치하지 않습니다. 최대 7일을 선택하세요.');
-    }
-    const policy = this.policy();
-    const { fingerprint: agreed, ...agreedPolicy } = input.consent;
-    if (agreed !== (await consentFingerprint(input, policy)) || canonicalJson(agreedPolicy) !== canonicalJson(policy)) {
-      throw new Error('동의한 전송 내용·서버·모델·한도가 이 요청과 다릅니다. 미리보기를 다시 확인하세요.');
-    }
-    const fingerprint = await digestBytes(new TextEncoder().encode(canonicalJson(input)));
+    const { input, fingerprint } = await checkAiV2Request(raw, this.policy());
+    const { scope } = input;
     const previous = this.jobs.get(input.id);
     if (previous) {
       if (previous.fingerprint !== fingerprint) {
@@ -230,14 +173,8 @@ export class AiV2Jobs {
     const signal = controller.signal;
     const timeout = setTimeout(() => controller.abort(), 300_000);
     // 실패한 호출의 사용량도 남도록 응답을 받는 즉시 더한다. 표시는 T-D2에서 한다.
-    const addUsage = (usage: AiV2Usage) => {
-      job.usage = {
-        calls: job.usage.calls + usage.calls,
-        inputTokens: job.usage.inputTokens + usage.inputTokens,
-        outputTokens: job.usage.outputTokens + usage.outputTokens,
-        totalTokens: job.usage.totalTokens + usage.totalTokens,
-        webSearchCalls: job.usage.webSearchCalls + usage.webSearchCalls,
-      };
+    const onUsage = (usage: AiV2Usage) => {
+      job.usage = addUsage(job.usage, usage);
     };
     const update = async (status: AiV2Status) => {
       signal.throwIfAborted();
@@ -247,35 +184,31 @@ export class AiV2Jobs {
     };
     try {
       await update('researching');
-      const research = await this.provider.research(input.research, signal, addUsage);
+      const research = await this.provider.research(input.research, signal, onUsage);
       job.sources = research.sources;
       let repair = '';
       for (let attempt = 1; attempt <= aiV2Limits.maxPlanningAttempts; attempt++) {
         job.attempt = attempt;
         await update('planning');
-        const output = await this.provider.plan(input.planning, research, repair, signal, addUsage);
+        const output = await this.provider.plan(input.planning, research, repair, signal, onUsage);
         await update('validating');
         let warnings: string[];
         try {
           warnings = validateAiV2Output(input.planning, output, research.sources);
         } catch (validation) {
           const detail = validation instanceof Error ? validation.message : 'invalid output';
-          repair = `The proposal failed local date/reference/time/shape checks: ${detail} Recheck known activity/place/day IDs, arrival/departure and fixed time windows, and cited source URLs; preserve untouched fields.`;
+          repair = repairInstruction(detail);
           continue;
         }
         job.result = { output, sources: research.sources, scope: toValidationScope(input.planning), warnings };
         await update('awaiting-decision');
         return;
       }
-      throw new Error('2회 작성 후에도 날짜·참조·변경안 검증을 통과하지 못했습니다.');
+      throw new Error(planningExhaustedMessage);
     } catch (error) {
       if (job.status !== 'cancelled') {
         job.status = 'failed';
-        job.error = signal.aborted
-          ? '시간 제한 또는 중단으로 완료하지 못했습니다.'
-          : error instanceof Error && error.name !== 'ZodError' && error.name !== 'SyntaxError'
-            ? error.message
-            : 'AI 응답 형식을 처리하지 못했습니다.';
+        job.error = signal.aborted ? '시간 제한 또는 중단으로 완료하지 못했습니다.' : failureText(error);
         job.updatedAt = now();
         await this.persist();
       }
