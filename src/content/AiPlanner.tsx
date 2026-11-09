@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { AiV2Job } from '../../server/ai-v2-jobs.ts';
+import { jobStatusLabel } from './ai-job-label.ts';
 import { consentFingerprint, type AiV2Payload, type AiV2Policy, type AiV2RequestKind } from '../ai-v2-contract.ts';
 import {
   buildAiV2Payload,
@@ -431,7 +432,7 @@ export default function AiPlanner({
       {job ? (
         <div role="status">
           <p>
-            {labels[job.status]} · 작성 {job.attempt}회{saved ? ' · 변경안에 저장됨' : ''}
+            {jobStatusLabel(job.status, labels, job.error)} · 작성 {job.attempt}회{saved ? ' · 변경안에 저장됨' : ''}
           </p>
           {job.error ? <ErrorText error={job.error} /> : null}
           {active.has(job.status) ? (

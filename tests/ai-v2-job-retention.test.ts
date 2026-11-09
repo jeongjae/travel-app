@@ -5,7 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 import type { AiV2Provider } from '../server/ai-v2';
-import { AiV2Jobs, outputExpiredMessage } from '../server/ai-v2-jobs';
+import { AiV2Jobs } from '../server/ai-v2-jobs';
+import { aiV2PlanningDtoSchema, outputExpiredMessage } from '../src/ai-v2-contract';
+import { jobStatusLabel } from '../src/content/ai-job-label';
 import { makeApiServer } from '../server/index';
 import { JobManager } from '../server/jobs';
 import { buildAiV2Payload, consentedRequest } from '../src/ai-v2-context';
@@ -239,8 +241,8 @@ it('R5 취소 작업도 같은 규칙으로 처리되고 출력 없는 취소 �
 it('R5 새 작업을 저장할 때도 정리가 실행된다', async () => {
   const { jobs, input, fixture } = await finishedJob();
   const internal = jobs as unknown as { jobs: Map<string, { job: { updatedAt: string } }> };
-  internal.jobs.get(input.id)!.job.updatedAt = hoursAgo(25);
   expect(jobs.get(input.id)?.result).toBeDefined();
+  internal.jobs.get(input.id)!.job.updatedAt = hoursAgo(25);
   const payload = buildAiV2Payload(fixture.dataset, {
     prompt: 'next',
     requestKind: 'edit',
@@ -260,4 +262,31 @@ it('R5 만료는 브라우저에 적용된 결과를 건드리지 않는다', as
   const browserStore = new Map([[`applied-${input.id}`, 'APPLIED-RESULT']]);
   await restart(directory);
   expect(browserStore.get(`applied-${input.id}`)).toBe('APPLIED-RESULT');
+});
+
+// R6: 만료는 "실패"가 아니라 "만료"로 보인다.
+it('R6 만료 작업의 상태 줄은 만료, 일반 실패는 실패', () => {
+  const labels = { failed: '실패' };
+  expect(jobStatusLabel('failed', labels, outputExpiredMessage)).toBe('만료');
+  expect(jobStatusLabel('failed', labels, '모델 오류')).toBe('실패');
+  expect(jobStatusLabel('failed', labels)).toBe('실패');
+});
+
+// R7: 조회만 해도 기한이 지난 출력은 응답에 없다.
+it('R7 create 없이 get만 해도 25시간 지난 출력이 없다', async () => {
+  const { jobs, input } = await finishedJob();
+  const internal = jobs as unknown as { jobs: Map<string, { job: { updatedAt: string } }> };
+  internal.jobs.get(input.id)!.job.updatedAt = hoursAgo(25);
+  expect(jobs.get(input.id)).not.toHaveProperty('result');
+  expect(jobs.get(input.id)?.error).toBe(outputExpiredMessage);
+});
+
+it('R7 blocked 시각이 HH:MM이 아니면 계약이 거부한다', async () => {
+  const { fixture, input } = await finishedJob();
+  const planning = structuredClone(input.planning);
+  planning.days[0].blocked = [{ from: '9시', to: '10:00' }];
+  expect(() => aiV2PlanningDtoSchema.parse(planning)).toThrow();
+  planning.days[0].blocked = [{ from: '09:00', to: '10:00' }];
+  expect(() => aiV2PlanningDtoSchema.parse(planning)).not.toThrow();
+  void fixture;
 });

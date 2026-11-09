@@ -6,6 +6,7 @@ import {
   aiV2LocalServer,
   aiV2RequestSchema,
   consentFingerprint,
+  outputExpiredMessage,
   type AiV2JobResult,
   type AiV2PlanningDto,
   type AiV2Policy,
@@ -69,7 +70,6 @@ export function toStoredJob(raw: AiV2Job): AiV2Job {
 const running = new Set<AiV2Status>(['queued', 'researching', 'planning', 'validating']);
 /** 작업이 끝난 뒤 AI 출력을 jobs.json에 남기는 시간. 보존 기한은 이 상수 한 곳에서 정한다. */
 export const outputRetentionMs = 24 * 60 * 60 * 1000;
-export const outputExpiredMessage = '결과가 만료되어 다시 요청해야 합니다.';
 const now = () => new Date().toISOString();
 export class AiV2Jobs {
   private jobs = new Map<string, { job: AiV2Job; fingerprint: string }>();
@@ -138,6 +138,7 @@ export class AiV2Jobs {
     return write;
   }
   get(id: string) {
+    this.expireOutputs();
     const row = this.jobs.get(id);
     return row ? toStoredJob(row.job) : undefined;
   }

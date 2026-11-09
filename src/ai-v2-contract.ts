@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { canonicalJson, date, digestBytes, id, sha256, uint, webUrl } from './contracts/v2/index.ts';
 
 /** 서버가 약속하는 실행 한도. 동의 지문에 함께 묶이므로 바뀌면 이전 동의는 무효다. */
+/** 보존 기한이 지나 출력이 지워진 작업의 `error` 값. 서버가 쓰고 화면이 같은 값으로 "만료"를 알아본다. */
+export const outputExpiredMessage = '결과가 만료되어 다시 요청해야 합니다.';
 export const aiV2Limits = { maxDays: 7, maxSearchCalls: 2, maxPlanningAttempts: 2 } as const;
 export const aiV2LocalServer = 'local-node';
 
@@ -14,6 +16,7 @@ const optionalClock = z
   .string()
   .regex(/^\d{2}:\d{2}$/)
   .optional();
+const blockedClock = z.string().regex(/^\d{2}:\d{2}$/);
 export const aiV2RequestKindSchema = z.enum(['add', 'edit', 'remove']);
 export type AiV2RequestKind = z.infer<typeof aiV2RequestKindSchema>;
 
@@ -43,7 +46,7 @@ export const aiV2PlanningDtoSchema = z.strictObject({
         departure: optionalClock,
         // 낮에 끼어 도착·출발로 표현할 수 없는 장거리 이동 구간. 이 안에는 제안할 수 없다.
         blocked: z
-          .array(z.strictObject({ from: z.string(), to: z.string() }))
+          .array(z.strictObject({ from: blockedClock, to: blockedClock }))
           .max(10)
           .optional(),
       }),
