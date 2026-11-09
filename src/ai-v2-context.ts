@@ -68,6 +68,12 @@ export function deriveDayTimes(plan: PlanVersion, day: Day) {
   let arrival: string | null = null;
   let departure: string | null = null;
   const blocked: { from: string; to: string }[] = [];
+  // 출발 후보가 여럿이면 가장 이른 시각이 그날의 끝이다.
+  const setDeparture = (from: string | null) => {
+    if (from && (departure === null || from < departure)) {
+      departure = from;
+    }
+  };
   legs.forEach((leg) => {
     const from = startOf(leg.fromActivityId);
     const to = startOf(leg.toActivityId);
@@ -76,9 +82,12 @@ export function deriveDayTimes(plan: PlanVersion, day: Day) {
     if (startsDay) {
       arrival = to;
     } else if (endsDay) {
-      departure = from;
+      setDeparture(from);
     } else if (from && to && from < to) {
       blocked.push({ from, to });
+    } else if (from && to && from > to) {
+      // 자정을 넘는 낮 구간은 버리지 않고 그날의 끝(출발 시각)으로 승격한다.
+      setDeparture(from);
     }
   });
   if (arrival && departure && arrival > departure) {

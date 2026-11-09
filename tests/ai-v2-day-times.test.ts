@@ -90,3 +90,24 @@ it('이동 구간 제약을 끄면 본문에서 빠진다', async () => {
   expect(Object.keys(off)).not.toContain('blocked');
   expect(displayedDayTimes(plan, day, { [day.dayId]: { ignoreTransit: true } }).blocked).toEqual([]);
 });
+
+it('CL-28: 자정을 넘는 낮 이동 구간은 버리지 않고 그날의 출발 시각이 된다', async () => {
+  const { fixture, day, plan } = await flightDay();
+  const template = plan.items[0];
+  plan.items = plan.items.filter((item) => item.dayId !== day.dayId);
+  const times = ['09:00', '22:30', '01:10', '08:00'];
+  times.forEach((localTime, order) => {
+    plan.items.push({
+      ...structuredClone(template),
+      activityId: `row-${order}`,
+      dayId: day.dayId,
+      order,
+      time: { start: { precision: 'local', date: day.date, localTime, timeZoneStatus: 'unknown' } },
+    });
+  });
+  plan.legs = [{ ...plan.legs[0], fromActivityId: 'row-1', toActivityId: 'row-2', mode: 'night train' }];
+  const derived = deriveDayTimes(plan, day);
+  expect(derived.blocked).toEqual([]);
+  expect(derived.departure).toBe('22:30');
+  expect(payload(fixture).planning.days[0].departure).toBe('22:30');
+});
