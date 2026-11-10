@@ -108,8 +108,9 @@ test('A·B4: Worker가 다시 떠도 inflight에서 이어 저장하고, 저장 
   await expect(saved(page)).toBeVisible({ timeout: 20_000 });
   await expect(jobStatus(page, '저장 완료')).toBeVisible();
   const id = (await rememberedJobId(page, fixture.dataset.header.tripId))!;
+  // ACK는 화면 표시 뒤 비동기로 도착하므로 서버 상태가 바뀔 때까지 기다린다.
+  await expect.poll(async () => (await workerJob(page, id)).status, { timeout: 10_000 }).toBe('acknowledged');
   const job = await workerJob(page, id);
-  expect(job.status).toBe('acknowledged');
   expect(job.result).toBeUndefined();
   expect(job.usage).toMatchObject({ totalTokens: 300 });
   expect(await inflightCount()).toBe(0);
@@ -219,9 +220,8 @@ test('B3·B4: 기기 저장이 실패하면 서버 결과를 지키고 "다시 �
   await failure.getByRole('button', { name: '다시 저장', exact: true }).click();
   await expect(saved(page)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole('heading', { name: fixture.output.reason, exact: true })).toBeVisible();
-  const acknowledged = await workerJob(page, id);
-  expect(acknowledged.status).toBe('acknowledged');
-  expect(acknowledged.result).toBeUndefined();
+  await expect.poll(async () => (await workerJob(page, id)).status, { timeout: 10_000 }).toBe('acknowledged');
+  expect((await workerJob(page, id)).result).toBeUndefined();
   expect(await openAiCreates()).toHaveLength(2);
   expect(errors).toEqual([]);
 });
@@ -370,7 +370,7 @@ test('B9: 여행 A의 작업은 여행 B 화면에 보이지 않고, B로 옮겨
     .click();
   await openMore(page, '변경안');
   await expect(saved(page)).toBeVisible({ timeout: 20_000 });
-  expect((await workerJob(page, jobA)).status).toBe('acknowledged');
+  await expect.poll(async () => (await workerJob(page, jobA)).status, { timeout: 10_000 }).toBe('acknowledged');
   expect(errors).toEqual([]);
 });
 

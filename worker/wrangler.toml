@@ -28,6 +28,8 @@ new_sqlite_classes = ["AiStoreObject"]
 [env.production]
 name = "travel-app-ai"
 workers_dev = true
+# 기본으로 켜지는 Preview URL을 끈다. 같은 Worker·비밀값을 가리키는 공개 주소가 늘어나는 것을 막는다.
+preview_urls = false
 
 [env.production.vars]
 RP_ID = "jeongjae.github.io"
