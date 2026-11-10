@@ -1,5 +1,7 @@
 # Worker 운영 절차 (travel-app-ai)
 
+> 운영 스크립트 이름은 `travel-app-ai`, 로컬 기본 환경은 `travel-app-ai-dev`다.
+
 T-D4 C1 작성. 아래 명령은 사용자 PC의 `worker/` 폴더에서 실행한다. 비밀값은 터미널 입력으로만 넣고 채팅·문서·커밋에 붙이지 않는다.
 
 ## 1. 배포
@@ -7,9 +9,9 @@ T-D4 C1 작성. 아래 명령은 사용자 PC의 `worker/` 폴더에서 실행�
 1. 로그인: `pnpm exec wrangler login` (사용자, 1회).
 2. 비밀값 3종(사용자): `pnpm exec wrangler secret put OPENAI_API_KEY --env production`, 같은 방식으로 `TOKEN_SECRET`(32자 이상 무작위), `REGISTRATION_CODE`(16자 이상 무작위).
 3. 점검만: `pnpm exec wrangler deploy --env production --dry-run --outdir <임시폴더>` (업로드하지 않는다).
-4. 배포: `pnpm exec wrangler deploy --env production`. 기본 환경(`--env` 없음)은 로컬 `wrangler dev` 전용이라 배포하지 않는다.
+4. 배포: `pnpm exec wrangler deploy --env production`. **배포는 반드시 `--env production`을 붙인다.** 기본 환경(`--env` 없음)은 로컬 `wrangler dev` 전용이며 스크립트 이름을 `travel-app-ai-dev`로 달리 두었지만, 실수로 배포하면 localhost 설정의 별도 스크립트가 생기므로 하지 않는다.
 5. 운영 값(`worker/wrangler.toml`의 `[env.production.vars]`): `RP_ID=jeongjae.github.io`, `ALLOWED_ORIGINS=https://jeongjae.github.io`, `OPENAI_MODEL=gpt-5.4-mini`, `DAILY_LIMIT=5`(T-D4 기간). `E2E_RESET`은 쓰지 않으며 운영 RP ID에서는 값을 줘도 `/__test/*`가 404다.
-6. 환경은 `[vars]`·DO 바인딩·마이그레이션을 상속하지 않는다. 항목을 바꿀 때 기본 환경과 `env.production` 양쪽을 맞춘다.
+6. 환경은 `[vars]`·DO 바인딩·마이그레이션을 상속하지 않는다. **두 환경 동시 수정 체크**: `worker/wrangler.toml`에서 변수·바인딩·마이그레이션을 바꿀 때 기본 환경과 `[env.production]`을 모두 열어 같은 항목을 함께 고쳤는지 확인한다. 의도적으로 다른 값(RP_ID·ALLOWED_ORIGINS·DAILY_LIMIT·name)은 제외한다. 확인: `pnpm exec wrangler deploy --env production --dry-run --outdir <임시폴더>`의 바인딩 표가 기대한 값과 같은지 본다.
 
 ## 2. 일일 한도
 

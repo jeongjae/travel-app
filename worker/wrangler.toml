@@ -1,6 +1,7 @@
 # 기본 환경은 로컬 `wrangler dev` 전용이다. 운영은 [env.production]이며 `wrangler deploy --env production`으로만 올린다.
 # 비밀값(OPENAI_API_KEY·TOKEN_SECRET·REGISTRATION_CODE)은 여기에 쓰지 않는다. `wrangler secret put ... --env production`.
-name = "travel-app-ai"
+# 기본 환경 name은 운영(travel-app-ai)과 다르게 둔다. --env production 없이 deploy해도 운영 스크립트를 덮지 않게 하는 안전장치(R1).
+name = "travel-app-ai-dev"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
