@@ -1,5 +1,14 @@
 # 결정 기록
 
+## 2026-11-10 13:27 · T-D4 승인 (사용자 확정)
+
+- **T-D3 사용자 확인 완료(13:21)**, T-D3 종결. T-D4 선행 승인 4건을 아래 구체값으로 승인.
+- **U-D2 모델·비용**: 조사·작성 `gpt-5.4-mini`. OpenAI 프로젝트 예산 **하드 리밋 $10/월**(금액 원장 없음 — 상한은 OpenAI 쪽에서 강제). T-D4 호출은 가상 여행 **최대 10회·추정 $2 이내**(실측 기록). T-D4 기간 일일 한도 **5회**, T-D5 전 20회 복원. 가격 단가는 T-D4 C1에서 공식 페이지로 확인 뒤 기록(추정 $0.20/회 초과면 멈춤).
+- **U-D3 자료·보관**: 전송 허용 목록·사용자 선택 기록·24h 보존·ACK·inflight 종료 즉시 삭제는 T-D1~3 확정값 그대로. `store:false` 유지. OpenAI 기본 데이터 보관(남용 모니터링)은 수용(ZDR은 개인 계정 대상 아님).
+- **배포**: Worker는 `*.workers.dev` 서브도메인(`workers_dev = true`, 무료). 허용 origin·RP ID는 `https://jeongjae.github.io` 하나. Pages 빌드에 `VITE_AI_API_BASE` 주입 → 배포 앱에서 AI 활성. Cloudflare 계정·`wrangler login`·`wrangler secret put`(OPENAI_API_KEY·TOKEN_SECRET·REGISTRATION_CODE)은 **사용자가 PC에서 직접**, `wrangler deploy`는 로그인된 PC에서 Claude. 비밀값은 채팅·문서·커밋에 나오지 않는다.
+- **U-D2-3 등록 코드**: 사용자가 16자 이상 생성·`wrangler secret put` → 배포 앱에서 패스키 1회 등록. 잠금 해제 절차(CL-34)는 T-D4 runbook.
+- 지시: [T-D4](claude-task-d04-limited-live.md). 사용자 단계(U1~U5)·관문(G1~G3)·Claude 단계(C1~C5) 분리.
+
 ## 2026-11-10 · T-D2 확인·결정 (사용자 확정 10:11)
 
 - **T-D2 사용자 확인 완료.** [T-D2 검토](claude-task-d02-review.md) 통과, main `e423d88`.

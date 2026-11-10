@@ -118,3 +118,4 @@
 - 2026-11-09: T-D2 구현(`ae757e6`~`e45e887`, Worker 프록시·패스키·DO 저장소·상한·CL-28) → Codex 역할 독립 검토 **통과**, main 병합. CL-30~33 기록. 사용자 결정 U-D2-1~3 대기. UI 설계 4건은 `codex/ui-resume` `afe5b68` 보관.
 - 2026-11-10: T-D2 사용자 확인 완료, U-D2-1 허용·U-D2-2 유지·U-D2-3 T-D4. [T-D3](claude-task-d03-recovery.md) 지시 발행(모의 통합·복구 B1~B10, inflight 임시 저장, ACK→acknowledged, tick 격리, CL-30 당김, 가짜 OpenAI 고장 주입).
 - 2026-11-10: T-D3 구현(`a24107d`~`6b8e9f4`: inflight 복구·ACK→acknowledged·tick 격리·등록 잠금·고장 주입·B1~B10 E2E) → Codex 역할 검토 **통과**, main 병합. CL-30·31 해소, CL-34·35 기록.
+- 2026-11-10: T-D3 사용자 확인 완료(13:21) → 종결. T-D4 승인(모델 gpt-5.4-mini·$10/월·10회 $2·일일 5회·workers.dev·origin 1개·비밀값 사용자 설정) → [T-D4 지시](claude-task-d04-limited-live.md) 발행. CL-32(CPU 실측)·CL-34(잠금 해제 runbook)는 T-D4 범위.
