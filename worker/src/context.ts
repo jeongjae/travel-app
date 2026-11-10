@@ -3,7 +3,7 @@ import { Auth } from './auth.ts';
 import type { AppContext } from './app.ts';
 import { WorkerJobs, type JobMemory } from './jobs.ts';
 import { OpenAiBackground } from './openai.ts';
-import { AiStore, type SqlLike } from './store.ts';
+import { AiStore, type SqlLike, type SqlTransaction } from './store.ts';
 
 /** wrangler.toml [vars]와 비밀값(.dev.vars / wrangler secret). */
 export type WorkerVars = {
@@ -22,6 +22,7 @@ export type AppRuntime = {
   sql: SqlLike;
   now: () => number;
   schedule: (at: number) => void | Promise<void>;
+  transaction?: SqlTransaction;
   fetcher?: typeof fetch;
 };
 
@@ -30,7 +31,7 @@ export function createApp(vars: WorkerVars, runtime: AppRuntime): AppContext {
   let offset = 0;
   const now = () => runtime.now() + offset;
   const schedule = (at: number) => runtime.schedule(at - offset);
-  const store = new AiStore(runtime.sql);
+  const store = new AiStore(runtime.sql, runtime.transaction);
   const memory = new Map<string, JobMemory>();
   const origins = (vars.ALLOWED_ORIGINS ?? '')
     .split(',')
@@ -65,6 +66,10 @@ export function createApp(vars: WorkerVars, runtime: AppRuntime): AppContext {
     onReset: () => {
       memory.clear();
       offset = 0;
+    },
+    // DO가 내려갔다 다시 뜬 것처럼 메모리만 비운다. 저장소(inflight 포함)와 alarm은 그대로다.
+    onRestart: () => {
+      memory.clear();
     },
     advanceClock: (ms: number) => {
       offset += ms;

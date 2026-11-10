@@ -6,8 +6,12 @@ export type SqlValue = string | number | null | ArrayBuffer;
 export interface SqlLike {
   exec(query: string, ...bindings: SqlValue[]): { toArray(): Record<string, SqlValue>[] };
 }
+/** 여러 쓰기를 하나로 확정한다. DO는 `ctx.storage.transactionSync`, 시험은 BEGIN/COMMIT을 쓴다. */
+export type SqlTransaction = <T>(body: () => T) => T;
 
 export type StoredJobRow = { job: AiV2Job; fingerprint: string; responseId: string | null };
+/** 실행 중 작업의 요청 원문·조사 본문(U-D2-1). 작업이 끝나는 쓰기와 같은 트랜잭션에서 지운다. */
+export type InflightRow = { input: string; research: string | null; repair: string };
 export type CredentialRow = { id: string; publicKey: string; counter: number; transports: string[] };
 
 const schema = [
@@ -21,6 +25,13 @@ const schema = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     data TEXT NOT NULL
+  )`,
+  // 실행 중에만 있는 행. 응답·백업·내보내기로 나가지 않고, 작업이 끝나는 즉시 지운다(결정 11/10 U-D2-1).
+  `CREATE TABLE IF NOT EXISTS inflight (
+    job_id TEXT PRIMARY KEY,
+    input TEXT NOT NULL,
+    research TEXT,
+    repair TEXT NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS credentials (
     id TEXT PRIMARY KEY,
@@ -54,11 +65,18 @@ const count = (value: SqlValue | undefined) => (typeof value === 'number' ? valu
 
 export class AiStore {
   private sql: SqlLike;
-  constructor(sql: SqlLike) {
+  private transaction: SqlTransaction;
+  constructor(sql: SqlLike, transaction: SqlTransaction = (body) => body()) {
     this.sql = sql;
+    this.transaction = transaction;
     for (const statement of schema) {
       this.sql.exec(statement);
     }
+  }
+
+  /** 안의 쓰기가 모두 확정되거나 모두 취소된다. 안에서 await하지 않는다. */
+  atomic<T>(body: () => T): T {
+    return this.transaction(body);
   }
 
   // ── 작업 ──
@@ -78,8 +96,8 @@ export class AiStore {
     return rows.map((row) => this.toRow(row));
   }
   /** 보존 기한이 지난 끝난 작업만. 매 조회마다 부르므로 전 행을 읽지 않고 SQL에서 거른다. */
-  listExpirable(runningStatuses: readonly string[], cutoffIso: string): StoredJobRow[] {
-    const skip = [...runningStatuses, 'expired'];
+  listExpirable(keepStatuses: readonly string[], cutoffIso: string): StoredJobRow[] {
+    const skip = [...keepStatuses, 'expired'];
     return this.sql
       .exec(
         `SELECT data, fingerprint, response_id FROM jobs
@@ -113,6 +131,36 @@ export class AiStore {
   }
   deleteJob(id: string) {
     this.sql.exec('DELETE FROM jobs WHERE id = ?', id);
+    this.deleteInflight(id);
+  }
+
+  // ── 실행 중 원문 ──
+  putInflight(id: string, row: InflightRow) {
+    this.sql.exec(
+      `INSERT INTO inflight (job_id, input, research, repair) VALUES (?, ?, ?, ?)
+       ON CONFLICT(job_id) DO UPDATE SET input = excluded.input, research = excluded.research, repair = excluded.repair`,
+      id,
+      row.input,
+      row.research,
+      row.repair,
+    );
+  }
+  getInflight(id: string): InflightRow | undefined {
+    const row = this.sql.exec('SELECT input, research, repair FROM inflight WHERE job_id = ?', id).toArray()[0];
+    if (!row) {
+      return undefined;
+    }
+    return {
+      input: text(row.input),
+      research: typeof row.research === 'string' ? row.research : null,
+      repair: text(row.repair),
+    };
+  }
+  deleteInflight(id: string) {
+    this.sql.exec('DELETE FROM inflight WHERE job_id = ?', id);
+  }
+  countInflight() {
+    return count(this.sql.exec('SELECT count(*) AS n FROM inflight').toArray()[0]?.n);
   }
   private toRow(row: Record<string, SqlValue>): StoredJobRow {
     return {
@@ -191,7 +239,15 @@ export class AiStore {
 
   /** E2E 전용 초기화. 라우터가 로컬 시험 설정에서만 부른다. */
   resetAll() {
-    for (const table of ['jobs', 'credentials', 'daily_counts', 'challenges', 'revoked_tokens', 'settings']) {
+    for (const table of [
+      'jobs',
+      'inflight',
+      'credentials',
+      'daily_counts',
+      'challenges',
+      'revoked_tokens',
+      'settings',
+    ]) {
       this.sql.exec(`DELETE FROM ${table}`);
     }
   }

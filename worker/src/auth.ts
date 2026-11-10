@@ -23,6 +23,11 @@ export type AuthConfig = {
 
 const encoder = new TextEncoder();
 
+export const minRegistrationCodeLength = 16;
+export const maxRegistrationFailures = 5;
+export const registrationLockedMessage =
+  '등록 코드가 5회 틀려 등록을 잠갔습니다. 비밀값을 바꾸고 잠금 설정을 지운 뒤 다시 등록하세요.';
+
 export function toBase64Url(bytes: Uint8Array) {
   let binary = '';
   for (const byte of bytes) {
@@ -138,15 +143,40 @@ export class Auth {
     return this.store.credentials().length > 0;
   }
 
-  /** 등록은 자격이 0개이고 1회 등록 코드가 맞을 때만. 첫 등록이 끝나면 코드는 다시 쓸 수 없다. */
+  /** 등록 코드가 5회 틀려 잠겼는지. 해제는 비밀값 교체 뒤 settings의 잠금 행을 지우는 운영 절차뿐이다(CL-30). */
+  locked() {
+    return this.store.setting('registration_locked') === '1';
+  }
+
+  /**
+   * 등록은 자격이 0개이고 1회 등록 코드가 맞을 때만. 첫 등록이 끝나면 코드는 다시 쓸 수 없다.
+   * 코드가 16자 미만이면 설정 없음으로 보고, 틀린 코드가 누적 5회면 등록을 잠근다(CL-30).
+   */
   private async assertCanRegister(code: unknown) {
     if (this.registered() || this.store.setting('registration_closed') === '1') {
       throw new AiV2RequestError(409, 'already_registered', '이미 패스키가 등록되어 있습니다. 로그인하세요.');
     }
-    if (!this.config.registrationCode) {
-      throw new AiV2RequestError(503, 'not_configured', 'Worker 등록 코드(REGISTRATION_CODE)가 설정되지 않았습니다.');
+    if (this.config.registrationCode.length < minRegistrationCodeLength) {
+      throw new AiV2RequestError(
+        503,
+        'not_configured',
+        `Worker 등록 코드(REGISTRATION_CODE, ${minRegistrationCodeLength}자 이상)가 설정되지 않았습니다.`,
+      );
+    }
+    if (this.locked()) {
+      throw new AiV2RequestError(423, 'registration_locked', registrationLockedMessage);
     }
     if (typeof code !== 'string' || !(await sameSecret(code, this.config.registrationCode))) {
+      const failures = Number(this.store.setting('registration_failures') ?? 0) + 1;
+      this.store.atomic(() => {
+        this.store.putSetting('registration_failures', String(failures));
+        if (failures >= maxRegistrationFailures) {
+          this.store.putSetting('registration_locked', '1');
+        }
+      });
+      if (failures >= maxRegistrationFailures) {
+        throw new AiV2RequestError(423, 'registration_locked', registrationLockedMessage);
+      }
       throw new AiV2RequestError(403, 'bad_registration_code', '등록 코드가 맞지 않습니다.');
     }
   }

@@ -15,6 +15,7 @@ interface DurableObjectState {
       exec(query: string, ...bindings: SqlStorageValue[]): { toArray(): Record<string, SqlStorageValue>[] };
     };
     setAlarm(scheduledTime: number): Promise<void>;
+    transactionSync<T>(body: () => T): T;
   };
 }
 

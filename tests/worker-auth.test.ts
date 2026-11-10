@@ -3,6 +3,7 @@ import { expect, it } from 'vitest';
 import { aiV2JobLimits } from '../src/ai-v2-contract';
 import { handleRequest } from '../worker/src/app';
 import { createApp } from '../worker/src/context';
+import { maxRegistrationFailures, minRegistrationCodeLength } from '../worker/src/auth';
 import { softAuthenticator } from './worker/soft-authenticator';
 import { testVars, workerHarness } from './worker/harness';
 
@@ -179,6 +180,7 @@ it('v1 경로는 Worker에 없고, 초기화 경로는 로컬 시험 설정에�
   const harness = workerHarness();
   expect((await call(harness, 'POST', '/api/ai/jobs')).status).toBe(404);
   expect((await call(harness, 'POST', '/__test/reset')).status).toBe(404);
+  expect((await call(harness, 'POST', '/__test/restart')).status).toBe(404);
   expect((await call(harness, 'POST', '/__test/clock', { body: { advanceMs: 1 } })).status).toBe(404);
   const production = createApp(
     { ...testVars, RP_ID: 'jeongjae.github.io', E2E_RESET: '1' },
@@ -194,4 +196,40 @@ it('v1 경로는 Worker에 없고, 초기화 경로는 로컬 시험 설정에�
     },
   );
   expect(local.allowReset).toBe(true);
+});
+
+it('T-D3 §D: 등록 코드가 16자 미만이면 등록 경로는 503(not_configured)', async () => {
+  const short = 'x'.repeat(minRegistrationCodeLength - 1);
+  const harness = workerHarness({ ...testVars, REGISTRATION_CODE: short });
+  for (const path of ['/auth/register/options', '/auth/register']) {
+    const response = await call(harness, 'POST', path, { body: { code: short } });
+    expect(response.status).toBe(503);
+    expect((await response.json()).code).toBe('not_configured');
+  }
+  expect(testVars.REGISTRATION_CODE!.length).toBeGreaterThanOrEqual(minRegistrationCodeLength);
+});
+
+it('T-D3 §D: 틀린 코드 5회 누적이면 등록이 잠기고 맞는 코드도 거절한다. 상태는 locked만 알린다', async () => {
+  const harness = workerHarness();
+  for (let attempt = 1; attempt < maxRegistrationFailures; attempt++) {
+    const wrong = await call(harness, 'POST', '/auth/register/options', { body: { code: `wrong-${attempt}` } });
+    expect(wrong.status).toBe(403);
+  }
+  expect(await (await call(harness, 'GET', '/auth/state')).json()).toEqual({ registered: false, locked: false });
+  const fifth = await call(harness, 'POST', '/auth/register', { body: { code: 'wrong-5' } });
+  expect(fifth.status).toBe(423);
+  expect((await fifth.json()).code).toBe('registration_locked');
+  const state = await (await call(harness, 'GET', '/auth/state')).text();
+  expect(JSON.parse(state)).toEqual({ registered: false, locked: true });
+  expect(state).not.toContain(testVars.REGISTRATION_CODE);
+  const right = await register(harness, await softAuthenticator());
+  expect(right.status).toBe(423);
+  // 운영 해제: 비밀값 교체 뒤 잠금 설정을 지운다. 그 전에는 열리지 않는다.
+  harness.sql.exec("DELETE FROM settings WHERE key IN ('registration_locked', 'registration_failures')");
+  expect((await register(harness, await softAuthenticator())).status).toBe(200);
+});
+
+it('T-D3 §C: /__test/restart는 메모리만 비우고 초기화와 같은 게이트에서만 열린다', async () => {
+  const harness = workerHarness({ ...testVars, E2E_RESET: '1' });
+  expect((await call(harness, 'POST', '/__test/restart')).status).toBe(200);
 });

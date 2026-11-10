@@ -31,6 +31,12 @@ export type FakeOpenAi = {
   /** 다음 생성 호출을 연결 실패로 만든다. */
   dropNextCreate: boolean;
   createStatus?: number;
+  /** 생성 호출이 이 약속을 기다린 뒤 응답한다(calling 중 중단 재현). */
+  createGate?: Promise<void>;
+  /** 결과 조회(GET)를 이 상태 코드로 times번 실패시킨다(404 보관 만료·5xx 반복 재현). */
+  getFailure?: { status: number; times: number };
+  /** 완료 대신 incomplete로 돌려준다. */
+  incomplete: boolean;
   fetcher: typeof fetch;
 };
 
@@ -46,6 +52,7 @@ export function fakeOpenAi(): FakeOpenAi {
     outputs: [],
     sources: [{ url: 'https://example.org/fictional-official', title: '가상 공식 자료' }],
     dropNextCreate: false,
+    incomplete: false,
     fetcher: async (input, init) => {
       const url = new URL(String(input));
       const method = init?.method ?? 'GET';
@@ -62,6 +69,7 @@ export function fakeOpenAi(): FakeOpenAi {
         }
         const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
         fake.bodies.push(body);
+        await fake.createGate;
         const id = `resp_${++sequence}`;
         const kind = body.tools ? 'research' : 'planning';
         responses.set(id, { kind, polls: 0, index: kind === 'planning' ? planningCalls++ : 0 });
@@ -75,7 +83,14 @@ export function fakeOpenAi(): FakeOpenAi {
       if (match[2]) {
         return json({ id: match[1], status: 'cancelled' });
       }
+      if (fake.getFailure && fake.getFailure.times > 0) {
+        fake.getFailure.times -= 1;
+        return json({ error: { message: 'fake failure' } }, fake.getFailure.status);
+      }
       stored.polls += 1;
+      if (fake.incomplete) {
+        return json({ id: match[1], status: 'incomplete', usage, incomplete_details: { reason: 'max_output_tokens' } });
+      }
       if (fake.hold || stored.polls <= fake.pollsBeforeDone) {
         return json({ id: match[1], status: 'in_progress' });
       }
@@ -125,6 +140,18 @@ export function workerHarness(vars: WorkerVars = testVars) {
       schedule: (at) => {
         alarms.push(at);
       },
+      // DO transactionSync와 같게: 안의 쓰기가 모두 확정되거나 모두 취소된다.
+      transaction: (body) => {
+        sql.db.exec('BEGIN');
+        try {
+          const result = body();
+          sql.db.exec('COMMIT');
+          return result;
+        } catch (error) {
+          sql.db.exec('ROLLBACK');
+          throw error;
+        }
+      },
       fetcher: openai.fetcher,
     });
   const harness = {
@@ -149,6 +176,9 @@ export function workerHarness(vars: WorkerVars = testVars) {
           return;
         }
       }
+    },
+    rawInflight() {
+      return harness.sql.db.prepare('SELECT * FROM inflight').all() as Record<string, string | null>[];
     },
     rawJobs() {
       return harness.sql.db.prepare('SELECT * FROM jobs').all() as Record<string, string | null>[];

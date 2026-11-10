@@ -14,11 +14,13 @@ export type AppContext = {
   /** 로컬 E2E에서만 켠다. 모든 표를 비운다. */
   allowReset: boolean;
   onReset?: () => void;
+  /** 로컬 E2E에서 DO 재시작을 재현한다: 메모리만 비우고 저장소는 유지한다. */
+  onRestart?: () => void;
   /** 로컬 E2E에서 토큰 만료·24시간 보관을 재현하려고 시계를 앞으로 민다. */
   advanceClock?: (ms: number) => void;
 };
 
-const jobPath = /^\/api\/ai\/v2\/jobs\/([a-f0-9-]{36})(\/cancel)?$/;
+const jobPath = /^\/api\/ai\/v2\/jobs\/([a-f0-9-]{36})(\/cancel|\/ack)?$/;
 
 /** 본문을 끝까지 받기 전에 상한을 넘으면 멈춘다. Content-Length가 없어도 센다. */
 async function readJson(request: Request) {
@@ -108,6 +110,14 @@ export async function handleRequest(request: Request, app: AppContext): Promise<
       app.onReset?.();
       return reply(200, { reset: true });
     }
+    if (path === '/__test/restart' && request.method === 'POST' && app.allowReset) {
+      app.onRestart?.();
+      return reply(200, { restarted: true });
+    }
+    // 끝난 작업의 실행 중 원문이 남지 않았는지 E2E가 행 수만 본다(내용은 내보내지 않는다).
+    if (path === '/__test/inflight' && request.method === 'GET' && app.allowReset) {
+      return reply(200, { count: app.store.countInflight() });
+    }
     if (path === '/__test/clock' && request.method === 'POST' && app.allowReset) {
       app.advanceClock?.(Math.max(0, Number(body.advanceMs) || 0));
       return reply(200, { advanced: true });
@@ -126,8 +136,11 @@ export async function handleRequest(request: Request, app: AppContext): Promise<
         const job = app.jobs.get(match[1]);
         return job ? reply(200, job) : reply(404, { error: 'AI 작업이 없습니다.', code: 'not_found' });
       }
-      if (match && request.method === 'POST' && match[2]) {
+      if (match && request.method === 'POST' && match[2] === '/cancel') {
         return reply(200, await app.jobs.cancel(match[1]));
+      }
+      if (match && request.method === 'POST' && match[2] === '/ack') {
+        return reply(200, app.jobs.acknowledge(match[1]));
       }
       return reply(404, { error: '없는 v2 API 경로입니다.', code: 'not_found' });
     }
@@ -147,7 +160,8 @@ export async function handleRequest(request: Request, app: AppContext): Promise<
 
 async function routeAuth(request: Request, path: string, body: Record<string, unknown>, app: AppContext) {
   if (request.method === 'GET' && path === '/auth/state') {
-    return { registered: app.auth.registered() };
+    // 잠금 여부만 알린다. 코드·실패 횟수는 내보내지 않는다.
+    return { registered: app.auth.registered(), locked: app.auth.locked() };
   }
   if (request.method !== 'POST') {
     throw new AiV2RequestError(404, 'not_found', '없는 인증 경로입니다.');

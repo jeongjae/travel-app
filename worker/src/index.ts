@@ -13,6 +13,7 @@ export class AiStoreObject extends DurableObject<WorkerEnv> {
       sql: ctx.storage.sql,
       now: () => Date.now(),
       schedule: (at) => ctx.storage.setAlarm(at),
+      transaction: (body) => ctx.storage.transactionSync(body),
     });
   }
   fetch(request: Request) {

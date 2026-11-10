@@ -234,6 +234,8 @@ export const aiV2StatusSchema = z.enum([
   'calling',
   'unknown',
   'expired',
+  // T-D3 저장 확인(ACK): 브라우저가 변경안 저장에 성공해 서버가 출력을 지운 상태.
+  'acknowledged',
 ]);
 export type AiV2Status = z.infer<typeof aiV2StatusSchema>;
 /** 아직 끝나지 않은 작업 상태. 화면 폴링과 서버의 실행 중 판정이 같은 목록을 쓴다. */
@@ -244,6 +246,11 @@ export const aiV2RunningStatuses: readonly AiV2Status[] = [
   'planning',
   'validating',
 ];
+
+/** 저장 확인 경로. 브라우저가 변경안 저장(Stage)에 성공한 직후 POST한다. 본문은 비어 있다. */
+export function aiV2AckPath(jobId: string) {
+  return `/api/ai/v2/jobs/${jobId}/ack`;
+}
 
 /** 상태 API 응답. Worker는 잔여 횟수·오늘 사용량을 더한다. */
 export type AiV2ServerStatus = {

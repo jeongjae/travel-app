@@ -2,7 +2,7 @@
 import { expect, it } from 'vitest';
 import { consentedRequest } from '../src/ai-v2-context';
 import { aiV2JobLimits, aiV2Limits, aiV2WorkerServer, type AiV2Policy } from '../src/ai-v2-contract';
-import { limitDay, unknownMessage, interruptedMessage } from '../worker/src/jobs';
+import { limitDay, unknownMessage } from '../worker/src/jobs';
 import { AiV2RequestError, type AiV2Job } from '../src/ai-v2-jobs-core';
 import { aiV2Fixture } from './fixtures/ai-v2';
 import { workerHarness } from './worker/harness';
@@ -62,6 +62,8 @@ it('저장 필드는 허용 목록뿐이다: 요청 원문·기록·활동 제�
   await harness.app.jobs.create(request);
   await harness.drain();
   const raw = JSON.stringify(harness.rawJobs());
+  // T-D3: 실행 중 원문(inflight)은 끝나면 0행이다.
+  expect(harness.rawInflight()).toEqual([]);
   expect(raw).not.toContain(request.planning.request);
   expect(raw).not.toContain(request.planning.items[0].title);
   expect(raw).not.toContain('SYNTHETIC-PRIVATE');
@@ -137,17 +139,6 @@ it('생성 호출이 429로 거부되면 failed이고 예산/속도 안내를 �
   expect(job.error).toContain('잠시 후');
 });
 
-it('DO가 다시 떠 요청 원문을 잃으면 interrupted로 끝내고 원문을 저장하지 않았음을 보인다', async () => {
-  const { harness, request } = await setup();
-  await harness.app.jobs.create(request);
-  harness.restart();
-  await harness.drain();
-  const job = harness.app.jobs.get(request.id)!;
-  expect(job.status).toBe('interrupted');
-  expect(job.error).toBe(interruptedMessage);
-  expect(harness.openai.calls).toEqual([]);
-});
-
 it('결과 저장이 실패해도 응답 ID가 남아 다음 alarm에서 다시 회수하고 사용량은 한 번만 더한다', async () => {
   const { harness, request, fixture } = await setup();
   await harness.app.jobs.create(request);
@@ -163,7 +154,8 @@ it('결과 저장이 실패해도 응답 ID가 남아 다음 alarm에서 다시 
     }
     return original(query, ...bindings);
   };
-  await expect(harness.app.jobs.tick()).rejects.toThrow('가상 저장 실패');
+  // T-D3 §C: 예외는 그 작업 안에 가둔다. 응답을 받은 validating은 다음 alarm에서 다시 회수한다.
+  await harness.app.jobs.tick();
   const pending = harness.rawJobs()[0];
   expect(pending.status).toBe('validating');
   expect(pending.response_id).toBeTruthy();
