@@ -161,6 +161,7 @@ export async function handleRequest(request: Request, app: AppContext): Promise<
 async function routeAuth(request: Request, path: string, body: Record<string, unknown>, app: AppContext) {
   if (request.method === 'GET' && path === '/auth/state') {
     // 잠금 여부만 알린다. 코드·실패 횟수는 내보내지 않는다.
+    await app.auth.syncCodeFingerprint();
     return { registered: app.auth.registered(), locked: app.auth.locked() };
   }
   if (request.method !== 'POST') {

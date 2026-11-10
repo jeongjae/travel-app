@@ -210,7 +210,8 @@ it('T-D3 §D: 등록 코드가 16자 미만이면 등록 경로는 503(not_confi
 });
 
 it('T-D3 §D: 틀린 코드 5회 누적이면 등록이 잠기고 맞는 코드도 거절한다. 상태는 locked만 알린다', async () => {
-  const harness = workerHarness();
+  const vars = { ...testVars };
+  const harness = workerHarness(vars);
   for (let attempt = 1; attempt < maxRegistrationFailures; attempt++) {
     const wrong = await call(harness, 'POST', '/auth/register/options', { body: { code: `wrong-${attempt}` } });
     expect(wrong.status).toBe(403);
@@ -224,9 +225,14 @@ it('T-D3 §D: 틀린 코드 5회 누적이면 등록이 잠기고 맞는 코드�
   expect(state).not.toContain(testVars.REGISTRATION_CODE);
   const right = await register(harness, await softAuthenticator());
   expect(right.status).toBe(423);
-  // 운영 해제: 비밀값 교체 뒤 잠금 설정을 지운다. 그 전에는 열리지 않는다.
-  harness.sql.exec("DELETE FROM settings WHERE key IN ('registration_locked', 'registration_failures')");
-  expect((await register(harness, await softAuthenticator())).status).toBe(200);
+  // 비밀값만 바꿔도 잠금이 풀린다(결정 1 D안). 같은 값으로 재시작해도 풀리지 않는다.
+  harness.restart();
+  expect((await register(harness, await softAuthenticator())).status).toBe(423);
+  vars.REGISTRATION_CODE = 'rotated-registration-code';
+  harness.restart();
+  expect(await (await call(harness, 'GET', '/auth/state')).json()).toEqual({ registered: false, locked: false });
+  const rotated = await call(harness, 'POST', '/auth/register/options', { body: { code: 'wrong-again' } });
+  expect(rotated.status).toBe(403);
 });
 
 it('T-D3 §C: /__test/restart는 메모리만 비우고 초기화와 같은 게이트에서만 열린다', async () => {

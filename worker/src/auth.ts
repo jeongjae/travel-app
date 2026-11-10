@@ -26,7 +26,7 @@ const encoder = new TextEncoder();
 export const minRegistrationCodeLength = 16;
 export const maxRegistrationFailures = 5;
 export const registrationLockedMessage =
-  '등록 코드가 5회 틀려 등록을 잠갔습니다. 비밀값을 바꾸고 잠금 설정을 지운 뒤 다시 등록하세요.';
+  '등록 코드가 5회 틀려 등록을 잠갔습니다. 서버의 등록 코드(비밀값)를 바꾸면 잠금이 풀립니다.';
 
 export function toBase64Url(bytes: Uint8Array) {
   let binary = '';
@@ -143,7 +143,28 @@ export class Auth {
     return this.store.credentials().length > 0;
   }
 
-  /** 등록 코드가 5회 틀려 잠겼는지. 해제는 비밀값 교체 뒤 settings의 잠금 행을 지우는 운영 절차뿐이다(CL-30). */
+  /**
+   * 등록 코드의 SHA-256 지문을 저장해 두고, 비밀값이 바뀌면(지문이 다르면) 잠금·실패 횟수를 지운다.
+   * 해제 경로를 따로 두지 않고 비밀값 교체만으로 푼다(사용자 결정 2026-11-10, 결정 1 D안).
+   * 코드 자체는 저장하지 않는다. locked()·assertCanRegister 앞에서 부른다.
+   */
+  async syncCodeFingerprint() {
+    if (this.config.registrationCode.length < minRegistrationCodeLength) {
+      return;
+    }
+    const digest = await crypto.subtle.digest('SHA-256', encoder.encode(this.config.registrationCode));
+    const fingerprint = toBase64Url(new Uint8Array(digest));
+    if (this.store.setting('registration_code_fp') === fingerprint) {
+      return;
+    }
+    this.store.atomic(() => {
+      this.store.putSetting('registration_code_fp', fingerprint);
+      this.store.putSetting('registration_failures', '0');
+      this.store.putSetting('registration_locked', '0');
+    });
+  }
+
+  /** 등록 코드가 5회 틀려 잠겼는지. 해제는 비밀값 교체뿐이다(syncCodeFingerprint). */
   locked() {
     return this.store.setting('registration_locked') === '1';
   }
@@ -163,6 +184,7 @@ export class Auth {
         `Worker 등록 코드(REGISTRATION_CODE, ${minRegistrationCodeLength}자 이상)가 설정되지 않았습니다.`,
       );
     }
+    await this.syncCodeFingerprint();
     if (this.locked()) {
       throw new AiV2RequestError(423, 'registration_locked', registrationLockedMessage);
     }
