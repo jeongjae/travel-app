@@ -50,6 +50,8 @@ export type WorkerJobsDeps = {
   memory: Map<string, JobMemory>;
   now: () => number;
   schedule: (at: number) => void | Promise<void>;
+  /** 하루 생성 요청 한도. 환경값(DAILY_LIMIT)에서 오며 없으면 계약 기본값. */
+  dailyLimit?: number;
 };
 
 export const unknownMessage =
@@ -92,14 +94,18 @@ export class WorkerJobs {
     return { server: aiV2WorkerServer, model: this.deps.openai.model, limits: { ...aiV2Limits } };
   }
 
+  private dailyLimit() {
+    return this.deps.dailyLimit ?? aiV2JobLimits.dailyJobs;
+  }
+
   status(): AiV2ServerStatus {
     const today = this.store.daily(limitDay(this.deps.now()));
     return {
       configured: this.deps.openai.configured,
       model: this.deps.openai.model,
       policy: this.policy(),
-      dailyJobLimit: aiV2JobLimits.dailyJobs,
-      remainingToday: Math.max(0, aiV2JobLimits.dailyJobs - today.jobs),
+      dailyJobLimit: this.dailyLimit(),
+      remainingToday: Math.max(0, this.dailyLimit() - today.jobs),
       usageToday: today,
     };
   }
@@ -123,11 +129,11 @@ export class WorkerJobs {
       throw new AiV2RequestError(409, 'job_running', '이미 실행 중인 AI 작업이 있습니다.');
     }
     const day = limitDay(this.deps.now());
-    if (this.store.daily(day).jobs >= aiV2JobLimits.dailyJobs) {
+    if (this.store.daily(day).jobs >= this.dailyLimit()) {
       throw new AiV2RequestError(
         429,
         'daily_limit',
-        `오늘 AI 요청 한도(${aiV2JobLimits.dailyJobs}회)를 모두 썼습니다. 내일(한국 시간) 다시 요청하세요.`,
+        `오늘 AI 요청 한도(${this.dailyLimit()}회)를 모두 썼습니다. 내일(한국 시간) 다시 요청하세요.`,
       );
     }
     this.prune(aiV2JobLimits.maxStoredJobs - 1);

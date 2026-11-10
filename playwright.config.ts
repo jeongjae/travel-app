@@ -14,6 +14,12 @@ const workerVars = [
   'E2E_RESET:1',
 ].flatMap((value) => ['--var', value]);
 
+// T-D4 C1: 교차 출처 확인용. VITE_AI_API_BASE를 넣어 따로 빌드한 폴더를 미리보기로 연다(pnpm run test:e2e:cross-origin).
+const crossOriginDist = process.env.E2E_CROSS_ORIGIN_DIST;
+const previewCommand = crossOriginDist
+  ? `pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort --outDir "${crossOriginDist}"`
+  : 'pnpm run preview:ui';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
@@ -29,7 +35,7 @@ export default defineConfig({
   // Opt in only after verifying that the listener belongs to this checkout's Vite preview.
   webServer: [
     {
-      command: 'pnpm run preview:ui',
+      command: previewCommand,
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: process.env.TRAVEL_APP_REUSE_PREVIEW === '1',
       timeout: 30000,

@@ -20,6 +20,7 @@
     "build": "pnpm run typecheck && vite build",
     "preview": "node scripts/run-app.mjs preview",
     "preview:node": "node scripts/run-app.mjs preview node",
+    "test:e2e:cross-origin": "node scripts/e2e-cross-origin.mjs",
     "preview:ui": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test:e2e": "node scripts/playwright.mjs test",
     "browser:install": "node scripts/playwright.mjs install chromium",

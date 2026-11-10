@@ -139,6 +139,8 @@ it('허용 목록 밖 Origin은 403, 허용 origin만 CORS를 받고 자격증�
   expect(preflight.status).toBe(204);
   expect(preflight.headers.get('Access-Control-Allow-Origin')).toBe('https://jeongjae.github.io');
   expect(preflight.headers.get('Access-Control-Allow-Headers')).toContain('Authorization');
+  // 앱 클라이언트가 모든 요청에 붙이는 헤더도 허용해야 교차 출처 사전 요청이 통과한다(T-D4 C1에서 발견).
+  expect(preflight.headers.get('Access-Control-Allow-Headers')).toContain('X-Travel-App');
   expect(preflight.headers.get('Access-Control-Allow-Credentials')).toBeNull();
   const evilPreflight = await call(harness, 'OPTIONS', '/api/ai/v2/jobs', { headers: { Origin: 'null' } });
   expect(evilPreflight.status).toBe(403);

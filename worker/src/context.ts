@@ -1,4 +1,5 @@
 // 환경 값으로 저장소·인증·작업을 조립한다. DO와 단위 시험이 같은 조립을 쓴다.
+import { aiV2JobLimits } from '../../src/ai-v2-contract.ts';
 import { Auth } from './auth.ts';
 import type { AppContext } from './app.ts';
 import { WorkerJobs, type JobMemory } from './jobs.ts';
@@ -16,7 +17,20 @@ export type WorkerVars = {
   RP_NAME?: string;
   ALLOWED_ORIGINS?: string;
   E2E_RESET?: string;
+  /** 하루 생성 요청 한도. 비우면 20, 값이 있는데 1~20 정수가 아니면 1(비용 쪽으로 안전하게). */
+  DAILY_LIMIT?: string;
 };
+
+export function parseDailyLimit(value: string | undefined) {
+  if (value === undefined || value.trim() === '') {
+    return aiV2JobLimits.dailyJobs;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > aiV2JobLimits.dailyJobs) {
+    return 1;
+  }
+  return parsed;
+}
 
 export type AppRuntime = {
   sql: SqlLike;
@@ -55,7 +69,7 @@ export function createApp(vars: WorkerVars, runtime: AppRuntime): AppContext {
     store,
     now,
   );
-  const jobs = new WorkerJobs({ store, openai, memory, now, schedule });
+  const jobs = new WorkerJobs({ store, openai, memory, now, schedule, dailyLimit: parseDailyLimit(vars.DAILY_LIMIT) });
   return {
     store,
     auth,

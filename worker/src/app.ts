@@ -65,7 +65,7 @@ function corsHeaders(origin: string | null, allowed: boolean): Record<string, st
   // 자격증명(쿠키) 헤더는 보내지 않는다. 인증은 Authorization 헤더뿐이다.
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Travel-App',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Max-Age': '600',
     Vary: 'Origin',
