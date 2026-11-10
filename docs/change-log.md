@@ -75,6 +75,7 @@
 | CL-33 | Origin 헤더 없는 요청 허용(Bearer 필수). `tick()` 한 작업 예외가 뒤 작업을 건너뜀(alarm 재시도로 체인은 유지) | 기록. T-D3 복구 훈련에 N1 포함 | T-D2 검토 §3-3·§4 |
 | CL-34 | 등록 잠금(5회 실패) 해제 운영 경로 없음 — 비밀값 교체 + settings 초기화 절차 미문서화 | T-D4 배포 절차에 포함 | [T-D3 검토](claude-task-d03-review.md) §3 |
 | CL-35 | `acknowledged` 작업은 24h 만료 대상이 아니고 200건 prune만 적용(내용 필드 없음) | 기록. 통일 원하면 T-D4에서 만료 대상 포함 | T-D3 검토 §3 |
+| CL-36 | PC(Windows)에서 `pnpm run check` 중 Node 서버 시험(retention·ai-v2·ai) 6~13건 간헐 실패. 단독 실행·CI(Linux)는 통과. CL-27 패턴(jobs.json rename 경쟁) | Node 서버 정리(T-D5 이후)와 함께 격리 또는 순차 실행. 그 전까지 Claude 보고에 실패 메시지 첨부 | [T-D4 C1 검토](claude-task-d04-c1-review.md) §3 |
 
 ## 처리 이력
 
@@ -119,3 +120,4 @@
 - 2026-11-10: T-D2 사용자 확인 완료, U-D2-1 허용·U-D2-2 유지·U-D2-3 T-D4. [T-D3](claude-task-d03-recovery.md) 지시 발행(모의 통합·복구 B1~B10, inflight 임시 저장, ACK→acknowledged, tick 격리, CL-30 당김, 가짜 OpenAI 고장 주입).
 - 2026-11-10: T-D3 구현(`a24107d`~`6b8e9f4`: inflight 복구·ACK→acknowledged·tick 격리·등록 잠금·고장 주입·B1~B10 E2E) → Codex 역할 검토 **통과**, main 병합. CL-30·31 해소, CL-34·35 기록.
 - 2026-11-10: T-D3 사용자 확인 완료(13:21) → 종결. T-D4 승인(모델 gpt-5.4-mini·$10/월·10회 $2·일일 5회·workers.dev·origin 1개·비밀값 사용자 설정) → [T-D4 지시](claude-task-d04-limited-live.md) 발행. CL-32(CPU 실측)·CL-34(잠금 해제 runbook)는 T-D4 범위.
+- 2026-11-10: T-D4 C1(`d76fdad`·`e003dfb`) Codex 검토 조건부 통과 — R1(기본 환경 스크립트 이름 분리) 뒤 C2. CORS `X-Travel-App` 실결함 수정·교차 출처 E2E 신설. 가격 확인 $0.15/회(<$0.20). CL-34 D안(비밀값 교체 해제) 수용·CL-36 기록. T-D3 후속 결정 2건 사후 기록.
