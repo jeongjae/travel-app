@@ -3,9 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { AiV2Job } from '../ai-v2-jobs-core.ts';
 import { jobStatusLabel } from './ai-job-label.ts';
 import {
+  aiV2AckPath,
   aiV2RunningStatuses,
   consentFingerprint,
   type AiV2Payload,
+  type AiV2Request,
   type AiV2RequestKind,
   type AiV2ServerStatus,
 } from '../ai-v2-contract.ts';
@@ -20,6 +22,7 @@ import {
 } from '../ai-v2-context.ts';
 import { materializeV2Proposal } from '../ai-v2-semantics.ts';
 import type { ContentRepository } from '../repository';
+import { RepositoryError } from '../storage/content-repository';
 import type { TripDataset } from '../contracts/v2';
 import { command, ErrorText, errorText } from './ui';
 import { aiApiAvailable } from '../hosting';
@@ -45,6 +48,7 @@ const labels: Record<string, string> = {
   failed: '실패',
   cancelled: '중단',
   interrupted: '서버 재시작으로 중단',
+  acknowledged: '저장 완료',
 };
 const excludedFromSend = [
   '예약 번호·예약 메모(예약 활동은 "고정"과 시간대만)',
@@ -57,6 +61,19 @@ const excludedFromSend = [
   '선택 날짜와 무관한 활동·장소',
   '고르지 않은 현장 기록과 정정 전 기록',
 ];
+
+/** 변경안 저장(Stage) 실패. stale이면 다시 저장해도 같은 결과이므로 새 요청을 안내한다. */
+type StageFailure = { message: string; stale: boolean };
+
+/** 저장 중 실제 기록·계획이 바뀌어 기준 revision이 맞지 않는 거부. */
+function isStale(exception: unknown) {
+  return exception instanceof RepositoryError && exception.code === 'CONFLICT';
+}
+
+/** 응답을 받지 못해 서버가 요청을 받았는지 모르는 실패. 같은 요청 ID로 다시 보내면 서버가 같은 작업을 돌려준다. */
+function unconfirmed(exception: unknown) {
+  return exception instanceof AiApiError && (exception.status === 0 || exception.status >= 500);
+}
 
 function usageText(usage: AiV2Job['usage']) {
   return `토큰 ${usage.totalTokens.toLocaleString('ko-KR')} (입력 ${usage.inputTokens.toLocaleString('ko-KR')} · 출력 ${usage.outputTokens.toLocaleString('ko-KR')}) · 호출 ${usage.calls}회 · 웹 검색 ${usage.webSearchCalls}회`;
@@ -89,6 +106,10 @@ export default function AiPlanner({
   const [statusVersion, setStatusVersion] = useState(0);
   const [pollVersion, setPollVersion] = useState(0);
   const [connectionLost, setConnectionLost] = useState(false);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [stageFailure, setStageFailure] = useState<StageFailure | null>(null);
+  /** 응답을 못 받은 전송(B1). 같은 미리보기로 다시 누르면 같은 요청 ID로 보낸다. */
+  const pendingRequest = useRef<AiV2Request | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [saved, setSaved] = useState(false);
@@ -112,6 +133,19 @@ export default function AiPlanner({
     };
   }, []);
   const canCallApi = authState === 'logged-in' || authState === 'none';
+  // Node 개발 서버(인증 없음)에는 저장 확인 경로가 없다.
+  const acknowledgeRef = useRef(authState !== 'none');
+  acknowledgeRef.current = authState !== 'none';
+  // 오프라인이면 폴링·전송을 멈추고, 연결되면 폴링을 다시 시작한다(B10).
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
   /** 401이면 토큰을 버리고 재로그인 안내로 바꾼다. 만료는 따로 알린다. */
   const handleAuthError = (exception: unknown) => {
     if (!needsLogin(exception)) {
@@ -189,37 +223,32 @@ export default function AiPlanner({
         }
         // 끝난 작업의 사용량이 오늘 합계에 들어가도록 상태를 다시 읽는다.
         setStatusVersion((version) => version + 1);
-        if (value.status === 'awaiting-decision' && value.result?.scope) {
-          const current = await repo.get(value.tripId);
-          const plan = current.plans.find((candidate) => candidate.planVersionId === value.basePlanVersionId);
-          if (!plan) {
-            throw new Error('AI 작업의 기준 계획을 찾지 못했습니다.');
+        if (value.status === 'awaiting-decision' && value.result) {
+          try {
+            await stageResult(value, value.result);
+          } catch (exception) {
+            // 서버 결과는 그대로 둔다(ACK 없음). 자동 재요청도 하지 않는다(B3·B5).
+            if (live) {
+              setStageFailure({ message: errorText(exception), stale: isStale(exception) });
+            }
+            return;
           }
-          // 서버는 보내지 않은 필드를 모른다. 전체 활동을 아는 이곳에서 변경안을 완성한다.
-          const result = materializeV2Proposal(
-            {
-              id: value.id,
-              tripId: value.tripId,
-              baseDomainRevision: value.baseDomainRevision,
-              plan,
-              scope: value.result.scope,
-              collectedAt: value.updatedAt,
-            },
-            value.result.output,
-            { sources: value.result.sources },
-          );
-          const evidence = result.evidence.map(({ commitSeq: _, recordedAt: __, actor: ___, ...content }) => content);
-          const stage = command(
-            value.tripId,
-            'StageAiProposal',
-            { proposal: result.proposal, evidence },
-            value.baseDomainRevision,
-          );
-          // Stable command ID makes result recovery/reload safe after an ambiguous response.
-          await repo.execute({ ...stage, requestId: value.id });
-          if (live) {
-            setSaved(true);
-            onSavedRef.current();
+          if (!live) {
+            return;
+          }
+          setSaved(true);
+          setStageFailure(null);
+          onSavedRef.current();
+          if (acknowledgeRef.current) {
+            // 저장 확인(B4): 서버가 출력을 지운다. 유실되면 24시간 보존 기한이 지우므로 실패는 무시한다.
+            try {
+              const acknowledged = await aiFetch<AiV2Job>(aiV2AckPath(value.id), {});
+              if (live) {
+                setJob(acknowledged);
+              }
+            } catch {
+              /* ACK 유실 허용 */
+            }
           }
         }
       } catch (exception) {
@@ -228,14 +257,43 @@ export default function AiPlanner({
         }
       }
     }
-    if (jobId && aiApiAvailable && canCallApi) {
+    /** 서버는 보내지 않은 필드를 모른다. 전체 활동을 아는 이곳에서 변경안을 완성해 저장한다. */
+    async function stageResult(value: AiV2Job, jobResult: NonNullable<AiV2Job['result']>) {
+      const current = await repo.get(value.tripId);
+      const plan = current.plans.find((candidate) => candidate.planVersionId === value.basePlanVersionId);
+      if (!plan) {
+        throw new Error('AI 작업의 기준 계획을 찾지 못했습니다.');
+      }
+      const result = materializeV2Proposal(
+        {
+          id: value.id,
+          tripId: value.tripId,
+          baseDomainRevision: value.baseDomainRevision,
+          plan,
+          scope: jobResult.scope,
+          collectedAt: value.updatedAt,
+        },
+        jobResult.output,
+        { sources: jobResult.sources },
+      );
+      const evidence = result.evidence.map(({ commitSeq: _, recordedAt: __, actor: ___, ...content }) => content);
+      const stage = command(
+        value.tripId,
+        'StageAiProposal',
+        { proposal: result.proposal, evidence },
+        value.baseDomainRevision,
+      );
+      // Stable command ID makes result recovery/reload safe after an ambiguous response.
+      await repo.execute({ ...stage, requestId: value.id });
+    }
+    if (jobId && aiApiAvailable && canCallApi && online) {
       void poll();
     }
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [jobId, header.tripId, repo, canCallApi, pollVersion]);
+  }, [jobId, header.tripId, repo, canCallApi, pollVersion, online]);
   const selectionKey = JSON.stringify([
     prompt,
     requestKind,
@@ -253,6 +311,8 @@ export default function AiPlanner({
   useEffect(() => {
     let live = true;
     setFingerprint('');
+    // 미리보기·정책이 바뀌면 다른 요청이다. 응답을 못 받은 이전 요청은 다시 쓰지 않는다.
+    pendingRequest.current = null;
     if (preview && policy) {
       void consentFingerprint(preview, policy).then((value) => {
         if (live) {
@@ -299,6 +359,14 @@ export default function AiPlanner({
           오늘 남은 요청 {status.remainingToday}/{status.dailyJobLimit} · 오늘 사용 토큰{' '}
           {(status.usageToday?.totalTokens ?? 0).toLocaleString('ko-KR')} (금액은 표시하지 않습니다)
         </p>
+      ) : null}
+      {!online ? (
+        <p className="notice" aria-label="AI 연결 상태">
+          오프라인 — AI 작업 확인과 전송을 멈췄습니다. 저장된 변경안의 조회·적용·거절은 그대로 할 수 있습니다.
+        </p>
+      ) : null}
+      {jobId && !job && !canCallApi && authState !== 'checking' ? (
+        <p className="notice">이 여행의 최근 AI 작업이 있습니다. 로그인하면 같은 작업을 이어서 확인합니다.</p>
       ) : null}
       <ErrorText error={error} />
       <label>
@@ -481,7 +549,7 @@ export default function AiPlanner({
           {!canCallApi ? <p className="muted">로그인한 뒤에 동의하고 전송할 수 있습니다.</p> : null}
           <button
             className="primary"
-            disabled={!canCallApi || !consent || !policy || !status?.configured || busy || !navigator.onLine}
+            disabled={!canCallApi || !consent || !policy || !status?.configured || busy || !online}
             onClick={async () => {
               if (!policy) {
                 return;
@@ -489,8 +557,11 @@ export default function AiPlanner({
               setBusy(true);
               setError('');
               setSaved(false);
+              setStageFailure(null);
               try {
-                const next = await aiFetch<AiV2Job>('/api/ai/v2/jobs', await consentedRequest(preview, policy));
+                pendingRequest.current ??= await consentedRequest(preview, policy);
+                const next = await aiFetch<AiV2Job>('/api/ai/v2/jobs', pendingRequest.current);
+                pendingRequest.current = null;
                 localStorage.setItem(scopeKey, next.id);
                 setJob(next);
                 setJobId(next.id);
@@ -498,8 +569,15 @@ export default function AiPlanner({
                 setAgreedFingerprint('');
                 setStatusVersion((version) => version + 1);
               } catch (exception) {
-                if (!handleAuthError(exception)) {
-                  setError(errorText(exception));
+                if (unconfirmed(exception)) {
+                  setError(
+                    '전송 결과를 확인하지 못했습니다. 다시 누르면 같은 요청으로 확인합니다(중복 실행·추가 횟수 없음).',
+                  );
+                } else {
+                  pendingRequest.current = null;
+                  if (!handleAuthError(exception)) {
+                    setError(errorText(exception));
+                  }
                 }
               } finally {
                 setBusy(false);
@@ -513,8 +591,32 @@ export default function AiPlanner({
       {job ? (
         <div role="status">
           <p>
-            {jobStatusLabel(job.status, labels, job.error)} · 작성 {job.attempt}회{saved ? ' · 변경안에 저장됨' : ''}
+            {jobStatusLabel(job.status, labels, job.error)} · 작성 {job.attempt}회
+            {saved || job.status === 'acknowledged' ? ' · 변경안에 저장됨' : ''}
           </p>
+          {stageFailure?.stale ? (
+            <div role="alert">
+              <p>계획이 바뀌어 적용할 수 없음 — 새 요청을 만드세요.</p>
+              <p className="muted">
+                AI 작업 뒤 실제 기록·계획이 저장되었습니다. 서버 결과는 24시간 동안 다시 받을 수 있습니다. (
+                {stageFailure.message})
+              </p>
+            </div>
+          ) : null}
+          {stageFailure && !stageFailure.stale ? (
+            <div role="alert">
+              <p>변경안을 기기에 저장하지 못했습니다: {stageFailure.message}</p>
+              <p className="muted">서버 결과는 그대로 있습니다. 저장 공간을 확인한 뒤 다시 저장하세요.</p>
+              <button
+                onClick={() => {
+                  setStageFailure(null);
+                  setPollVersion((version) => version + 1);
+                }}
+              >
+                다시 저장
+              </button>
+            </div>
+          ) : null}
           {job.usage ? <p className="muted">이 작업 사용량: {usageText(job.usage)}</p> : null}
           {job.error ? <ErrorText error={job.error} /> : null}
           {connectionLost ? (

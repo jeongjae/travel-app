@@ -13,6 +13,17 @@ type Config = {
   outputs: unknown[];
   /** true면 생성 호출의 연결을 응답 없이 끊는다(결과 불명 재현). */
   dropCreate: boolean;
+  // ── T-D3 고장 주입. 응답 형식은 실제 API와 같고, 시험이 /__control/config로 켠다. ──
+  /** 생성 응답을 이 시간(ms)만큼 늦춘다(calling 중 중단 재현). */
+  createDelayMs: number;
+  /** 생성은 받아 두고(작업이 생김) 연결만 끊는다(생성 후 연결 끊김). */
+  dropAfterCreate: boolean;
+  /** 결과 조회(GET)를 이 상태 코드로 times번 실패시킨다(404 보관 만료, 5xx 반복). */
+  getFailure: { status: number; times: number } | null;
+  /** 완료 대신 incomplete(max_output_tokens)로 돌려준다. */
+  incomplete: boolean;
+  /** 작성 응답을 거절(refusal)로 돌려준다. */
+  refuse: boolean;
 };
 
 type Stored = { kind: 'research' | 'planning'; polls: number; planningIndex: number };
@@ -24,6 +35,11 @@ const defaults = (): Config => ({
   sources: [{ url: 'https://example.org/fictional-official', title: '가상 공식 자료' }],
   outputs: [],
   dropCreate: false,
+  createDelayMs: 0,
+  dropAfterCreate: false,
+  getFailure: null,
+  incomplete: false,
+  refuse: false,
 });
 
 let config = defaults();
@@ -60,8 +76,11 @@ function completed(id: string, stored: Stored) {
       ],
     };
   }
+  if (config.incomplete) {
+    return { id, status: 'incomplete', usage, incomplete_details: { reason: 'max_output_tokens' }, output: [] };
+  }
   const output = config.outputs[Math.min(stored.planningIndex, config.outputs.length - 1)];
-  if (output === undefined) {
+  if (output === undefined || config.refuse) {
     return { id, status: 'completed', usage, output: [{ type: 'message', content: [{ type: 'refusal' }] }] };
   }
   return {
@@ -98,10 +117,17 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
       req.socket.destroy();
       return;
     }
+    if (config.createDelayMs) {
+      await new Promise((resolve) => setTimeout(resolve, config.createDelayMs));
+    }
     const id = `resp_fake_${++sequence}`;
     const kind = body?.tools ? 'research' : 'planning';
     const planningIndex = kind === 'planning' ? planningCalls++ : 0;
     responses.set(id, { kind, polls: 0, planningIndex });
+    if (config.dropAfterCreate) {
+      req.socket.destroy();
+      return;
+    }
     send(res, 200, { id, status: 'queued', background: true });
     return;
   }
@@ -113,6 +139,11 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   }
   if (match[2]) {
     send(res, 200, { id: match[1], status: 'cancelled' });
+    return;
+  }
+  if (config.getFailure && config.getFailure.times > 0) {
+    config.getFailure = { ...config.getFailure, times: config.getFailure.times - 1 };
+    send(res, config.getFailure.status, { error: { message: 'fake failure' } });
     return;
   }
   stored.polls += 1;

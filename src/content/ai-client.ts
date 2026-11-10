@@ -85,13 +85,14 @@ export async function aiFetch<T>(path: string, body?: unknown): Promise<T> {
 }
 
 /** 인증 방식. Worker는 패스키, Node 개발 서버(`pnpm dev:node`)는 인증 경로가 없다. */
-export type AuthState = 'checking' | 'none' | 'unregistered' | 'logged-out' | 'expired' | 'logged-in' | 'offline';
+export type AuthState =
+  'checking' | 'none' | 'unregistered' | 'locked' | 'logged-out' | 'expired' | 'logged-in' | 'offline';
 
 export async function readAuthState(): Promise<AuthState> {
   try {
-    const { registered } = await aiFetch<{ registered: boolean }>('/auth/state');
+    const { registered, locked } = await aiFetch<{ registered: boolean; locked?: boolean }>('/auth/state');
     if (!registered) {
-      return 'unregistered';
+      return locked ? 'locked' : 'unregistered';
     }
     const token = loadToken();
     if (!token) {

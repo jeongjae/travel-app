@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { loadToken, loginWithPasskey, logout, registerPasskey, type AuthState } from './ai-client.ts';
+import { AiApiError, loadToken, loginWithPasskey, logout, registerPasskey, type AuthState } from './ai-client.ts';
 import { ErrorText, errorText } from './ui';
 
 /** AI 서버 본인 인증 상태 줄. 패스키 등록(1회 코드)·로그인·만료 후 재로그인·로그아웃. */
@@ -14,6 +14,10 @@ export default function AiAuthPanel({ state, onChange }: { state: AuthState; onC
       await action();
       onChange(next);
     } catch (exception) {
+      if (exception instanceof AiApiError && exception.code === 'registration_locked') {
+        onChange('locked');
+        return;
+      }
       setError(errorText(exception));
     } finally {
       setBusy(false);
@@ -53,6 +57,11 @@ export default function AiAuthPanel({ state, onChange }: { state: AuthState; onC
             </button>
           </div>
         </>
+      ) : null}
+      {state === 'locked' ? (
+        <p role="alert">
+          등록 코드가 5회 틀려 패스키 등록이 잠겼습니다. 서버의 등록 코드를 바꾸고 잠금을 푼 뒤 다시 등록하세요.
+        </p>
       ) : null}
       {state === 'logged-out' ? (
         <div className="button-row">

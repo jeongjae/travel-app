@@ -40,11 +40,42 @@ export async function advanceWorkerClock(advanceMs: number) {
   await post(`${e2eWorker.origin}/__test/clock`, { advanceMs });
 }
 
+/** Worker를 DO 재시작처럼 만든다: 메모리만 비우고 저장소(inflight 포함)·alarm은 그대로 둔다. */
+export async function restartWorker() {
+  await post(`${e2eWorker.origin}/__test/restart`);
+}
+
+/** 실행 중 원문 행 수. 끝난 작업만 있으면 0이어야 한다. */
+export async function inflightCount(): Promise<number> {
+  const response = await fetch(`${e2eWorker.origin}/__test/inflight`);
+  return ((await response.json()) as { count: number }).count;
+}
+
+/** 페이지의 로그인 토큰으로 작업을 직접 조회한다(화면이 아닌 서버 상태 확인용). */
+export async function workerJob(page: Page, id: string) {
+  return page.evaluate(async (jobId) => {
+    const stored = sessionStorage.getItem('travel-app-ai-token');
+    const token = stored ? (JSON.parse(stored) as { token: string }).token : '';
+    const response = await fetch(`/api/ai/v2/jobs/${jobId}`, { headers: { Authorization: `Bearer ${token}` } });
+    return (await response.json()) as { id: string; status: string; result?: unknown; usage?: unknown };
+  }, id);
+}
+
+export type VirtualAuthenticator = Awaited<ReturnType<typeof addVirtualAuthenticator>>;
+
+/** 브라우저를 닫고 다시 연 것처럼 새 탭의 가상 인증기에 기존 패스키를 옮긴다. */
+export async function copyPasskeys(from: VirtualAuthenticator, to: VirtualAuthenticator) {
+  const { credentials } = await from.client.send('WebAuthn.getCredentials', { authenticatorId: from.authenticatorId });
+  for (const credential of credentials) {
+    await to.client.send('WebAuthn.addCredential', { authenticatorId: to.authenticatorId, credential });
+  }
+}
+
 /** Chromium CDP 가상 인증기. 사용자 확인(UV)까지 자동으로 통과한다. */
 export async function addVirtualAuthenticator(page: Page) {
   const client = await page.context().newCDPSession(page);
   await client.send('WebAuthn.enable');
-  await client.send('WebAuthn.addVirtualAuthenticator', {
+  const { authenticatorId } = await client.send('WebAuthn.addVirtualAuthenticator', {
     options: {
       protocol: 'ctap2',
       transport: 'internal',
@@ -54,6 +85,7 @@ export async function addVirtualAuthenticator(page: Page) {
       automaticPresenceSimulation: true,
     },
   });
+  return { client, authenticatorId };
 }
 
 export async function registerPasskeyInApp(page: Page) {
