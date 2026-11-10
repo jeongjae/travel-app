@@ -62,4 +62,4 @@
 실제 Cloudflare 환경(workerd CPU·DO 지속성·alarm) · iOS 패스키와 교차 출처(Pages→Worker) · 실제 OpenAI background 조합 · 이 세션의 시험 재실행.
 
 ## 7. 병합
-main fast-forward → Pages·checks 확인 → `decisions.md`(T-D2 가정 4개를 "가정, 사용자 확인 대기"로 기록) · `change-log.md`(CL-30~33) · `handoff.md` 갱신. 사용자 확인 상태: **확인 대기**(`docs/design/ui-d02/` 스크린샷·로컬 실행 확인).
+main fast-forward → Pages·checks 확인 → `decisions.md`(T-D2 가정 4개를 "가정, 사용자 확인 대기"로 기록) · `change-log.md`(CL-30~33) · `handoff.md` 갱신. 사용자 확인 상태: **확인 완료(2026-11-10 10:11)**. 결정 U-D2-1 허용·U-D2-2 유지·U-D2-3 T-D4 → [decisions](decisions.md) 11/10. T-D2 종결.

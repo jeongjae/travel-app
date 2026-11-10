@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-09 · **T-D2 Codex 검토 통과·main 병합 / 사용자 확인 대기(화면·결정 3건) / U4 재수행 대기**
+2026-11-10 · **T-D2 종결(사용자 확인 11/10) / T-D3 지시 발행 / U4 재수행 대기**
 
 새 Codex 세션은 먼저 [세션 인계](codex-session-handoff-2026-11-05.md)를 읽는다.
 
@@ -23,7 +23,7 @@
 
 ## 다음 작업·확인 관문
 
-1. 사용자: [T-D2 검토](claude-task-d02-review.md) §5 결정 3건(U-D2-1 실행 중 원문 임시 저장 등)과 `design/ui-d02/` 화면 확인 → 확인 완료 시 T-D3 지시서(Codex).
+1. Claude: [T-D3](claude-task-d03-recovery.md) 수행(`codex/d03-recovery`) → Codex 검토. 결정 U-D2-1~3은 [결정](decisions.md) 11/10.
 2. 사용자: 실데이터로 CL-29 영향 날 수 보고.
 3. 사용자: U4 대본 v2 재수행(`?workspace=content&review=sapporo-u4`) → CL-20. 평소 공간 파리 확인 → REG-02.
 4. 사용자 결정(T-D4 전): U-D2 모델·예산·U-D3. UI 후속(CL-23·25·26)은 UI 복원 뒤 별도 지시.
