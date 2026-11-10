@@ -48,4 +48,4 @@
 실제 workerd 축출·재시작(시험은 메모리 비움 근사) · 실제 OpenAI 404/5xx 형식 · iOS 패스키 · 이 세션의 시험 재실행.
 
 ## 6. 병합·다음
-main fast-forward → checks·Pages 확인 → `change-log.md`(CL-34·35) · `handoff.md` 갱신. 사용자 확인 상태: **확인 대기**(`docs/design/ui-d03/` 화면). 다음은 **T-D4(제한된 실제 호출)** — 사용자 승인 4건(U-D2 모델·예산, U-D3, Worker 배포, 키 설정·호출 금액)이 선행 조건이며 지시서는 승인 뒤 발행.
+main fast-forward → checks·Pages 확인 → `change-log.md`(CL-34·35) · `handoff.md` 갱신. 사용자 확인 상태: **확인 완료(2026-11-10 13:21)**. T-D3 종결. 사용자가 T-D4 선행 승인에 원칙 동의(13:21); 구체값은 [T-D4 승인서](decisions.md)에서 확정. 다음은 **T-D4(제한된 실제 호출)** — 사용자 승인 4건(U-D2 모델·예산, U-D3, Worker 배포, 키 설정·호출 금액)이 선행 조건이며 지시서는 승인 뒤 발행.
