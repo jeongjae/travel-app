@@ -51,3 +51,42 @@
 ## 다음
 
 Codex 코드 검토 → 사용자 U1~U3(Cloudflare 로그인, OpenAI 프로젝트·예산·키, secret 3종) → G1 "비밀값 설정 완료" 알림 후 C2.
+
+---
+
+# C2~C3 — 배포·점검 (2026-11-10, G1 통과 뒤)
+
+## 배포
+
+- 계정 확인: `wrangler whoami` 로그인됨(OAuth). 비밀값 이름만 확인: `OPENAI_API_KEY`·`REGISTRATION_CODE`·`TOKEN_SECRET` 3종(값은 보지 않음).
+- 명령: `wrangler deploy --env production`(브랜치 `codex/d04-limited-live` `0b4c4f4`, 작업 트리 깨끗). 바인딩: `AI_STORE`(DO), `RP_ID=jeongjae.github.io`, `ALLOWED_ORIGINS=https://jeongjae.github.io`, `OPENAI_MODEL=gpt-5.4-mini`, `DAILY_LIMIT=5`. `E2E_RESET` 없음.
+- **배포 주소: `https://travel-app-ai.jeongjae-kim.workers.dev`** · 버전 `0c118824-2fd4-4fe8-9a15-87aa395aa4fd` · 업로드 1841.69 KiB(gzip 331.76).
+- 경고: `preview_urls` 설정이 없어 **Preview URL이 기본으로 켜졌다**(wrangler 경고). 같은 Worker·비밀값을 가리키는 추가 공개 주소가 생긴다. Origin 허용 목록과 인증은 같지만 표면이 늘어난다. 끄려면 `[env.production]`에 `preview_urls = false`를 넣고 재배포(미수행, Codex 판단 요청).
+
+## 점검 5항목
+
+| #   | 요청                                           | 기대                              | 결과                                                                                                                                              |
+| --- | ---------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `GET /api/ai/v2/status` 무인증                 | 401                               | **401**                                                                                                                                           |
+| 2   | 같은 요청 + `Origin: https://evil.example`     | 403                               | **403** `origin_forbidden`                                                                                                                        |
+| 3   | `POST /__test/reset`                           | 404                               | JSON 본문 없이는 **415**, `Content-Type: application/json`을 붙이면 **404**. `/__test/restart`·`/__test/clock` POST, `/__test/inflight` GET도 404 |
+| 4   | `GET /auth/state`                              | `{registered:false,locked:false}` | **200** `{"registered":false,"locked":false}`                                                                                                     |
+| 5   | 잘못된 등록 코드 1회(`/auth/register/options`) | 403                               | **403** `bad_registration_code`. 직후 `/auth/state` 그대로(locked:false). 실패 횟수는 1/5                                                         |
+
+- #3 해설: 이 Worker는 JSON이 아닌 모든 POST에 라우팅보다 먼저 415를 준다(`/nope`도 415). `/__test/*` 자체는 닫혀 있다(404). 지시서의 "404"는 JSON 요청으로 충족된다.
+- 추가: Pages origin 사전 요청(`OPTIONS`, `Origin: https://jeongjae.github.io`, 요청 헤더 `authorization,x-travel-app`) → **204**, `Access-Control-Allow-Origin: https://jeongjae.github.io`, `Allow-Headers: Authorization, Content-Type, X-Travel-App`. C1에서 고친 결함이 실환경에서도 해소됐다.
+
+## CPU 실측 (CL-32, `wrangler tail --format json`의 `cpuTime`·`wallTime`, ms)
+
+| 요청                            | 응답                 | CPU 3회               | wall              |
+| ------------------------------- | -------------------- | --------------------- | ----------------- |
+| `GET /api/ai/v2/status`(무인증) | 401                  | 9(첫 요청·콜드), 0, 0 | 577, 1~2, 173~183 |
+| `POST /auth/login/options`      | 409 `not_registered` | 1, 0, 0               | 2, 1, 174~188     |
+
+- tail에 요청당 이벤트가 2건씩(예: 9/0/0/0/0/0) 찍혀 3회 요청이 6행으로 보였다. 두 행의 CPU를 모두 적었고 모든 행이 10ms 미만이다. 짝 이벤트의 정체(DO 호출 등)는 확인하지 못했다.
+- **한계**: 패스키가 없어 `login/options`는 서명 검증 전 단계에서 409로 끝난다. 인증된 `status`(DO 조회)와 실제 로그인 검증(`login/verify`, 서명 계산)의 CPU는 측정하지 못했다. 등록·로그인·OpenAI 호출은 이번 범위 밖이라 하지 않았다. U4 등록 뒤 다시 측정해야 CL-32를 닫을 수 있다.
+- 10ms 초과 요청 없음. 단 첫 요청 9ms는 한도에 가깝다(콜드 스타트).
+
+## 남은 일
+
+G2 판정(Codex) → Codex가 `VITE_AI_API_BASE=https://travel-app-ai.jeongjae-kim.workers.dev`를 저장소 변수로 설정하고 Pages 재배포 → 배포 앱에서 AI 패널 "패스키 등록" 상태 확인(Claude) → U4.
