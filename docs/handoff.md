@@ -7,7 +7,7 @@
 ## 현재 기준
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). 이전 상세는 [history](history/handoff-2026-11-09-before-d1-merge.md).
-- 배포: Pages = main T-D1 코드(`9f5cb88`). 전송 허용 목록·동의 지문·의미 검증·검토 카드·R1~R7.
+- 배포: Pages = main(T-D1~T-D3). **Worker 운영 배포(11/10 G2): `https://travel-app-ai.jeongjae-kim.workers.dev`**, Pages 빌드에 `VITE_AI_API_BASE` 주입 → 배포 앱 AI 활성.
 - [T-D1 검토](claude-task-d01-review.md) 통과·사용자 확인 완료. 결정 5건은 [결정](decisions.md) 11-06~09.
 - 후속 CL-23~29는 [변경 목록](change-log.md).
 - UI 설계 4건은 `codex/ui-resume` `afe5b68` 보관. T-D3는 `codex/d03-recovery`, [결과](claude-task-d03-result.md).

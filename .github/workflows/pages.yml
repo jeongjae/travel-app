@@ -51,6 +51,8 @@ jobs:
         env:
           VITE_BASE_PATH: /travel-app/
           VITE_STATIC_HOSTING: 'true'
+          # T-D4 G2(2026-11-10): Worker 공개 주소(비밀값 아님). 비우면 배포 앱의 AI가 비활성된다.
+          VITE_AI_API_BASE: https://travel-app-ai.jeongjae-kim.workers.dev
       - name: Public app files only
         run: |
           test ! -e dist/local-data
