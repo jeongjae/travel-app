@@ -125,3 +125,4 @@
 - 2026-11-10: T-D4 C1(`d76fdad`·`e003dfb`) Codex 검토 조건부 통과 — R1(기본 환경 스크립트 이름 분리) 뒤 C2. CORS `X-Travel-App` 실결함 수정·교차 출처 E2E 신설. 가격 확인 $0.15/회(<$0.20). CL-34 D안(비밀값 교체 해제) 수용·CL-36 기록. T-D3 후속 결정 2건 사후 기록.
 - 2026-11-11: T-D4 C2~C4 완료 — Worker 운영 배포 `travel-app-ai.jeongjae-kim.workers.dev`, Pages에 주소 주입(`d9deca5`), 패스키 등록(G3), 가상 여행 실제 호출 5회 $0.12(1회 최대 $0.048). Codex: 빈 title add가 서버 검증을 통과하는 결함 → **R2**(add/edit title·summary 비공백 검증). CL-37·38 기록. C5에서 DAILY_LIMIT 20 복원.
 - 2026-11-11: T-D4 R2(`12f0df0`)·C5(`3820b1f`) 완료 → Codex 최종 검토 **통과**, main 병합. Worker 운영 버전 `e5e62de9…`(DAILY_LIMIT 20). CL-38 로그 대조: 4번째 작업 = 조사 후 작성 전 멈춤. 사용자 확인 대기.
+- 2026-11-11: T-D4 사용자 확인 완료(15:24) → 종결. [T-D5](claude-task-d05-iphone-real.md) 지시 발행(두 번째 패스키·작업 목록 CL-38·officialUrl CL-26·iPhone 실기기·실제 여행 선별 호출·종료 판정 준비). 실제 여행 범위(G-T)는 사용자 결정 대기.
