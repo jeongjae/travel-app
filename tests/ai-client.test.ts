@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import {
   AiApiError,
   aiFetch,
+  apiErrorDetail,
   nextPollStep,
   pollRetryDelay,
   pollRetryLimit,
@@ -53,4 +54,11 @@ it('expired·unknown 상태 라벨, Node 경로의 만료 문구도 만료로 �
   expect(jobStatusLabel('expired', {})).toBe('만료');
   expect(jobStatusLabel('unknown', {})).toBe('결과 불명 — 다시 요청');
   expect(jobStatusLabel('failed', { failed: '실패' }, outputExpiredMessage)).toBe('만료');
+});
+
+it('T-D5 C1 D: 오류 상세는 HTTP 코드와 서버 오류 코드만 보인다', () => {
+  expect(apiErrorDetail(new AiApiError(429, 'daily_limit', '오늘 한도'))).toBe('HTTP 429 · daily_limit');
+  expect(apiErrorDetail(new AiApiError(0, 'network', '연결 실패'))).toBe('연결 실패 · network');
+  expect(apiErrorDetail(new AiApiError(500, '', '내부'))).toBe('HTTP 500');
+  expect(apiErrorDetail(new Error('일반 오류'))).toBe('');
 });

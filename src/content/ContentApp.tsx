@@ -1674,6 +1674,7 @@ function PlanEditor({
     [askNextDay, setAskNextDay] = useState(false),
     [reason, setReason] = useState(''),
     [placeId, setPlaceId] = useState(item?.placeLinks[0]?.placeId ?? ''),
+    [officialUrl, setOfficialUrl] = useState(item?.officialUrl ?? ''),
     [error, setError] = useState('');
   const dayDate = editor.plan.days.find((d) => d.dayId === day)?.date ?? '';
   const startClock = 'localTime' in time ? time.localTime.slice(0, 5) : '';
@@ -1735,6 +1736,13 @@ function PlanEditor({
         ? [{ placeId, relation: originalLinks[0]?.relation ?? ('visit' as const) }, ...originalLinks.slice(1)]
         : originalLinks.slice(1);
       const next = { ...base, dayId: day, title, time: { start, ...(end ? { end } : {}) }, placeLinks };
+      // 공식 사이트 주소(CL-26): 비우면 필드를 지운다. 형식 검사는 저장 명령의 스키마가 한다.
+      const url = officialUrl.trim();
+      if (url) {
+        next.officialUrl = url;
+      } else {
+        delete next.officialUrl;
+      }
       if (item && item.dayId !== day) {
         next.order = Math.max(-1, ...editor.plan.items.filter((i) => i.dayId === day).map((i) => i.order)) + 1;
       }
@@ -1829,6 +1837,16 @@ function PlanEditor({
             </>
           }
         />
+        <label>
+          공식 사이트 주소(선택)
+          <input
+            type="url"
+            inputMode="url"
+            placeholder="https://"
+            value={officialUrl}
+            onChange={(e) => setOfficialUrl(e.target.value)}
+          />
+        </label>
         {item ? (
           <label>
             변경 이유 (선택)

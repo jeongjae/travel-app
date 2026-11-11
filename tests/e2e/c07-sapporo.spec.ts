@@ -411,6 +411,8 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     await selectDay(page, NEW_YEAR);
     await menuAction(row(page, '시계탑 방문'), '일정 수정');
     await page.getByLabel('계획 날짜').selectOption({ label: THIRD });
+    // T-D5 C1 C(CL-26): 공식 사이트 주소를 같은 저장 명령으로 함께 저장한다(가상 주소).
+    await page.getByLabel('공식 사이트 주소(선택)').fill('https://example.com/fictional-clock-tower');
     await page.getByRole('button', { name: '계획 저장', exact: true }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
     await expect.poll(() => timelineTitles(page)).toEqual(['스스키노 저녁']);
@@ -425,6 +427,11 @@ test('삿포로 가상 여행 대본: 준비→계획 변경→현장 기록(연
     const after = await dump(page, source);
     const planRowsAfter = after.tables.plan_versions.filter((r) => r.tripId === sapporoId);
     expect(planRowsAfter).toHaveLength(planRowsBefore.length + 1);
+    const clockItems = after.tables.plan_items.filter(
+      (r) => r.tripId === sapporoId && JSON.stringify(r).includes('fictional-clock-tower'),
+    );
+    expect(clockItems).toHaveLength(1);
+    expect(JSON.stringify(beforeChange.tables.plan_items)).not.toContain('fictional-clock-tower');
     // 이전 계획 버전 행은 그대로 남는다.
     const key = (r: Record<string, unknown>) => JSON.stringify(r);
     const afterKeys = new Set(planRowsAfter.map(key));

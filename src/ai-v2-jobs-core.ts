@@ -37,6 +37,30 @@ export function addUsage(total: AiV2Usage, usage: AiV2Usage): AiV2Usage {
     outputTokens: total.outputTokens + usage.outputTokens,
     totalTokens: total.totalTokens + usage.totalTokens,
     webSearchCalls: total.webSearchCalls + usage.webSearchCalls,
+    toolCallItems: (total.toolCallItems ?? 0) + (usage.toolCallItems ?? 0),
+    webSearchQueries: (total.webSearchQueries ?? 0) + (usage.webSearchQueries ?? 0),
+  };
+}
+
+/** 작업 기록 목록(CL-38)에 남기는 필드. 결과·출처·오류 문구는 빼고 출처는 개수만 둔다. */
+export type AiV2JobSummary = Pick<
+  AiV2Job,
+  'id' | 'tripId' | 'status' | 'createdAt' | 'updatedAt' | 'model' | 'attempt' | 'usage'
+> & { sourceCount: number };
+export const aiV2JobListLimit = 50;
+
+export function toJobSummary(raw: AiV2Job): AiV2JobSummary {
+  const job = toStoredJob(raw);
+  return {
+    id: job.id,
+    tripId: job.tripId,
+    status: job.status,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    model: job.model,
+    attempt: job.attempt,
+    usage: job.usage,
+    sourceCount: job.sources.length,
   };
 }
 

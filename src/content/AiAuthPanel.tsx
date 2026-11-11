@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { AiApiError, loadToken, loginWithPasskey, logout, registerPasskey, type AuthState } from './ai-client.ts';
+import {
+  AiApiError,
+  loadToken,
+  loginWithPasskey,
+  logout,
+  needsLogin,
+  registerPasskey,
+  saveToken,
+  type AuthState,
+} from './ai-client.ts';
+import AiPasskeys from './AiPasskeys.tsx';
 import { ErrorText, errorText } from './ui';
 
 /** AI 서버 본인 인증 상태 줄. 패스키 등록(1회 코드)·로그인·만료 후 재로그인·로그아웃. */
@@ -22,6 +32,15 @@ export default function AiAuthPanel({ state, onChange }: { state: AuthState; onC
     } finally {
       setBusy(false);
     }
+  };
+  /** 패스키 관리 중 401이면 토큰을 버리고 재로그인 안내로 바꾼다. */
+  const handleAuthError = (exception: unknown) => {
+    if (!needsLogin(exception)) {
+      return false;
+    }
+    saveToken(null);
+    onChange(exception instanceof AiApiError && exception.code === 'token_expired' ? 'expired' : 'logged-out');
+    return true;
   };
   if (state === 'none') {
     return null;
@@ -93,6 +112,7 @@ export default function AiAuthPanel({ state, onChange }: { state: AuthState; onC
           </button>
         </div>
       ) : null}
+      {state === 'logged-in' ? <AiPasskeys onAuthError={handleAuthError} /> : null}
       <ErrorText error={error} />
     </div>
   );

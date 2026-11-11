@@ -195,7 +195,14 @@ export type AiV2Usage = {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /** 응답의 `web_search_call` 출력 항목 수. */
   webSearchCalls: number;
+  /**
+   * CL-37 대조용(내용 없음). 도구 호출 출력 항목(`*_call`) 전체 수와, 그중 웹 검색 동작이 `search`인 항목 수.
+   * T-D5 이전 작업에는 없다.
+   */
+  toolCallItems?: number;
+  webSearchQueries?: number;
 };
 /** 재검증에 필요한 식별자·시각만. 요청 원문, 기록, 활동 제목·요약은 들어가지 않으므로 저장해도 된다. */
 export type AiV2ValidationScope = {

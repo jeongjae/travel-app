@@ -63,7 +63,14 @@ test('활동 추가 폼: 칸 순서는 제목→장소→날짜→시각→종�
   const labels = await dialog
     .locator('form > label')
     .evaluateAll((nodes) => nodes.map((node) => (node.firstChild?.textContent ?? '').trim()));
-  expect(labels).toEqual(['활동 제목', '연결할 장소', '계획 날짜', '시각 (선택)', '종료 시각 (선택)']);
+  expect(labels).toEqual([
+    '활동 제목',
+    '연결할 장소',
+    '계획 날짜',
+    '시각 (선택)',
+    '종료 시각 (선택)',
+    '공식 사이트 주소(선택)',
+  ]);
   await expect(dialog.getByLabel('발생 날짜')).toHaveCount(0);
   await expect(dialog.getByLabel('IANA 시간대')).toHaveCount(0);
   await expect(dialog.getByLabel('시간대 (예: Asia/Tokyo)')).toHaveCount(0);

@@ -131,6 +131,9 @@ export async function handleRequest(request: Request, app: AppContext): Promise<
       if (request.method === 'POST' && path === '/api/ai/v2/jobs') {
         return reply(202, await app.jobs.create(body));
       }
+      if (request.method === 'GET' && path === '/api/ai/v2/jobs') {
+        return reply(200, app.jobs.list(new URL(request.url).searchParams.get('tripId')));
+      }
       const match = jobPath.exec(path);
       if (match && request.method === 'GET' && !match[2]) {
         const job = app.jobs.get(match[1]);
@@ -163,6 +166,23 @@ async function routeAuth(request: Request, path: string, body: Record<string, un
     // 잠금 여부만 알린다. 코드·실패 횟수는 내보내지 않는다.
     await app.auth.syncCodeFingerprint();
     return { registered: app.auth.registered(), locked: app.auth.locked() };
+  }
+  // 패스키 관리는 로그인한 상태에서만(Bearer 필수, 등록 코드 불필요).
+  if (path === '/auth/credentials' || path.startsWith('/auth/credentials/')) {
+    await app.auth.verify(request.headers.get('Authorization'));
+    if (request.method === 'GET' && path === '/auth/credentials') {
+      return app.auth.listCredentials();
+    }
+    if (request.method === 'POST' && path === '/auth/credentials/options') {
+      return app.auth.addCredentialOptions();
+    }
+    if (request.method === 'POST' && path === '/auth/credentials') {
+      return app.auth.addCredential(body);
+    }
+    if (request.method === 'POST' && path === '/auth/credentials/delete') {
+      return app.auth.deleteCredential(body);
+    }
+    throw new AiV2RequestError(404, 'not_found', '없는 인증 경로입니다.');
   }
   if (request.method !== 'POST') {
     throw new AiV2RequestError(404, 'not_found', '없는 인증 경로입니다.');

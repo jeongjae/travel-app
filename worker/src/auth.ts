@@ -24,6 +24,9 @@ export type AuthConfig = {
 const encoder = new TextEncoder();
 
 export const minRegistrationCodeLength = 16;
+/** 패스키 최대 개수(PC 1 + iPhone 1 + 예비 1). 추가는 로그인한 상태에서만 한다. */
+export const maxCredentials = 3;
+export const maxCredentialLabelLength = 40;
 export const maxRegistrationFailures = 5;
 export const registrationLockedMessage =
   '등록 코드가 5회 틀려 등록을 잠갔습니다. 서버의 등록 코드(비밀값)를 바꾸면 잠금이 풀립니다.';
@@ -300,7 +303,106 @@ export class Auth {
     if (!verification.verified) {
       throw new AiV2RequestError(401, 'login_failed', '패스키 로그인을 확인하지 못했습니다.');
     }
-    this.store.updateCounter(credential.id, verification.authenticationInfo.newCounter);
+    this.store.updateCounter(
+      credential.id,
+      verification.authenticationInfo.newCounter,
+      new Date(this.now()).toISOString(),
+    );
     return this.issueToken();
+  }
+
+  // ── 로그인한 상태의 패스키 관리(T-D5 C1 A). 라우터가 Bearer 검사를 먼저 끝낸다. ──
+
+  /** 등록 시각·마지막 사용 시각·라벨만. 공개키·자격 ID는 내보내지 않는다. */
+  listCredentials() {
+    return { credentials: this.store.credentialSummaries(), max: maxCredentials };
+  }
+
+  private assertCanAdd() {
+    if (this.store.credentials().length >= maxCredentials) {
+      throw new AiV2RequestError(
+        409,
+        'credential_limit',
+        `패스키는 최대 ${maxCredentials}개입니다. 쓰지 않는 패스키를 지운 뒤 추가하세요.`,
+      );
+    }
+  }
+
+  /** 다른 기기(휴대폰 QR) 경로를 먼저 권한다. 이미 있는 자격은 같은 인증기에 다시 만들지 않게 제외한다. */
+  async addCredentialOptions() {
+    this.assertCanAdd();
+    const options = await generateRegistrationOptions({
+      rpName: this.config.rpName,
+      rpID: this.config.rpId,
+      userName: 'owner',
+      userDisplayName: 'travel-app owner',
+      attestationType: 'none',
+      excludeCredentials: this.store.credentials().map((credential) => ({
+        id: credential.id,
+        transports: credential.transports as NonNullable<WebAuthnCredential['transports']>,
+      })),
+      authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
+      preferredAuthenticatorType: 'remoteDevice',
+    });
+    this.store.putChallenge(options.challenge, 'add-credential', this.now() + aiV2JobLimits.challengeLifetimeMs);
+    return options;
+  }
+
+  async addCredential(body: { response?: unknown; label?: unknown }) {
+    this.assertCanAdd();
+    const label = typeof body.label === 'string' ? body.label.replace(/\p{Cc}/gu, '').trim() : '';
+    if (label.length > maxCredentialLabelLength) {
+      throw new AiV2RequestError(400, 'invalid_label', `라벨은 ${maxCredentialLabelLength}자 이하로 적어 주세요.`);
+    }
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({
+        response: body.response as RegistrationResponseJSON,
+        expectedChallenge: this.consumeChallenge('add-credential'),
+        expectedOrigin: this.config.origins,
+        expectedRPID: this.config.rpId,
+        requireUserVerification: true,
+      });
+    } catch {
+      throw new AiV2RequestError(400, 'registration_failed', '패스키 추가를 확인하지 못했습니다. 다시 시도하세요.');
+    }
+    if (!verification.verified) {
+      throw new AiV2RequestError(400, 'registration_failed', '패스키 추가를 확인하지 못했습니다. 다시 시도하세요.');
+    }
+    const { credential } = verification.registrationInfo;
+    if (this.store.credentials().some((existing) => existing.id === credential.id)) {
+      throw new AiV2RequestError(409, 'credential_exists', '이미 등록된 패스키입니다.');
+    }
+    this.store.atomic(() => {
+      // 확인하는 사이에 다른 추가가 끝났을 수 있으므로 쓰기 직전에 다시 센다.
+      this.assertCanAdd();
+      this.store.addCredential(
+        {
+          id: credential.id,
+          publicKey: toBase64Url(credential.publicKey),
+          counter: credential.counter,
+          transports: credential.transports ?? [],
+        },
+        new Date(this.now()).toISOString(),
+        label,
+      );
+    });
+    return this.listCredentials();
+  }
+
+  /** 지운 뒤에도 1개 이상 남을 때만. 마지막 패스키를 지우면 아무도 로그인할 수 없다. */
+  deleteCredential(body: { ref?: unknown }) {
+    const ref = typeof body.ref === 'string' && /^\d{1,12}$/.test(body.ref) ? body.ref : '';
+    const id = ref ? this.store.credentialIdOf(ref) : undefined;
+    if (!id) {
+      throw new AiV2RequestError(404, 'not_found', '해당 패스키가 없습니다.');
+    }
+    this.store.atomic(() => {
+      if (this.store.credentials().length <= 1) {
+        throw new AiV2RequestError(409, 'last_credential', '마지막 패스키는 지울 수 없습니다.');
+      }
+      this.store.deleteCredential(id);
+    });
+    return this.listCredentials();
   }
 }

@@ -5,7 +5,8 @@ import { handleRequest } from '../worker/src/app';
 import { createApp } from '../worker/src/context';
 import { maxRegistrationFailures, minRegistrationCodeLength } from '../worker/src/auth';
 import { softAuthenticator } from './worker/soft-authenticator';
-import { testVars, workerHarness } from './worker/harness';
+import { memorySql, testVars, workerHarness } from './worker/harness';
+import { AiStore } from '../worker/src/store';
 
 const appOrigin = 'http://localhost:4173';
 type Harness = ReturnType<typeof workerHarness>;
@@ -240,4 +241,116 @@ it('T-D3 §D: 틀린 코드 5회 누적이면 등록이 잠기고 맞는 코드�
 it('T-D3 §C: /__test/restart는 메모리만 비우고 초기화와 같은 게이트에서만 열린다', async () => {
   const harness = workerHarness({ ...testVars, E2E_RESET: '1' });
   expect((await call(harness, 'POST', '/__test/restart')).status).toBe(200);
+});
+
+// T-D5 C1 A: 로그인한 상태에서만 패스키를 추가한다(iPhone 두 번째 패스키). 최대 3개, 마지막 1개는 지울 수 없다.
+async function addKey(
+  harness: Harness,
+  token: string,
+  authenticator: Awaited<ReturnType<typeof softAuthenticator>>,
+  label = 'iPhone',
+) {
+  const options = await call(harness, 'POST', '/auth/credentials/options', { headers: bearer(token) });
+  expect(options.status).toBe(200);
+  const { challenge } = await options.json();
+  const response = await authenticator.register(challenge, appOrigin);
+  return call(harness, 'POST', '/auth/credentials', { headers: bearer(token), body: { response, label } });
+}
+
+it('패스키 추가·목록·삭제는 Bearer가 있어야 하고 등록 코드는 필요 없다', async () => {
+  const harness = workerHarness();
+  await register(harness, await softAuthenticator());
+  expect((await call(harness, 'POST', '/auth/credentials/options')).status).toBe(401);
+  expect((await call(harness, 'POST', '/auth/credentials', { body: { response: {} } })).status).toBe(401);
+  expect((await call(harness, 'GET', '/auth/credentials')).status).toBe(401);
+  expect((await call(harness, 'POST', '/auth/credentials/delete', { body: { ref: '1' } })).status).toBe(401);
+  expect(harness.sql.exec('SELECT count(*) AS n FROM credentials').toArray()[0].n).toBe(1);
+});
+
+it('추가한 패스키로 로그인하고, 목록은 라벨·시각만 보이며, 4번째 추가는 거부한다', async () => {
+  const harness = workerHarness();
+  const pc = await softAuthenticator();
+  const { token } = await (await register(harness, pc)).json();
+  const phone = await softAuthenticator();
+  const added = await addKey(harness, token, phone, 'iPhone 15');
+  expect(added.status).toBe(200);
+  const list = await added.json();
+  expect(list.max).toBe(3);
+  expect(list.credentials).toHaveLength(2);
+  expect(list.credentials[1]).toMatchObject({ label: 'iPhone 15', lastUsedAt: null });
+  // 자격 ID·공개키는 응답에 없다.
+  expect(JSON.stringify(list)).not.toContain(phone.id);
+  expect(Object.keys(list.credentials[0]).sort()).toEqual(['createdAt', 'label', 'lastUsedAt', 'ref']);
+  const phoneLogin = await login(harness, phone);
+  expect(phoneLogin.status).toBe(200);
+  const after = await (await call(harness, 'GET', '/auth/credentials', { headers: bearer(token) })).json();
+  expect(after.credentials[1].lastUsedAt).not.toBeNull();
+  expect((await addKey(harness, token, await softAuthenticator(), 'spare')).status).toBe(200);
+  const fourth = await call(harness, 'POST', '/auth/credentials/options', { headers: bearer(token) });
+  expect(fourth.status).toBe(409);
+  expect((await fourth.json()).code).toBe('credential_limit');
+});
+
+it('같은 인증기를 다시 추가하거나 등록 챌린지로 추가하면 거절한다', async () => {
+  const harness = workerHarness();
+  const pc = await softAuthenticator();
+  const { token } = await (await register(harness, pc)).json();
+  expect((await addKey(harness, token, pc)).status).toBe(409);
+  // 로그인 챌린지는 추가 응답에 쓸 수 없다(종류가 다르다).
+  const loginOptions = await (await call(harness, 'POST', '/auth/login/options')).json();
+  const response = await (await softAuthenticator()).register(loginOptions.challenge, appOrigin);
+  const crossed = await call(harness, 'POST', '/auth/credentials', { headers: bearer(token), body: { response } });
+  expect(crossed.status).toBe(400);
+});
+
+it('삭제는 1개 이상 남을 때만 되고, 지운 패스키로는 로그인할 수 없다', async () => {
+  const harness = workerHarness();
+  const pc = await softAuthenticator();
+  const { token } = await (await register(harness, pc)).json();
+  const phone = await softAuthenticator();
+  const list = await (await addKey(harness, token, phone)).json();
+  const phoneRef = list.credentials[1].ref;
+  const pcRef = list.credentials[0].ref;
+  const deleted = await call(harness, 'POST', '/auth/credentials/delete', {
+    headers: bearer(token),
+    body: { ref: phoneRef },
+  });
+  expect(deleted.status).toBe(200);
+  expect((await deleted.json()).credentials).toHaveLength(1);
+  expect((await login(harness, phone)).status).toBe(401);
+  const last = await call(harness, 'POST', '/auth/credentials/delete', {
+    headers: bearer(token),
+    body: { ref: pcRef },
+  });
+  expect(last.status).toBe(409);
+  expect((await last.json()).code).toBe('last_credential');
+  const missing = await call(harness, 'POST', '/auth/credentials/delete', {
+    headers: bearer(token),
+    body: { ref: 'x; DROP' },
+  });
+  expect(missing.status).toBe(404);
+  expect((await login(harness, pc)).status).toBe(200);
+});
+
+it('라벨은 40자 이하만 받는다', async () => {
+  const harness = workerHarness();
+  const { token } = await (await register(harness, await softAuthenticator())).json();
+  expect((await addKey(harness, token, await softAuthenticator(), 'x'.repeat(41))).status).toBe(400);
+});
+
+it('T-D4 운영 DO의 자격 표(라벨·사용 시각 열 없음)에 열을 더하고 기존 자격을 유지한다', () => {
+  const sql = memorySql();
+  sql.exec(
+    'CREATE TABLE credentials (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, counter INTEGER NOT NULL, transports TEXT NOT NULL, created_at TEXT NOT NULL)',
+  );
+  sql.exec("INSERT INTO credentials VALUES ('old', 'pk', 3, '[]', '2026-11-10T00:00:00.000Z')");
+  const store = new AiStore(sql);
+  // 다시 열어도(DO 재시작) 이미 있는 열 때문에 실패하지 않는다.
+  const reopened = new AiStore(sql);
+  expect(store.credentials()).toHaveLength(1);
+  expect(reopened.credentialSummaries()).toEqual([
+    { ref: '1', label: '', createdAt: '2026-11-10T00:00:00.000Z', lastUsedAt: null },
+  ]);
+  reopened.updateCounter('old', 4, '2026-11-11T00:00:00.000Z');
+  expect(reopened.credentialSummaries()[0].lastUsedAt).toBe('2026-11-11T00:00:00.000Z');
 });

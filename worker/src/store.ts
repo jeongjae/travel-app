@@ -13,6 +13,8 @@ export type StoredJobRow = { job: AiV2Job; fingerprint: string; responseId: stri
 /** 실행 중 작업의 요청 원문·조사 본문(U-D2-1). 작업이 끝나는 쓰기와 같은 트랜잭션에서 지운다. */
 export type InflightRow = { input: string; research: string | null; repair: string };
 export type CredentialRow = { id: string; publicKey: string; counter: number; transports: string[] };
+/** 화면에 보여도 되는 자격 정보. 공개키·카운터·자격 ID 원문은 내보내지 않는다. */
+export type CredentialSummary = { ref: string; label: string; createdAt: string; lastUsedAt: string | null };
 
 const schema = [
   // data는 toStoredJob 허용 목록을 거친 JSON만 담는다. 요청 원문·고른 기록·활동 제목은 들어오지 않는다.
@@ -60,6 +62,12 @@ const schema = [
   )`,
 ];
 
+/** 기존 표에 열을 더한다. 이미 있으면(재시작) SQLite가 duplicate column으로 거절하므로 무시한다. */
+const columnMigrations = [
+  `ALTER TABLE credentials ADD COLUMN label TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE credentials ADD COLUMN last_used_at TEXT`,
+];
+
 const text = (value: SqlValue | undefined) => (typeof value === 'string' ? value : '');
 const count = (value: SqlValue | undefined) => (typeof value === 'number' ? value : 0);
 
@@ -71,6 +79,15 @@ export class AiStore {
     this.transaction = transaction;
     for (const statement of schema) {
       this.sql.exec(statement);
+    }
+    for (const statement of columnMigrations) {
+      try {
+        this.sql.exec(statement);
+      } catch (error) {
+        if (!/duplicate column/i.test(error instanceof Error ? error.message : String(error))) {
+          throw error;
+        }
+      }
     }
   }
 
@@ -104,6 +121,17 @@ export class AiStore {
          WHERE status NOT IN (${skip.map(() => '?').join(',')}) AND updated_at <= ?`,
         ...skip,
         cutoffIso,
+      )
+      .toArray()
+      .map((row) => this.toRow(row));
+  }
+  /** 한 여행의 최근 작업부터 limit건. */
+  listTripJobs(tripId: string, limit: number): StoredJobRow[] {
+    return this.sql
+      .exec(
+        'SELECT data, fingerprint, response_id FROM jobs WHERE trip_id = ? ORDER BY created_at DESC LIMIT ?',
+        tripId,
+        limit,
       )
       .toArray()
       .map((row) => this.toRow(row));
@@ -197,18 +225,43 @@ export class AiStore {
         transports: JSON.parse(text(row.transports) || '[]') as string[],
       }));
   }
-  addCredential(credential: CredentialRow, createdAt: string) {
+  addCredential(credential: CredentialRow, createdAt: string, label = '') {
     this.sql.exec(
-      'INSERT INTO credentials (id, public_key, counter, transports, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO credentials (id, public_key, counter, transports, created_at, label) VALUES (?, ?, ?, ?, ?, ?)',
       credential.id,
       credential.publicKey,
       credential.counter,
       JSON.stringify(credential.transports),
       createdAt,
+      label,
     );
   }
-  updateCounter(id: string, counter: number) {
-    this.sql.exec('UPDATE credentials SET counter = ? WHERE id = ?', counter, id);
+  /** 등록 순서대로. `ref`는 자격 ID 대신 쓰는 화면용 식별자(rowid)다. */
+  credentialSummaries(): CredentialSummary[] {
+    return this.sql
+      .exec('SELECT rowid AS ref, label, created_at, last_used_at FROM credentials ORDER BY rowid')
+      .toArray()
+      .map((row) => ({
+        ref: String(count(row.ref)),
+        label: text(row.label),
+        createdAt: text(row.created_at),
+        lastUsedAt: typeof row.last_used_at === 'string' ? row.last_used_at : null,
+      }));
+  }
+  credentialIdOf(ref: string) {
+    const row = this.sql.exec('SELECT id FROM credentials WHERE rowid = ?', Number(ref)).toArray()[0];
+    return row ? text(row.id) : undefined;
+  }
+  deleteCredential(id: string) {
+    this.sql.exec('DELETE FROM credentials WHERE id = ?', id);
+  }
+  updateCounter(id: string, counter: number, usedAt?: string) {
+    this.sql.exec(
+      'UPDATE credentials SET counter = ?, last_used_at = coalesce(?, last_used_at) WHERE id = ?',
+      counter,
+      usedAt ?? null,
+      id,
+    );
   }
   putChallenge(challenge: string, kind: string, expiresAt: number) {
     this.sql.exec('INSERT INTO challenges (challenge, kind, expires_at) VALUES (?, ?, ?)', challenge, kind, expiresAt);

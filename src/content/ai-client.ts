@@ -127,6 +127,40 @@ export async function loginWithPasskey() {
   saveToken(token);
 }
 
+/** 서버 패스키 목록 항목. 공개키·자격 ID는 오지 않는다. */
+export type PasskeySummary = { ref: string; label: string; createdAt: string; lastUsedAt: string | null };
+export type PasskeyList = { credentials: PasskeySummary[]; max: number };
+
+export function listPasskeys() {
+  return aiFetch<PasskeyList>('/auth/credentials');
+}
+
+/**
+ * 로그인한 상태에서 패스키를 하나 더 만든다. 서버가 "다른 기기" 경로를 권하므로
+ * PC 브라우저에서 QR을 띄우고 iPhone Face ID로 만든다. 토큰은 바꾸지 않는다.
+ */
+export async function addPasskey(label: string) {
+  const optionsJSON = await aiFetch<Parameters<typeof startRegistration>[0]['optionsJSON']>(
+    '/auth/credentials/options',
+    {},
+  );
+  const response = await startRegistration({ optionsJSON });
+  return aiFetch<PasskeyList>('/auth/credentials', { response, label });
+}
+
+export function deletePasskey(ref: string) {
+  return aiFetch<PasskeyList>('/auth/credentials/delete', { ref });
+}
+
+/** 화면 오류 상세(접힘)에 보일 HTTP·오류 코드. 연결 실패(0)는 코드만. 429 직접 관측용(T-D5 C1 D). */
+export function apiErrorDetail(error: unknown) {
+  if (!(error instanceof AiApiError)) {
+    return '';
+  }
+  const status = error.status ? `HTTP ${error.status}` : '연결 실패';
+  return error.code ? `${status} · ${error.code}` : status;
+}
+
 export async function logout() {
   try {
     await aiFetch('/auth/revoke', {});

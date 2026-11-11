@@ -20,7 +20,7 @@ export type ResponseData = {
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
   output?: Array<{
     type: string;
-    action?: { sources?: Array<{ url?: string; title?: string }> };
+    action?: { type?: string; sources?: Array<{ url?: string; title?: string }> };
     content?: Array<{
       type: string;
       text?: string;
@@ -112,6 +112,10 @@ export function usageOf(data: ResponseData): AiV2Usage {
     outputTokens: data.usage?.output_tokens ?? 0,
     totalTokens: data.usage?.total_tokens ?? 0,
     webSearchCalls: (data.output ?? []).filter((item) => item.type === 'web_search_call').length,
+    toolCallItems: (data.output ?? []).filter((item) => item.type.endsWith('_call')).length,
+    webSearchQueries: (data.output ?? []).filter(
+      (item) => item.type === 'web_search_call' && item.action?.type === 'search',
+    ).length,
   };
 }
 

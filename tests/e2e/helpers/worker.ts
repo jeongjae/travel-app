@@ -71,14 +71,17 @@ export async function copyPasskeys(from: VirtualAuthenticator, to: VirtualAuthen
   }
 }
 
-/** Chromium CDP 가상 인증기. 사용자 확인(UV)까지 자동으로 통과한다. */
-export async function addVirtualAuthenticator(page: Page) {
+/**
+ * Chromium CDP 가상 인증기. 사용자 확인(UV)까지 자동으로 통과한다.
+ * `usb`는 다른 기기(cross-platform) 역할이다. 패스키 추가는 서버가 cross-platform을 요구한다(휴대폰 QR 경로).
+ */
+export async function addVirtualAuthenticator(page: Page, transport: 'internal' | 'usb' = 'internal') {
   const client = await page.context().newCDPSession(page);
   await client.send('WebAuthn.enable');
   const { authenticatorId } = await client.send('WebAuthn.addVirtualAuthenticator', {
     options: {
       protocol: 'ctap2',
-      transport: 'internal',
+      transport,
       hasResidentKey: true,
       hasUserVerification: true,
       isUserVerified: true,

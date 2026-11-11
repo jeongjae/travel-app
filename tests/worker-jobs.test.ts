@@ -4,8 +4,11 @@ import { consentedRequest } from '../src/ai-v2-context';
 import { aiV2JobLimits, aiV2Limits, aiV2WorkerServer, type AiV2Policy } from '../src/ai-v2-contract';
 import { parseDailyLimit } from '../worker/src/context';
 import { limitDay, unknownMessage } from '../worker/src/jobs';
+import { handleRequest } from '../worker/src/app';
 import { AiV2RequestError, type AiV2Job } from '../src/ai-v2-jobs-core';
 import { aiV2Fixture } from './fixtures/ai-v2';
+import { usageOf } from '../src/ai-v2-openai';
+import { toJobSummary } from '../src/ai-v2-jobs-core';
 import { testVars, workerHarness } from './worker/harness';
 
 const workerPolicy = (): AiV2Policy => ({
@@ -51,7 +54,15 @@ it('조사→작성 background 폴링으로 변경안 대기까지 가고 사용
   expect(job.status).toBe('awaiting-decision');
   expect(job.attempt).toBe(1);
   expect(job.result?.output).toEqual(fixture.output);
-  expect(job.usage).toEqual({ calls: 2, inputTokens: 240, outputTokens: 60, totalTokens: 300, webSearchCalls: 1 });
+  expect(job.usage).toEqual({
+    calls: 2,
+    inputTokens: 240,
+    outputTokens: 60,
+    totalTokens: 300,
+    webSearchCalls: 1,
+    toolCallItems: 1,
+    webSearchQueries: 0,
+  });
   const status = harness.app.jobs.status();
   expect(status.remainingToday).toBe(aiV2JobLimits.dailyJobs - 1);
   expect(status.usageToday).toEqual({ jobs: 1, totalTokens: 300 });
@@ -283,4 +294,68 @@ it('T-D4 C1: DAILY_LIMIT 환경값이 한도·남은 횟수·429를 정한다. �
   expect(error.status).toBe(429);
   expect(error.code).toBe('daily_limit');
   expect(error.message).toContain('5회');
+});
+
+it('T-D5 C1 D: 도구 호출 출력 항목 수와 검색 동작 수를 웹 검색 항목 수와 따로 센다(CL-37)', () => {
+  const usage = usageOf({
+    usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+    output: [
+      { type: 'web_search_call', action: { type: 'search' } },
+      { type: 'web_search_call', action: { type: 'open_page' } },
+      { type: 'web_search_call', action: { type: 'search' } },
+      { type: 'reasoning' },
+      { type: 'message', content: [] },
+    ],
+  });
+  expect(usage).toMatchObject({ webSearchCalls: 3, toolCallItems: 3, webSearchQueries: 2 });
+});
+
+it('T-D5 C1 B: 작업 목록은 Bearer가 필요하고, 한 여행의 최근 작업을 내용 없이 돌려준다(CL-38)', async () => {
+  const { harness, request, fixture } = await setup();
+  const job = await harness.app.jobs.create(request);
+  await harness.drain();
+  const unauthenticated = await handleRequest(
+    new Request(`http://worker.test/api/ai/v2/jobs?tripId=${job.tripId}`),
+    harness.app,
+  );
+  expect(unauthenticated.status).toBe(401);
+  const listed = harness.app.jobs.list(job.tripId);
+  expect(listed.jobs).toHaveLength(1);
+  expect(Object.keys(listed.jobs[0]).sort()).toEqual(
+    ['attempt', 'createdAt', 'id', 'model', 'sourceCount', 'status', 'tripId', 'updatedAt', 'usage'].sort(),
+  );
+  expect(listed.jobs[0]).toMatchObject({ id: job.id, status: 'awaiting-decision', sourceCount: 1 });
+  // canary: 결과·출처 제목·요청 원문이 목록 응답에 없다.
+  const text = JSON.stringify(listed);
+  expect(text).not.toContain(fixture.payload.planning.request);
+  for (const operation of fixture.output.operations) {
+    if (operation.title) {
+      expect(text).not.toContain(operation.title);
+    }
+  }
+  expect(text).not.toContain('"result"');
+  expect(text).not.toContain('"sources"');
+  expect(harness.app.jobs.list('other-trip').jobs).toEqual([]);
+  expect(() => harness.app.jobs.list(null)).toThrow(AiV2RequestError);
+  expect(() => harness.app.jobs.list("x' OR 1=1")).toThrow(AiV2RequestError);
+  expect(toJobSummary(harness.app.jobs.get(job.id)!)).toEqual(listed.jobs[0]);
+});
+
+it('작업 목록은 최근 50건까지, 새 작업부터 돌려준다', async () => {
+  const { harness, request } = await setup();
+  const base = harness.app.jobs.get((await harness.app.jobs.create(request)).id)!;
+  for (let index = 0; index < 55; index++) {
+    harness.app.store.putJob(
+      {
+        ...base,
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        createdAt: new Date(Date.UTC(2026, 10, 1, 0, index)).toISOString(),
+      },
+      'fp',
+      null,
+    );
+  }
+  const { jobs } = harness.app.jobs.list(base.tripId);
+  expect(jobs).toHaveLength(50);
+  expect(jobs[0].createdAt > jobs[49].createdAt).toBe(true);
 });

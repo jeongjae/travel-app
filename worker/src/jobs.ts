@@ -12,12 +12,14 @@ import {
 } from '../../src/ai-v2-contract.ts';
 import {
   addUsage,
+  aiV2JobListLimit,
   AiV2RequestError,
   checkAiV2Request,
   emptyUsage,
   failureText,
   planningExhaustedMessage,
   repairInstruction,
+  toJobSummary,
   toStoredJob,
   type AiV2Job,
 } from '../../src/ai-v2-jobs-core.ts';
@@ -163,6 +165,19 @@ export class WorkerJobs {
     this.deps.memory.set(job.id, memory);
     await this.deps.schedule(this.deps.now());
     return toStoredJob(job);
+  }
+
+  /**
+   * 한 여행의 최근 작업 기록(CL-38). 상태·시각·사용량만 내보내고 결과·출처·오류 문구는 뺀다.
+   * 화면 "AI 작업 기록"이 쓰며 내용은 보이지 않는다.
+   */
+  list(tripId: string | null) {
+    if (!tripId || !/^[A-Za-z0-9_-]{1,128}$/.test(tripId)) {
+      throw new AiV2RequestError(400, 'invalid_request', '여행 ID가 필요합니다.');
+    }
+    this.expire();
+    const jobs = this.store.listTripJobs(tripId, aiV2JobListLimit).map(({ job }) => toJobSummary(job));
+    return { jobs };
   }
 
   get(id: string) {

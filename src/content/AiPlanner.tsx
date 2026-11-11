@@ -29,6 +29,7 @@ import { aiApiAvailable } from '../hosting';
 import {
   AiApiError,
   aiFetch,
+  apiErrorDetail,
   needsLogin,
   nextPollStep,
   readAuthState,
@@ -36,6 +37,7 @@ import {
   type AuthState,
 } from './ai-client.ts';
 import AiAuthPanel from './AiAuthPanel.tsx';
+import AiJobHistory from './AiJobHistory.tsx';
 
 const active = new Set<string>(aiV2RunningStatuses);
 const labels: Record<string, string> = {
@@ -76,7 +78,11 @@ function unconfirmed(exception: unknown) {
 }
 
 function usageText(usage: AiV2Job['usage']) {
-  return `토큰 ${usage.totalTokens.toLocaleString('ko-KR')} (입력 ${usage.inputTokens.toLocaleString('ko-KR')} · 출력 ${usage.outputTokens.toLocaleString('ko-KR')}) · 호출 ${usage.calls}회 · 웹 검색 ${usage.webSearchCalls}회`;
+  return `토큰 ${usage.totalTokens.toLocaleString('ko-KR')} (입력 ${usage.inputTokens.toLocaleString('ko-KR')} · 출력 ${usage.outputTokens.toLocaleString('ko-KR')}) · 호출 ${usage.calls}회 · 웹 검색 ${usage.webSearchCalls}회${
+    usage.toolCallItems === undefined
+      ? ''
+      : ` (도구 항목 ${usage.toolCallItems} · 검색 동작 ${usage.webSearchQueries ?? 0})`
+  }`;
 }
 
 export default function AiPlanner({
@@ -112,6 +118,7 @@ export default function AiPlanner({
   const pendingRequest = useRef<AiV2Request | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
+    [errorDetail, setErrorDetail] = useState(''),
     [saved, setSaved] = useState(false);
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
@@ -154,6 +161,11 @@ export default function AiPlanner({
     saveToken(null);
     setAuthState(exception instanceof AiApiError && exception.code === 'token_expired' ? 'expired' : 'logged-out');
     return true;
+  };
+  /** 화면 오류와 접힌 상세(HTTP·오류 코드)를 함께 바꾼다. */
+  const fail = (exception: unknown) => {
+    setError(errorText(exception));
+    setErrorDetail(apiErrorDetail(exception));
   };
   const handleAuthErrorRef = useRef(handleAuthError);
   handleAuthErrorRef.current = handleAuthError;
@@ -254,6 +266,7 @@ export default function AiPlanner({
       } catch (exception) {
         if (live) {
           setError(errorText(exception));
+          setErrorDetail(apiErrorDetail(exception));
         }
       }
     }
@@ -369,6 +382,22 @@ export default function AiPlanner({
         <p className="notice">이 여행의 최근 AI 작업이 있습니다. 로그인하면 같은 작업을 이어서 확인합니다.</p>
       ) : null}
       <ErrorText error={error} />
+      {error && errorDetail ? (
+        <details>
+          <summary>오류 상세</summary>
+          <p className="muted" aria-label="오류 코드">
+            {errorDetail}
+          </p>
+        </details>
+      ) : null}
+      {authState === 'logged-in' ? (
+        <AiJobHistory
+          tripId={header.tripId}
+          labels={labels}
+          version={statusVersion}
+          onAuthError={(exception) => handleAuthErrorRef.current(exception)}
+        />
+      ) : null}
       <label>
         변경 요청
         <textarea value={prompt} maxLength={4000} onChange={(event) => setPrompt(event.target.value)} />
@@ -499,7 +528,7 @@ export default function AiPlanner({
               }),
             );
           } catch (exception) {
-            setError(errorText(exception));
+            fail(exception);
           } finally {
             setBusy(false);
           }
@@ -573,10 +602,11 @@ export default function AiPlanner({
                   setError(
                     '전송 결과를 확인하지 못했습니다. 다시 누르면 같은 요청으로 확인합니다(중복 실행·추가 횟수 없음).',
                   );
+                  setErrorDetail(apiErrorDetail(exception));
                 } else {
                   pendingRequest.current = null;
                   if (!handleAuthError(exception)) {
-                    setError(errorText(exception));
+                    fail(exception);
                   }
                 }
               } finally {
@@ -639,7 +669,7 @@ export default function AiPlanner({
                   .then(setJob)
                   .catch((exception) => {
                     if (!handleAuthError(exception)) {
-                      setError(errorText(exception));
+                      fail(exception);
                     }
                   });
               }}
