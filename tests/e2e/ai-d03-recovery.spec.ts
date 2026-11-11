@@ -2,11 +2,9 @@
 // 응답 유실·브라우저 종료·저장 실패·ACK·stale·취소 경합·결과 불명·회수 실패·두 여행 격리·오프라인·Worker 재시작을 재현한다.
 // 실제 OpenAI·Cloudflare 호출은 없다.
 import { expect, test, type Page } from '@playwright/test';
-import { buildPackage } from '../../src/transfer/package';
-import { digestBytes } from '../../src/contracts/v2';
-import { fixtureAssets } from '../fixtures/pilot';
 import { aiV2Fixture } from '../fixtures/ai-v2';
 import { openMore, openTripMenu } from './helpers/nav';
+import { importTrip } from './helpers/trip';
 import {
   addVirtualAuthenticator,
   advanceWorkerClock,
@@ -49,28 +47,6 @@ function collectErrors(page: Page) {
     errors.push(message.text());
   });
   return errors;
-}
-
-async function importTrip(page: Page, fixture: Fixture) {
-  await page.goto('/?workspace=content');
-  const assets = new Map<string, Uint8Array>();
-  for (const bytes of Object.values(fixtureAssets)) {
-    assets.set(await digestBytes(bytes), bytes);
-  }
-  const packaged = await buildPackage(fixture.dataset, assets, {
-    sourceRepository: 'synthetic/ai-v2',
-    sourceCommit: 'fictional-only',
-    lineageId: 'synthetic-ai-d03',
-    adapterVersion: '1',
-    normalizationVersion: '2',
-  });
-  await page.getByLabel('원천 패키지 가져오기').setInputFiles({
-    name: 'fictional-ai-d03.zip',
-    mimeType: 'application/zip',
-    buffer: Buffer.from(await packaged.blob.arrayBuffer()),
-  });
-  await page.getByRole('button', { name: '여행에 추가', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: fixture.dataset.header.name, exact: true })).toBeVisible();
 }
 
 /** 백엔드 초기화 → 여행 가져오기 → 변경안 화면 → 패스키 등록까지. */
@@ -132,8 +108,9 @@ test('A·B4: Worker가 다시 떠도 inflight에서 이어 저장하고, 저장 
   await expect(saved(page)).toBeVisible({ timeout: 20_000 });
   await expect(jobStatus(page, '저장 완료')).toBeVisible();
   const id = (await rememberedJobId(page, fixture.dataset.header.tripId))!;
+  // ACK는 화면 표시 뒤 비동기로 도착하므로 서버 상태가 바뀔 때까지 기다린다.
+  await expect.poll(async () => (await workerJob(page, id)).status, { timeout: 10_000 }).toBe('acknowledged');
   const job = await workerJob(page, id);
-  expect(job.status).toBe('acknowledged');
   expect(job.result).toBeUndefined();
   expect(job.usage).toMatchObject({ totalTokens: 300 });
   expect(await inflightCount()).toBe(0);
@@ -243,9 +220,8 @@ test('B3·B4: 기기 저장이 실패하면 서버 결과를 지키고 "다시 �
   await failure.getByRole('button', { name: '다시 저장', exact: true }).click();
   await expect(saved(page)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole('heading', { name: fixture.output.reason, exact: true })).toBeVisible();
-  const acknowledged = await workerJob(page, id);
-  expect(acknowledged.status).toBe('acknowledged');
-  expect(acknowledged.result).toBeUndefined();
+  await expect.poll(async () => (await workerJob(page, id)).status, { timeout: 10_000 }).toBe('acknowledged');
+  expect((await workerJob(page, id)).result).toBeUndefined();
   expect(await openAiCreates()).toHaveLength(2);
   expect(errors).toEqual([]);
 });
@@ -394,7 +370,7 @@ test('B9: 여행 A의 작업은 여행 B 화면에 보이지 않고, B로 옮겨
     .click();
   await openMore(page, '변경안');
   await expect(saved(page)).toBeVisible({ timeout: 20_000 });
-  expect((await workerJob(page, jobA)).status).toBe('acknowledged');
+  await expect.poll(async () => (await workerJob(page, jobA)).status, { timeout: 10_000 }).toBe('acknowledged');
   expect(errors).toEqual([]);
 });
 

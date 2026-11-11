@@ -65,7 +65,7 @@ function corsHeaders(origin: string | null, allowed: boolean): Record<string, st
   // 자격증명(쿠키) 헤더는 보내지 않는다. 인증은 Authorization 헤더뿐이다.
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Travel-App',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Max-Age': '600',
     Vary: 'Origin',
@@ -161,6 +161,7 @@ export async function handleRequest(request: Request, app: AppContext): Promise<
 async function routeAuth(request: Request, path: string, body: Record<string, unknown>, app: AppContext) {
   if (request.method === 'GET' && path === '/auth/state') {
     // 잠금 여부만 알린다. 코드·실패 횟수는 내보내지 않는다.
+    await app.auth.syncCodeFingerprint();
     return { registered: app.auth.registered(), locked: app.auth.locked() };
   }
   if (request.method !== 'POST') {

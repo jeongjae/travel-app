@@ -113,6 +113,12 @@ export function validateAiV2Output(planning: AiV2ValidationScope, output: AiV2Ou
     if (operation.type === 'remove') {
       return;
     }
+    if (!operation.title.trim()) {
+      throw new Error('추가·수정 항목의 제목이 비어 있습니다.');
+    }
+    if (!operation.summary.trim()) {
+      throw new Error('추가·수정 항목의 요약이 비어 있습니다.');
+    }
     if (operation.placeId && !planning.places.some((place) => place.id === operation.placeId)) {
       throw new Error('알 수 없는 장소입니다.');
     }

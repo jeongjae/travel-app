@@ -2,10 +2,11 @@
 import { expect, it } from 'vitest';
 import { consentedRequest } from '../src/ai-v2-context';
 import { aiV2JobLimits, aiV2Limits, aiV2WorkerServer, type AiV2Policy } from '../src/ai-v2-contract';
+import { parseDailyLimit } from '../worker/src/context';
 import { limitDay, unknownMessage } from '../worker/src/jobs';
 import { AiV2RequestError, type AiV2Job } from '../src/ai-v2-jobs-core';
 import { aiV2Fixture } from './fixtures/ai-v2';
-import { workerHarness } from './worker/harness';
+import { testVars, workerHarness } from './worker/harness';
 
 const workerPolicy = (): AiV2Policy => ({
   server: aiV2WorkerServer,
@@ -261,4 +262,25 @@ it('일일 한도는 Asia/Seoul 날짜로 센다: 23:59:59 KST에 막히고 00:0
   harness.clock.now = Date.parse('2026-11-09T15:00:00Z');
   expect((await harness.app.jobs.create(request)).status).toBe('queued');
   expect(harness.app.jobs.status().remainingToday).toBe(aiV2JobLimits.dailyJobs - 1);
+});
+
+it('T-D4 C1: DAILY_LIMIT 환경값이 한도·남은 횟수·429를 정한다. 없으면 20, 잘못된 값은 1', async () => {
+  expect(parseDailyLimit(undefined)).toBe(aiV2JobLimits.dailyJobs);
+  expect(parseDailyLimit('')).toBe(aiV2JobLimits.dailyJobs);
+  expect(parseDailyLimit('5')).toBe(5);
+  for (const bad of ['0', '-1', '21', '5.5', 'abc']) {
+    expect(parseDailyLimit(bad)).toBe(1);
+  }
+  const fixture = await aiV2Fixture();
+  const harness = workerHarness({ ...testVars, DAILY_LIMIT: '5' });
+  harness.openai.outputs = [fixture.output];
+  const request = await consentedRequest(fixture.payload, workerPolicy());
+  expect(harness.app.jobs.status().dailyJobLimit).toBe(5);
+  expect(harness.app.jobs.status().remainingToday).toBe(5);
+  harness.app.store.addDaily(limitDay(harness.clock.now), 5, 0);
+  expect(harness.app.jobs.status().remainingToday).toBe(0);
+  const error = await rejection(harness.app.jobs.create(request));
+  expect(error.status).toBe(429);
+  expect(error.code).toBe('daily_limit');
+  expect(error.message).toContain('5회');
 });

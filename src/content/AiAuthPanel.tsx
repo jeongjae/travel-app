@@ -60,7 +60,8 @@ export default function AiAuthPanel({ state, onChange }: { state: AuthState; onC
       ) : null}
       {state === 'locked' ? (
         <p role="alert">
-          등록 코드가 5회 틀려 패스키 등록이 잠겼습니다. 서버의 등록 코드를 바꾸고 잠금을 푼 뒤 다시 등록하세요.
+          등록 코드가 5회 틀려 패스키 등록이 잠겼습니다. 서버의 등록 코드를 바꾸면 잠금이 풀립니다. 바꾼 뒤 다시
+          등록하세요.
         </p>
       ) : null}
       {state === 'logged-out' ? (
