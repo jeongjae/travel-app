@@ -1,5 +1,10 @@
 # 결정 기록
 
+## 2026-11-11 18:21 · T-D5 iPhone 점검 브라우저 (사용자 확정)
+
+- iPhone 실기기 점검(지시 §2·§3 2단계)은 **iPhone Chrome 기준**으로 한다. 대본 `docs/d05-iphone-script.md`도 Chrome 기준으로 쓴다.
+- Safari·홈 화면 앱은 저장소가 Chrome과 분리될 수 있으므로 이번 점검 범위에 넣지 않는다(Codex 해석). 기존 데이터 유지 확인은 Chrome에 있는 저장소를 대상으로 한다.
+
 ## 2026-11-11 17:10 · T-D5 C1 검토 중 판단 (Codex 판단, 사용자 확인 대기)
 
 - 근거: [T-D5 C1 검토](claude-task-d05-review.md).

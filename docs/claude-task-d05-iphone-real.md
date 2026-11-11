@@ -38,7 +38,7 @@
 완료 조건: check·E2E·CI 성공, 데이터 경계 0건(§C 예외 시 멈춤), push → Codex 검토 → 병합 → Claude가 `wrangler deploy --env production`.
 
 ## 2. iPhone 실기기 (가상·기존 데이터, 실제 호출 없음)
-사용자 수행, Claude는 대본 `docs/d05-iphone-script.md`와 기록표 준비.
+사용자 수행, Claude는 대본 `docs/d05-iphone-script.md`와 기록표 준비. **브라우저는 iPhone Chrome 기준**([결정 11/11 18:21](decisions.md)). 1번의 "홈 화면 추가"는 Chrome에서 저장소가 유지되는지 확인하는 것으로 대신하고, 홈 화면 앱은 선택 항목으로만 기록한다.
 1. 배포 앱 열기 → 홈 화면 추가 → 기존 저장소 유지 확인(10/27 가져온 데이터).
 2. G-P: PC에서 패스키 추가(QR) → iPhone에서 **패스키로 로그인** → "패스키 로그인됨".
 3. 화면 점검: 오늘·일정·기록·회고·변경안·AI 패널(세로, 한 손), 글자 잘림·가로 스크롤 없음.
