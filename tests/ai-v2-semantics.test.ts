@@ -345,3 +345,29 @@ it('거절·길이 초과·미완성 응답을 구분하고 사용량을 읽는�
   const limited = await runProvider({ error: { code: 'project_spend_limit_exceeded' } }, 429);
   await expect(limited.run).rejects.toThrow('예산 한도');
 });
+
+it.each([
+  ['add의 title이 공백뿐', { type: 'add', activityId: '', title: '  ' }, '제목'],
+  ['edit의 summary가 비어 있음', { type: 'edit', summary: '' }, '요약'],
+])('%s이면 거부한다', async (_name, patch, message) => {
+  const fixture = await aiV2Fixture();
+  const operation = patch.type === 'add' ? { ...patch, dayId: fixture.output.operations[0].dayId } : patch;
+  const output = editing(fixture, operation as Partial<AiV2Output['operations'][number]>);
+  expect(() => validateAiV2Output(fixture.input.planning, output, fixture.research.sources)).toThrow(message);
+});
+
+it('remove는 제목·요약이 비어 있어도 허용한다', async () => {
+  const fixture = await aiV2Fixture();
+  const target = fixture.input.planning.items[0];
+  const output = editing(fixture, {
+    type: 'remove',
+    activityId: target.activityId,
+    dayId: target.dayId,
+    title: '',
+    summary: '',
+    startTime: null,
+    endTime: null,
+    placeId: null,
+  });
+  expect(() => validateAiV2Output(fixture.input.planning, output, fixture.research.sources)).not.toThrow();
+});
