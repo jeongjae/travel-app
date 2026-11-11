@@ -78,6 +78,7 @@
 | CL-36 | PC(Windows)에서 `pnpm run check` 중 Node 서버 시험(retention·ai-v2·ai) 6~13건 간헐 실패. 단독 실행·CI(Linux)는 통과. CL-27 패턴(jobs.json rename 경쟁) | Node 서버 정리(T-D5 이후)와 함께 격리 또는 순차 실행. 그 전까지 Claude 보고에 실패 메시지 첨부 | [T-D4 C1 검토](claude-task-d04-c1-review.md) §3 |
 | CL-37 | 조사 호출의 `web_search_call` 출력 항목이 3개(max_tool_calls=2)로 기록된 사례. 과금 단위와의 관계 미확인 | T-D5 관찰: OpenAI 대시보드 도구 호출 수와 대조 | [T-D4 C4 검토](claude-task-d04-c4-review.md) |
 | CL-38 | 인증된 작업 목록 경로가 없어 서버 집계와 화면 기록이 어긋날 때 원인 추적 불가(C4의 설명 안 되는 1건) | T-D5: 인증 필수 `GET /api/ai/v2/jobs?tripId=`(허용 목록 필드) + 화면 "AI 작업 기록" | T-D4 C4 검토 |
+| CL-39 | **AI 활용 방식 대대적 개편**(사용자 판단 11/11). 지난 여행 수정이 아니라 새 여행 계획에 쓰는 방향 | D 단계 종료 뒤 별도 단계로 시작. 그 전까지 AI 기능 확장 동결 | [결정 11/11](decisions.md) |
 
 ## 처리 이력
 
@@ -126,3 +127,4 @@
 - 2026-11-11: T-D4 C2~C4 완료 — Worker 운영 배포 `travel-app-ai.jeongjae-kim.workers.dev`, Pages에 주소 주입(`d9deca5`), 패스키 등록(G3), 가상 여행 실제 호출 5회 $0.12(1회 최대 $0.048). Codex: 빈 title add가 서버 검증을 통과하는 결함 → **R2**(add/edit title·summary 비공백 검증). CL-37·38 기록. C5에서 DAILY_LIMIT 20 복원.
 - 2026-11-11: T-D4 R2(`12f0df0`)·C5(`3820b1f`) 완료 → Codex 최종 검토 **통과**, main 병합. Worker 운영 버전 `e5e62de9…`(DAILY_LIMIT 20). CL-38 로그 대조: 4번째 작업 = 조사 후 작성 전 멈춤. 사용자 확인 대기.
 - 2026-11-11: T-D4 사용자 확인 완료(15:24) → 종결. [T-D5](claude-task-d05-iphone-real.md) 지시 발행(두 번째 패스키·작업 목록 CL-38·officialUrl CL-26·iPhone 실기기·실제 여행 선별 호출·종료 판정 준비). 실제 여행 범위(G-T)는 사용자 결정 대기.
+- 2026-11-11: G-T 확정(43일 여행·날짜 제한 없음·기록 미포함·2단계 적용). 실제 호출은 검증 목적, 적용은 지울 수 있는 추가 1건으로 한정. CL-39(AI 방식 개편, D 단계 뒤) 기록.

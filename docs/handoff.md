@@ -2,7 +2,7 @@
 
 2026-11-10 · **T-D2 종결 / T-D3 구현·자체 검사 통과, Codex 검토 대기 / U4 재수행 대기**
 
-새 Codex 세션은 먼저 [세션 인계](codex-session-handoff-2026-11-05.md)를 읽는다.
+새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
 ## 현재 기준
 
