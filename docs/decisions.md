@@ -1,5 +1,12 @@
 # 결정 기록
 
+## 2026-11-11 · T-D4 수행 중 결정 (Codex 판단, 사용자 확인 대기)
+
+- **R2 의미 검증 규칙 추가**: AI 변경안의 add/edit 연산은 title·summary가 비어 있으면 서버 검증에서 거부하고 재작성(최대 2회)으로 보낸다. 근거: C4에서 빈 title add가 서버를 통과해 과금 뒤 앱 저장이 거부됨. 계약·저장 스키마 불변([T-D4 C4 검토](claude-task-d04-c4-review.md)).
+- **Pages 연결 방식**: Worker 공개 주소는 저장소 변수 대신 `pages.yml`에 직접 적는다(비밀값 아님, git 추적). Codex 세션의 변수 API 접근 불가가 계기.
+- **Preview URL 끔**(`preview_urls = false`): 같은 비밀값을 가리키는 추가 공개 주소를 두지 않는다.
+- T-D4 실측: 5회 호출 $0.12(1회 최대 $0.048). 승인 범위(10회·$2) 안. DAILY_LIMIT 20 복원 완료.
+
 ## 2026-11-10 15:20 · T-D3 후속 결정 (사용자가 Claude 세션에서 직접 결정, Codex가 사후 기록)
 
 - 근거: `codex/d04-limited-live`의 `d01cddc`·`3ee107c`, [T-D3 결과](claude-task-d03-result.md) §사용자 결정.
