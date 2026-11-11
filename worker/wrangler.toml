@@ -37,7 +37,7 @@ RP_NAME = "travel-app"
 ALLOWED_ORIGINS = "https://jeongjae.github.io"
 OPENAI_BASE = "https://api.openai.com/v1"
 OPENAI_MODEL = "gpt-5.4-mini"
-DAILY_LIMIT = "5"
+DAILY_LIMIT = "20"
 
 [[env.production.durable_objects.bindings]]
 name = "AI_STORE"
