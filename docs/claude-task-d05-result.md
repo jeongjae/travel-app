@@ -8,6 +8,8 @@
 
 배포(main `40eba25`): 2026-11-11 09:06 UTC(18:06 KST) 운영 버전 `b3720c46-7956-4605-b929-71e167d7a7f1` · 롤백용 이전 버전 `e5e62de9-dd3b-49fc-8fcb-59d774ef6bc5`(2026-11-11 04:48 UTC, `pnpm exec wrangler rollback e5e62de9-dd3b-49fc-8fcb-59d774ef6bc5 --env production`).
 
+배포 후 확인: 2026-11-11 18:17:44 KST `wrangler tail`에 로그인 직후 `GET /auth/credentials - Ok`(Worker·DO 각 1줄, 예외 없음) → 운영 DO의 `label`·`last_used_at` 열 추가 뒤 목록 조회가 처리됨. `--format pretty`는 HTTP 상태 코드를 출력하지 않아 200 자체는 tail로 확인하지 않았다.
+
 | 항목 | 구현 | 시험 |
 |---|---|---|
 | A. 두 번째 패스키 | `GET /auth/credentials`(라벨·등록·마지막 사용 시각, 화면용 `ref`=rowid, 자격 ID·공개키 없음) · `POST /auth/credentials/options`(`preferredAuthenticatorType: 'remoteDevice'` → hints `hybrid`, 기존 자격 exclude) · `POST /auth/credentials`(라벨 ≤40자) · `POST /auth/credentials/delete`(남는 자격 ≥1). 모두 Bearer 필수, 등록 코드 불필요, 최대 3개. DO `credentials`에 `label`·`last_used_at` 열 추가(ALTER, 중복 열 오류만 무시). 로그인 시 `last_used_at` 갱신. 화면: AI 패널 "패스키 관리"(목록·라벨·추가·2단계 삭제) | 단위: 무인증 4경로 401 · 추가 자격으로 로그인 · 4번째 409 `credential_limit` · 같은 인증기 409 · 로그인 챌린지로 추가 400 · 마지막 1개 409 `last_credential` · 지운 자격 로그인 401 · 라벨 41자 400 · 구 표 열 추가·재시작. E2E `ai-d05-passkeys`: 가상 인증기 2개(PC 제거 후 휴대폰 역할로 추가·로그인·삭제) |
