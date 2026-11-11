@@ -76,6 +76,8 @@
 | CL-34 | 등록 잠금(5회 실패) 해제 운영 경로 없음 — 비밀값 교체 + settings 초기화 절차 미문서화 | T-D4 배포 절차에 포함 | [T-D3 검토](claude-task-d03-review.md) §3 |
 | CL-35 | `acknowledged` 작업은 24h 만료 대상이 아니고 200건 prune만 적용(내용 필드 없음) | 기록. 통일 원하면 T-D4에서 만료 대상 포함 | T-D3 검토 §3 |
 | CL-36 | PC(Windows)에서 `pnpm run check` 중 Node 서버 시험(retention·ai-v2·ai) 6~13건 간헐 실패. 단독 실행·CI(Linux)는 통과. CL-27 패턴(jobs.json rename 경쟁) | Node 서버 정리(T-D5 이후)와 함께 격리 또는 순차 실행. 그 전까지 Claude 보고에 실패 메시지 첨부 | [T-D4 C1 검토](claude-task-d04-c1-review.md) §3 |
+| CL-37 | 조사 호출의 `web_search_call` 출력 항목이 3개(max_tool_calls=2)로 기록된 사례. 과금 단위와의 관계 미확인 | T-D5 관찰: OpenAI 대시보드 도구 호출 수와 대조 | [T-D4 C4 검토](claude-task-d04-c4-review.md) |
+| CL-38 | 인증된 작업 목록 경로가 없어 서버 집계와 화면 기록이 어긋날 때 원인 추적 불가(C4의 설명 안 되는 1건) | T-D5: 인증 필수 `GET /api/ai/v2/jobs?tripId=`(허용 목록 필드) + 화면 "AI 작업 기록" | T-D4 C4 검토 |
 
 ## 처리 이력
 
@@ -121,3 +123,4 @@
 - 2026-11-10: T-D3 구현(`a24107d`~`6b8e9f4`: inflight 복구·ACK→acknowledged·tick 격리·등록 잠금·고장 주입·B1~B10 E2E) → Codex 역할 검토 **통과**, main 병합. CL-30·31 해소, CL-34·35 기록.
 - 2026-11-10: T-D3 사용자 확인 완료(13:21) → 종결. T-D4 승인(모델 gpt-5.4-mini·$10/월·10회 $2·일일 5회·workers.dev·origin 1개·비밀값 사용자 설정) → [T-D4 지시](claude-task-d04-limited-live.md) 발행. CL-32(CPU 실측)·CL-34(잠금 해제 runbook)는 T-D4 범위.
 - 2026-11-10: T-D4 C1(`d76fdad`·`e003dfb`) Codex 검토 조건부 통과 — R1(기본 환경 스크립트 이름 분리) 뒤 C2. CORS `X-Travel-App` 실결함 수정·교차 출처 E2E 신설. 가격 확인 $0.15/회(<$0.20). CL-34 D안(비밀값 교체 해제) 수용·CL-36 기록. T-D3 후속 결정 2건 사후 기록.
+- 2026-11-11: T-D4 C2~C4 완료 — Worker 운영 배포 `travel-app-ai.jeongjae-kim.workers.dev`, Pages에 주소 주입(`d9deca5`), 패스키 등록(G3), 가상 여행 실제 호출 5회 $0.12(1회 최대 $0.048). Codex: 빈 title add가 서버 검증을 통과하는 결함 → **R2**(add/edit title·summary 비공백 검증). CL-37·38 기록. C5에서 DAILY_LIMIT 20 복원.
