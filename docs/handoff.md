@@ -11,7 +11,6 @@
 - 패스키 1개 등록(PC Chrome). iPhone 패스키는 G-P에서 추가.
 - [T-D5 지시](claude-task-d05-iphone-real.md) · [C1 결과](claude-task-d05-result.md) · [C1 검토](claude-task-d05-review.md). G-T 확정은 [결정](decisions.md) 11-11.
 - 열린 항목은 [변경 목록](change-log.md) CL 표(CL-20·23·25·29·32·36·37·39·40·41).
-- AI 기능 범위 동결: D 단계는 T-D5에서 마감, 개편은 그 뒤(CL-39).
 - 원본·verified ZIP `d1832280…bbe0`·백업 보존.
 
 ## 최근 검증·한계
