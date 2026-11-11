@@ -1,0 +1,41 @@
+# T-D5 C1 Codex 검토 · 2026-11-11
+
+대상: `codex/d05-iphone-real` `99e7da8`(기능)·`4cc6c47`(결과 문서) · 기준 main `e5c03cb` · [지시 §1](claude-task-d05-iphone-real.md) · [결과](claude-task-d05-result.md)
+검토자: Codex 역할 세션(구현 세션과 별개 컨텍스트). 방식: 결과 문서 → 데이터 경계 diff → Worker·코어·화면 diff 정독 → 시험 단언 확인. 시험 재실행 없음(CI 결과 사용).
+
+## 판정: **통과** (수정 지시 없음, 후속 CL-40·41 기록)
+
+배포 전 조건 없음. 병합 뒤 Claude가 `wrangler deploy --env production` → 운영 DO 열 추가를 첫 요청에서 확인한다(§3-1).
+
+## 1. 지시 대조
+
+| 지시 | 확인 | 결과 |
+|---|---|---|
+| A. 로그인 상태에서만 패스키 추가·목록·삭제, 최대 3개 | `routeAuth`가 `/auth/credentials*` 4경로에서 분기 전에 `auth.verify`를 먼저 호출. 추가 챌린지는 kind `add-credential`로 분리(로그인 챌린지 재사용 불가). 쓰기 직전 개수 재확인, 삭제는 트랜잭션 안에서 "1개 이하면 거부". 목록은 `ref`·라벨·시각만 | 충족 |
+| B. 인증된 작업 목록(CL-38) | `/api/ai/v2/` 공통 Bearer 검사 뒤 `GET /jobs`. `toJobSummary`가 `toStoredJob`을 거친 뒤 9개 필드만 고름. tripId 형식 검사, 최근 50건. 단위 시험이 키 목록 고정 + canary(요청 원문·제목·`result`·`sources` 없음) 단언 | 충족 |
+| C. officialUrl(CL-26) | `PlanEditor`가 기존 `upsert-item` 경로에 필드만 실음. 형식은 기존 `webUrl`(http/https, 자격 정보 금지). 데이터 경계 4경로 diff **0건** | 충족 |
+| D. 관측 보강 | `apiErrorDetail`(HTTP·코드만), `usageOf`에 `toolCallItems`·`webSearchQueries`(개수만, 선택 필드) | 충족 |
+| 완료 조건 | CI `travel-app checks` `4cc6c47` 성공, 실제 호출·배포 0회 | 충족 |
+
+## 2. 범위 동결 해석 (Codex 판단)
+
+Claude가 "지시보다 조금 넓다"고 보고한 2건은 **유지**한다.
+- `webSearchQueries`: §1 D의 "CL-37 대조용 기록" 목적 안. 개수뿐이고 선택 필드라 계약·저장 스키마 불변.
+- 작업 기록의 `sourceCount`: 이미 저장된 출처 배열의 길이. 내용 없음.
+동결(CL-39)의 대상은 AI **기능** 확장이며 둘 다 관측값이다. 사용자가 원하면 제거 지시로 돌린다.
+
+## 3. 위험 확인
+
+1. **DO 열 추가**: 생성자마다 `ALTER TABLE … ADD COLUMN` 실행, `duplicate column`만 무시하고 그 밖의 오류는 던진다. `NOT NULL DEFAULT ''`라 기존 행에 안전. 운영 DO에서는 미검증 → 재배포 직후 `GET /auth/status`와 패스키 목록 1회로 확인(실패하면 Worker 전체가 500이므로 바로 드러난다. 이전 버전 `e5e62de9…`로 롤백 가능).
+2. **재인증 없는 패스키 추가·삭제(CL-40)**: 유효 토큰(수명 1시간, sessionStorage)만 있으면 영구 자격을 추가하거나 기존 자격을 지울 수 있다. 또 패스키를 지워도 이미 발급된 토큰은 만료까지 유효하다. 지시("로그인된 상태에서만")대로이고, 완화는 토큰 수명·최대 3개·목록 표시·월 $10 하드 리밋. **수용, 후속 기록.** 개편(CL-39) 때 "추가·삭제는 최근 로그인 5분 이내" 요구를 검토한다.
+3. **`ref` = rowid 재사용**: 마지막 자격을 지우고 새로 추가하면 같은 번호가 된다. 낡은 화면에서 삭제를 누르면 새 자격이 지워질 수 있으나 본인 1명·응답 목록으로 즉시 갱신되어 실질 위험 낮음. 수용.
+4. **cross-platform 한정**: iPhone 자체에서의 추가, Windows Hello 두 번째 자격은 안 된다. 지시(QR 경로)와 일치. QR 경로가 실제로 막히면 지시 §5의 대안(5분짜리 1회 추가 코드)으로 멈춤 보고.
+5. **경미(CL-41)**: `AiPlanner`의 `errorDetail`이 `setError`만 부르는 경로에서 지워지지 않아 다음 오류 옆에 이전 코드가 남을 수 있다. 표시 문제, 기능 영향 없음.
+
+## 4. 미검증 (T-D5 §2~3에서 확인)
+
+실제 iPhone QR 패스키 생성 · iOS 교차 출처 로그인 · 운영 DO 열 추가 · 실제 응답의 `action.type` 분포(CL-37) · 운영 429 관측. PC 로컬 전체 단위 시험의 간헐 실패는 CL-36과 같은 양상이며 CI 통과로 판정했다.
+
+## 5. 확인 상태
+
+Claude 자체 검사 완료 · **Codex 검토 통과** · 사용자 확인 대기(iPhone 실기기 G-P에서 확인).

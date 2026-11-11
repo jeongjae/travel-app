@@ -36,7 +36,7 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 
 | 항목 | 상태 | 다음 |
 |---|---|---|
-| T-D5 C1 (두 번째 패스키·작업 목록 CL-38·officialUrl CL-26·관측 보강) | Claude 구현 중, `codex/d05-iphone-real` | 보고 → 검토(데이터 경계 0건, §C officialUrl이 4경로를 건드리면 멈춤 보고 확인) → 병합 → Claude 재배포 |
+| T-D5 C1 (두 번째 패스키·작업 목록 CL-38·officialUrl CL-26·관측 보강) | [Codex 검토](claude-task-d05-review.md) 통과, main 병합(11/11 17:10) | Claude `wrangler deploy --env production` → 운영 DO 열 추가 확인 |
 | T-D5 iPhone 실기기·G-P·G-B | C1 병합 뒤 사용자 수행 | 대본 `docs/d05-iphone-script.md`(Claude 작성) |
 | T-D5 실제 여행 호출 | G-T 확정(43일 여행·날짜 제한 없음·기록 미포함·2단계 적용은 지울 수 있는 추가 1건) | ≤6회·$1. 멈춤 조건은 지시서 §3 |
 | T-D5 종료 판정 준비 | `docs/d-phase-closeout.md` G-03~07 근거표 | 판정은 사용자(G3) |
