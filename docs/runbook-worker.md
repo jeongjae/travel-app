@@ -30,6 +30,10 @@ T-D4 C1 작성. 아래 명령은 사용자 PC의 `worker/` 폴더에서 실행�
 3. 다음 `/auth/state` 또는 등록 요청에서 Worker가 코드 지문(SHA-256)이 달라진 것을 보고 잠금·실패 횟수를 지운다. 별도 관리 경로·DO 조작은 없다.
    같은 값을 다시 넣으면 풀리지 않는다. 이미 패스키가 등록된 뒤에는 등록 경로 자체가 닫혀 있어 영향이 없다.
 
+## 4-1. 패스키 추가·삭제 (T-D5 C1)
+
+로그인한 상태에서만 화면 "패스키 관리"로 추가한다(`POST /auth/credentials/options`·`/auth/credentials`, Bearer 필수, 등록 코드 불필요). 최대 3개. PC에서 [패스키 추가] → 브라우저의 "다른 기기(휴대폰)" → QR을 iPhone으로 읽어 Face ID. 목록(`GET /auth/credentials`)은 라벨·등록·마지막 사용 시각만 준다. 삭제(`POST /auth/credentials/delete`)는 1개 이상 남을 때만 된다. 첫 배포 시 DO가 `credentials` 표에 `label`·`last_used_at` 열을 더한다(기존 자격 유지).
+
 ## 5. 로그와 CPU
 
 `pnpm exec wrangler tail --env production --format pretty`. 요청 경로·상태 코드·예외만 보며, 요청 본문·키·토큰은 출력되지 않는다. 대시보드 Workers → travel-app-ai → Metrics에서 CPU 시간(요청별 p50/p99)을 본다. Free 요금제의 10ms CPU 한도에 가까우면 기록한다(CL-32).
