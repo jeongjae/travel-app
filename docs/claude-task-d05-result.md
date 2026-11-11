@@ -4,11 +4,13 @@
 
 ## C1 코드 준비 (실제 호출·배포 없음)
 
-상태: **구현·자체 검사 완료 / Codex 검토 대기 / 배포 전**. 실제 OpenAI 호출 0회, `wrangler deploy` 0회.
+상태: **구현·자체 검사 완료 / Codex 검토 통과 / main 병합 / 운영 배포 완료**. 실제 OpenAI 호출 0회.
 
 배포(main `40eba25`): 2026-11-11 09:06 UTC(18:06 KST) 운영 버전 `b3720c46-7956-4605-b929-71e167d7a7f1` · 롤백용 이전 버전 `e5e62de9-dd3b-49fc-8fcb-59d774ef6bc5`(2026-11-11 04:48 UTC, `pnpm exec wrangler rollback e5e62de9-dd3b-49fc-8fcb-59d774ef6bc5 --env production`).
 
 배포 후 확인: 2026-11-11 18:17:44 KST `wrangler tail`에 로그인 직후 `GET /auth/credentials - Ok`(Worker·DO 각 1줄, 예외 없음) → 운영 DO의 `label`·`last_used_at` 열 추가 뒤 목록 조회가 처리됨. `--format pretty`는 HTTP 상태 코드를 출력하지 않아 200 자체는 tail로 확인하지 않았다.
+
+화면 증거(**G-D**, 사용자 답 2026-11-11): ① "패스키 관리 (2/3)" ② 18:18:51 `POST /auth/credentials`는 사용자가 PC Chrome에서 시작해 QR을 iPhone 카메라로 읽고 Face ID로 저장한 추가 ③ 변경안 탭 "AI 작업 기록"이 오류 없이 열림. 각 줄의 라벨·마지막 사용 표시와 작업 기록 건수는 답에 없다. → 운영 DO 열 추가 성공으로 판정. **G-P 중 "추가"는 완료**, iPhone Chrome 로그인은 U2에 남는다. tail(`bkzn8npq0`) 종료.
 
 | 항목 | 구현 | 시험 |
 |---|---|---|
