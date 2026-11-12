@@ -8,7 +8,7 @@
 
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). 이전 상세는 [history](history/handoff-2026-11-10-before-d05-c1.md).
 - 배포: Pages = main(T-D1~T-D4 + T-D5 C1). **Worker 운영 `https://travel-app-ai.jeongjae-kim.workers.dev` 버전 `b3720c46…`**(C1 포함, 11/11 18:06 배포, 롤백 `e5e62de9…`). 화면 확인(G-D) 대기.
-- 패스키 1개 등록(PC Chrome). iPhone 패스키는 G-P에서 추가.
+- 패스키 2개(PC Chrome·iPhone). **G-P 통과**: 18:28 iPhone Chrome 로그인 성공(U2 완료).
 - [T-D5 지시](claude-task-d05-iphone-real.md) · [C1 결과](claude-task-d05-result.md) · [C1 검토](claude-task-d05-review.md). G-T 확정은 [결정](decisions.md) 11-11.
 - 열린 항목은 [변경 목록](change-log.md) CL 표(CL-20·23·25·29·32·36·37·39·40·41).
 - 원본·verified ZIP `d1832280…bbe0`·백업 보존.
@@ -23,7 +23,7 @@
 ## 다음 작업·확인 관문
 
 1. Claude: [C2~C4 지시](claude-task-d05-c2-iphone.md) — 배포 확인 마감(G-D, 운영 `b3720c46…`) → iPhone 대본(Chrome 기준).
-2. 사용자: iPhone 실기기(지시 §2) — G-P 패스키 추가, G-B 전체 백업·복원.
+2. 사용자: iPhone 실기기(지시 §2) — ~~G-P~~ 통과, 남은 U1·U3~U6, G-B 전체 백업·복원.
 3. 사용자+Claude: 실제 여행 선별 호출(지시 §3, 최대 6회·$1). 멈춤 조건은 지시서.
 4. Claude: `docs/d-phase-closeout.md` G-03~07 근거표 → 사용자 G3 판정.
 5. 사용자: U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.

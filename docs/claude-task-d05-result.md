@@ -21,6 +21,11 @@
 
 데이터 경계 diff(`src/contracts`·`storage`·`transfer`·`repository.ts`): **0**. officialUrl은 저장 스키마에 이미 있는 필드이고 AI 전송 DTO에 들어가지 않는다.
 
+## C2-2 iPhone 실기기 (U1~U6, [기록표](d05-iphone-script.md))
+
+- **G-P 통과**(사용자 답): 18:28 iPhone Chrome에서 "패스키로 로그인" 성공. 추가(C2-1, 2026-11-11 18:18:51)와 합쳐 G-P 완료. U2 완료. 저장 위치·"패스키 관리" n/3·마지막 사용 표시는 답에 없다.
+- 남은 것: U1·U3~U6, **G-B**. C3 실제 호출은 G-B 통과 뒤.
+
 ### 검사
 
 - `typecheck`·`lint`·`format:check`·`build`: 통과.
