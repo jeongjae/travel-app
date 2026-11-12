@@ -1,5 +1,13 @@
 # 결정 기록
 
+## 2026-11-12 · T-D5 C3 중 사용자 지시 (Claude 세션에서 직접 지시, Codex 사후 기록)
+
+- 근거: [T-D5 결과](claude-task-d05-result.md) §C3 수정, [C1 검토 추가 절](claude-task-d05-review.md).
+- **Claude 직접 수정**: 실제 여행 호출 중 드러난 미비 사항(2회차 응답 형식 실패)을 Claude가 직접 고치도록 사용자가 지시했다. 결과 `a3fcac5`(형식 실패도 재작성 1회, 위치 코드만 기록).
+- **브랜치에서 운영 배포 승인**: main 병합·Codex 검토 전에 `codex/d05-iphone-real`에서 `wrangler deploy --env production`(운영 `c5bc2d69…`, 롤백 `b3720c46…`).
+- Codex 사후 검토 통과(11/12 16:10), main 병합으로 main과 운영을 맞춤.
+- **미확정(사용자 확인 대기)**: 이 지시가 이번 1건에 한한 것인지, T-D5 남은 기간 동안 "시험 중 발견한 미비는 Claude가 먼저 고치고 Codex는 사후 검토"로 바꾸는 것인지. 확정 전에는 기존 규칙(멈춤 보고 → Codex 수정 지시)을 기준으로 둔다.
+
 ## 2026-11-11 18:21 · T-D5 iPhone 점검 브라우저 (사용자 확정)
 
 - iPhone 실기기 점검(지시 §2·§3 2단계)은 **iPhone Chrome 기준**으로 한다. 대본 `docs/d05-iphone-script.md`도 Chrome 기준으로 쓴다.
