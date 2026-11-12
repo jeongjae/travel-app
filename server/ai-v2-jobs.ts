@@ -15,8 +15,11 @@ import {
   checkAiV2Request,
   emptyUsage,
   failureText,
+  isResponseShapeError,
   planningExhaustedMessage,
   repairInstruction,
+  shapeErrorCode,
+  shapeExhaustedMessage,
   toStoredJob,
   type AiV2Job,
 } from '../src/ai-v2-jobs-core.ts';
@@ -187,10 +190,25 @@ export class AiV2Jobs {
       const research = await this.provider.research(input.research, signal, onUsage);
       job.sources = research.sources;
       let repair = '';
+      let shapeCode = '';
       for (let attempt = 1; attempt <= aiV2Limits.maxPlanningAttempts; attempt++) {
         job.attempt = attempt;
         await update('planning');
-        const output = await this.provider.plan(input.planning, research, repair, signal, onUsage);
+        let output;
+        try {
+          output = await this.provider.plan(input.planning, research, repair, signal, onUsage);
+          shapeCode = '';
+        } catch (error) {
+          // Worker와 같다: JSON·스키마 해석 실패는 재작성 1회로 보내고 위치 코드만 남긴다.
+          if (!isResponseShapeError(error)) {
+            throw error;
+          }
+          shapeCode = shapeErrorCode(error);
+          repair = repairInstruction(
+            `The output did not match the required JSON schema at ${shapeCode}; follow required fields, enums, string lengths and formats.`,
+          );
+          continue;
+        }
         await update('validating');
         let warnings: string[];
         try {
@@ -204,7 +222,7 @@ export class AiV2Jobs {
         await update('awaiting-decision');
         return;
       }
-      throw new Error(planningExhaustedMessage);
+      throw new Error(shapeCode ? `${shapeExhaustedMessage} (${shapeCode})` : planningExhaustedMessage);
     } catch (error) {
       if (job.status !== 'cancelled') {
         job.status = 'failed';

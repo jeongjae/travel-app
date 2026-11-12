@@ -4,6 +4,7 @@ import {
   aiV2Limits,
   aiV2RunningStatuses,
   aiV2WorkerServer,
+  type AiV2Output,
   type AiV2Policy,
   type AiV2Request,
   type AiV2ServerStatus,
@@ -17,8 +18,11 @@ import {
   checkAiV2Request,
   emptyUsage,
   failureText,
+  isResponseShapeError,
   planningExhaustedMessage,
   repairInstruction,
+  shapeErrorCode,
+  shapeExhaustedMessage,
   toJobSummary,
   toStoredJob,
   type AiV2Job,
@@ -455,29 +459,48 @@ export class WorkerJobs {
       job.status = 'validating';
       this.save(job, fingerprint, responseId, { usage: usageOf(data) });
     }
-    let output;
     try {
       assertCompleted(data);
-      output = readPlan(data);
     } catch (error) {
       this.finish(job, fingerprint, 'failed', failureText(error), null);
       return;
+    }
+    // JSON·스키마 해석 실패는 검증 실패와 같이 재작성 1회로 보낸다. 남기는 것은 위치 코드뿐이다.
+    let output: AiV2Output | undefined;
+    let shapeCode = '';
+    try {
+      output = readPlan(data);
+    } catch (error) {
+      if (!isResponseShapeError(error)) {
+        this.finish(job, fingerprint, 'failed', failureText(error), null);
+        return;
+      }
+      shapeCode = shapeErrorCode(error);
     }
     if (!memory?.research) {
       this.finish(job, fingerprint, 'interrupted', interruptedMessage, null);
       return;
     }
-    let warnings: string[];
-    try {
-      warnings = validateAiV2Output(memory.input.planning, output, memory.research.sources);
-    } catch (validation) {
+    let warnings: string[] = [];
+    let detail = '';
+    if (output) {
+      try {
+        warnings = validateAiV2Output(memory.input.planning, output, memory.research.sources);
+      } catch (validation) {
+        detail = validation instanceof Error ? validation.message : 'invalid output';
+      }
+    } else {
+      detail = `The output did not match the required JSON schema at ${shapeCode}; follow required fields, enums, string lengths and formats.`;
+    }
+    if (detail || !output) {
       if (job.attempt >= aiV2Limits.maxPlanningAttempts) {
-        this.finish(job, fingerprint, 'failed', planningExhaustedMessage, null);
+        const message = shapeCode ? `${shapeExhaustedMessage} (${shapeCode})` : planningExhaustedMessage;
+        this.finish(job, fingerprint, 'failed', message, null);
         return;
       }
       const next: JobMemory = {
         ...memory,
-        repair: repairInstruction(validation instanceof Error ? validation.message : 'invalid output'),
+        repair: repairInstruction(detail),
       };
       job.attempt += 1;
       await this.startCall(job, fingerprint, planningRequestBody(next.input.planning, memory.research, next.repair), {

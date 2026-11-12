@@ -147,6 +147,48 @@ export function repairInstruction(detail: string) {
 
 export const planningExhaustedMessage = '2회 작성 후에도 날짜·참조·변경안 검증을 통과하지 못했습니다.';
 
+export const shapeExhaustedMessage = '2회 작성 후에도 AI 응답 형식 검사를 통과하지 못했습니다.';
+
+/** 응답 본문의 JSON 해석·스키마 검사 실패인지. 이 실패는 재작성 대상이다. */
+export function isResponseShapeError(error: unknown) {
+  return error instanceof Error && (error.name === 'ZodError' || error.name === 'SyntaxError');
+}
+
+const safePathSegment = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
+const safeIssueCode = /^[a-z_]{1,40}$/;
+
+function issuePath(path: readonly PropertyKey[] | undefined) {
+  if (!path || !path.length) {
+    return '(root)';
+  }
+  const segments = path.map((segment) => {
+    if (typeof segment === 'number') {
+      return String(segment);
+    }
+    if (typeof segment === 'string' && safePathSegment.test(segment)) {
+      return segment;
+    }
+    return '*';
+  });
+  return segments.join('.');
+}
+
+/**
+ * 스키마 실패 위치와 Zod 이슈 코드만 담은 짧은 코드(예: `schema:operations.0.reason(too_small)`).
+ * 받은 값·메시지는 넣지 않는다. 작업 기록·화면에 남겨도 여행 본문이 나가지 않게 한다.
+ */
+export function shapeErrorCode(error: unknown) {
+  if (error instanceof Error && error.name === 'SyntaxError') {
+    return 'schema:json';
+  }
+  const issues = (error as { issues?: { path?: PropertyKey[]; code?: unknown }[] } | null)?.issues ?? [];
+  const parts = issues.slice(0, 3).map((issue) => {
+    const code = typeof issue.code === 'string' && safeIssueCode.test(issue.code) ? issue.code : 'other';
+    return `${issuePath(issue.path)}(${code})`;
+  });
+  return `schema:${parts.length ? parts.join(',') : 'unknown'}`;
+}
+
 /** 화면에 보일 실패 문구. 스키마·JSON 오류는 입력을 담을 수 있으므로 일반 문구로 바꾼다. */
 export function failureText(error: unknown) {
   if (error instanceof Error && error.name !== 'ZodError' && error.name !== 'SyntaxError') {

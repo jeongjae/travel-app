@@ -5,7 +5,13 @@ import { aiV2JobLimits, aiV2Limits, aiV2WorkerServer, type AiV2Policy } from '..
 import { parseDailyLimit } from '../worker/src/context';
 import { limitDay, unknownMessage } from '../worker/src/jobs';
 import { handleRequest } from '../worker/src/app';
-import { AiV2RequestError, type AiV2Job } from '../src/ai-v2-jobs-core';
+import {
+  AiV2RequestError,
+  isResponseShapeError,
+  shapeErrorCode,
+  shapeExhaustedMessage,
+  type AiV2Job,
+} from '../src/ai-v2-jobs-core';
 import { aiV2Fixture } from './fixtures/ai-v2';
 import { usageOf } from '../src/ai-v2-openai';
 import { toJobSummary } from '../src/ai-v2-jobs-core';
@@ -192,6 +198,59 @@ it('검증 실패면 수정 지시로 한 번 더 작성하고 두 번째도 실
   const planningBodies = harness.openai.bodies.filter((body) => !body.tools);
   expect(planningBodies).toHaveLength(2);
   expect(String(planningBodies[1].input)).toContain('failed local date/reference/time/shape checks');
+});
+
+it('T-D5 C3: 응답 스키마 실패는 위치 코드로 재작성 1회를 보내고 두 번째가 맞으면 변경안 대기', async () => {
+  const { harness, request, fixture } = await setup();
+  const broken = { ...structuredClone(fixture.output), reason: '', 'SYNTHETIC-PRIVATE': 'SYNTHETIC-PRIVATE value' };
+  harness.openai.outputs = [broken, fixture.output];
+  await harness.app.jobs.create(request);
+  await harness.drain();
+  const job = harness.app.jobs.get(request.id)!;
+  expect(job.status).toBe('awaiting-decision');
+  expect(job.attempt).toBe(2);
+  const planningBodies = harness.openai.bodies.filter((body) => !body.tools);
+  expect(planningBodies).toHaveLength(2);
+  const repairText = String(planningBodies[1].input);
+  expect(repairText).toContain('schema:');
+  expect(repairText).toContain('reason(too_small)');
+});
+
+it('T-D5 C3: 스키마 실패가 두 번이면 failed이고 오류에는 위치 코드만 남는다', async () => {
+  const { harness, request, fixture } = await setup();
+  const broken = { ...structuredClone(fixture.output), reason: '', 'SYNTHETIC-PRIVATE': 'SYNTHETIC-PRIVATE value' };
+  harness.openai.outputs = [broken, broken];
+  await harness.app.jobs.create(request);
+  await harness.drain();
+  const job = harness.app.jobs.get(request.id)!;
+  expect(job.status).toBe('failed');
+  expect(job.attempt).toBe(2);
+  expect(job.error).toContain(shapeExhaustedMessage);
+  expect(job.error).toMatch(/\(schema:[^)]*reason\(too_small\)/);
+  expect(job.error).not.toContain('SYNTHETIC');
+});
+
+it('T-D5 C3: 위치 코드는 안전한 경로 조각·이슈 코드만 담고 JSON 오류는 schema:json', () => {
+  const zodLike = Object.assign(new Error('x'), {
+    name: 'ZodError',
+    issues: [
+      { path: ['operations', 0, 'title'], code: 'too_big' },
+      { path: ['places', '파리 비밀 장소'], code: 'invalid_type' },
+      { path: [], code: 'Not A Code!' },
+      { path: ['extra'], code: 'custom' },
+    ],
+  });
+  expect(isResponseShapeError(zodLike)).toBe(true);
+  expect(shapeErrorCode(zodLike)).toBe('schema:operations.0.title(too_big),places.*(invalid_type),(root)(other)');
+  let syntax: unknown;
+  try {
+    JSON.parse('{');
+  } catch (error) {
+    syntax = error;
+  }
+  expect(isResponseShapeError(syntax)).toBe(true);
+  expect(shapeErrorCode(syntax)).toBe('schema:json');
+  expect(isResponseShapeError(new Error('OpenAI가 응답 생성에 실패했습니다.'))).toBe(false);
 });
 
 it('중단하면 cancelled가 되고 다음 alarm이 OpenAI 쪽 취소를 보낸다', async () => {
