@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-13 · **T-D5 C3 마감(실제 여행 호출 4회·$0.15) / 11/13 iPhone 시험 결과 Claude 보고 대기 / C4 종료 근거표 미작성 / U4 재수행 대기**
+2026-11-13 · **T-D5 C3 마감(실제 여행 호출 4회·$0.15) / C4 종료 근거표 작성 지시(11/13 15:55) / U4 재수행 대기**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -22,9 +22,9 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: 11/13 iPhone 시험 결과 기록·push → Codex 검토.
+1. 11/13 iPhone 확인 기록 완료(`a0a4534`, 코드 수정 없음).
 2. 사용자 확인 대기 건은 11/13 모두 확정(iPhone 추가 항목은 유지). AI 개편 제안은 [결정](decisions.md) 11/13 15:07.
-3. Claude: `docs/d-phase-closeout.md` G-03~07 근거표([지시 §4](claude-task-d05-c2-iphone.md)) → Codex 검토 → 사용자 G3 판정.
+3. **진행 중** Claude: `docs/d-phase-closeout.md` G-03~07 근거표([지시 §4·§4-1](claude-task-d05-c2-iphone.md)) → Codex 검토 → 사용자 G3 판정.
 4. 사용자: U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
 - 기존 여행 삭제 금지. pnpm 12.14.0/Node 24.13.1. `pnpm dev`=Vite+Worker(`worker/.dev.vars`, `localhost:5173`), `dev:node`=Node. UI 5173, 미리보기 4173, 회귀 `check:deferred`.
