@@ -9,7 +9,7 @@
 - [실행계획](development-plan.md) → [범위](product-requirements.md) → [결정](decisions.md). 이전 상세는 [history](history/handoff-2026-11-13-g3-pending.md).
 - D 단계: [종료 근거표](d-phase-closeout.md)(G-03~07 모두 "부분"으로 종료, 미검증 목록 유지) · [T-D5 결과](claude-task-d05-result.md) · [검토](claude-task-d05-review.md).
 - 배포: Pages = main. **Worker 운영 `https://travel-app-ai.jeongjae-kim.workers.dev` 버전 `c5bc2d69…`**(롤백 `b3720c46…`). DAILY_LIMIT 20, preview 끔. 패스키 2개(PC Chrome·iPhone).
-- AI 개편: [설계서 v0.3](ai-rework-requirements-design.md)(제3자 검토 2회 반영, 결정 9건 승인). 챗봇이 md 양식 파일을 만들고 앱이 AI 없이 읽어 넣는다.
+- AI 개편: [설계서 v0.5](ai-rework-requirements-design.md). 챗봇이 md 양식을 만들고 앱이 AI 없이 읽는다(요청서 복사 → 붙여넣기).
 - 열린 항목은 [변경 목록](change-log.md) CL 표. D에서 이월: CL-20·23·25·29·32·36·37·40~45, REG-02, U4 재수행, Node 서버 정리.
 - 원본·verified ZIP `d1832280…bbe0`·백업 보존.
 
@@ -23,8 +23,8 @@
 ## 다음 작업·확인 관문
 
 1. E0 [챗봇 시험](e0-chatbot-trial.md): md 표 유지(2회차 6/6). **사용자 결정 대기**: 설계서 §8.1 M-1·M-2, 보완 3건.
-2. 사용자: PC에서 `d05-real` 검토 공간 삭제(방법은 [결정 11/13 17:19](decisions.md)).
-3. [양식 규격](plan-format-v1.md)·[T-E1 지시서](claude-task-e01-plan-import.md) 초안(가정 5건, **전달 보류**). 개선 제안 뒤 전달.
+2. 사용자: PC에서 `d05-real` 검토 공간 삭제([결정 11/13 17:19](decisions.md)).
+3. [규격](plan-format-v1.md)·[T-E1 초안 3](claude-task-e01-plan-import.md)(**전달 보류**), [P0 가이드 시험](p0-guide-trial.md) 사용자 대기. 확인 대기: 가정 5건, G-1·G-2.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
 - 기존 여행 삭제 금지. pnpm 12.14.0/Node 24.13.1. `pnpm dev`=Vite+Worker(`worker/.dev.vars`, `localhost:5173`), `dev:node`=Node. UI 5173, 미리보기 4173, 회귀 `check:deferred`.
