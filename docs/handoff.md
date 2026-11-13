@@ -23,7 +23,7 @@
 ## 다음 작업·확인 관문
 
 1. Claude: 11/13 iPhone 시험 결과 기록·push → Codex 검토.
-2. 사용자 결정: iPhone 평소 공간에 남은 2단계 추가 항목을 둘지 지울지. 다른 대기 건은 11/13 확정.
+2. 사용자 확인 대기 건은 11/13 모두 확정(iPhone 추가 항목은 유지). AI 개편 제안은 [결정](decisions.md) 11/13 15:07.
 3. Claude: `docs/d-phase-closeout.md` G-03~07 근거표([지시 §4](claude-task-d05-c2-iphone.md)) → Codex 검토 → 사용자 G3 판정.
 4. 사용자: U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
