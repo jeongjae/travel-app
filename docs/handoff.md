@@ -22,9 +22,9 @@
 
 ## 다음 작업·확인 관문
 
-1. E0 [챗봇 시험](e0-chatbot-trial.md) 판정: md 표 유지(2회차 6/6). **사용자 결정 대기**: 설계서 §8.1 M-1·M-2, 보완 3건.
+1. E0 [챗봇 시험](e0-chatbot-trial.md): md 표 유지(2회차 6/6). **사용자 결정 대기**: 설계서 §8.1 M-1·M-2, 보완 3건.
 2. 사용자: PC에서 `d05-real` 검토 공간 삭제(방법은 [결정 11/13 17:19](decisions.md)).
-3. [양식 규격](plan-format-v1.md)·[T-E1 지시서](claude-task-e01-plan-import.md) 초안 작성(가정 5건 표시, **전달 보류**). 사용자 개선 제안 반영 뒤 Claude에 전달.
+3. [양식 규격](plan-format-v1.md)·[T-E1 지시서](claude-task-e01-plan-import.md) 초안(가정 5건, **전달 보류**). 사용자 개선 제안 뒤 전달.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
 - 기존 여행 삭제 금지. pnpm 12.14.0/Node 24.13.1. `pnpm dev`=Vite+Worker(`worker/.dev.vars`, `localhost:5173`), `dev:node`=Node. UI 5173, 미리보기 4173, 회귀 `check:deferred`.
