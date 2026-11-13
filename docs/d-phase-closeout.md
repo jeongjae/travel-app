@@ -1,6 +1,6 @@
 # D 단계 종료 근거표 (T-D5 C4)
 
-2026-11-13 · 작성: Claude · 지시 [C2~C4 §4·§4-1](claude-task-d05-c2-iphone.md) · 기준 [G-03~G-07](goal-and-migration-criteria.md) · **작성 완료 / [Codex 검토 통과 11/13](claude-task-d05-review.md) / **사용자 G3 판정 완료 — D 단계 종료([결정 11/13 17:19](decisions.md))**
+2026-11-13 · 작성: Claude · 지시 [C2~C4 §4·§4-1](claude-task-d05-c2-iphone.md) · 기준 [G-03~G-07](goal-and-migration-criteria.md) · **작성 완료 / [Codex 검토 통과 11/13](claude-task-d05-review.md) / 사용자 G3 판정 완료 — D 단계 종료([결정 11/13 17:19](decisions.md))**
 
 상태는 Claude 제안이다. 판정은 사용자(G3). 근거 표기: **문서**(지시·결과·결정) · **시험**(단위·E2E·CI) · **실기기**(사용자가 불러 준 iPhone·PC 기록) · **사용자 확인**.
 
