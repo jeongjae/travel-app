@@ -39,6 +39,7 @@ class NewTripAssembler {
   private readonly trip: NewTrip;
   private readonly itemsByDate = new Map<string, PlanItem[]>();
   private readonly preview: NewTripPreview = { addedActivities: [], memoAdditions: [] };
+  private readonly placeByItem = new WeakMap<PlanItem, string>();
 
   constructor(private readonly file: CheckedPlanFile) {
     const { name, start, end, timeZone } = file.resolved;
@@ -78,7 +79,7 @@ class NewTripAssembler {
 
   private buildItem(row: ActivityRow, dayId: string, date: string, order: number, zone: string | undefined): PlanItem {
     const { tripId, currentPlanVersionId } = this.trip.header;
-    return {
+    const item: PlanItem = {
       tripId,
       planVersionId: currentPlanVersionId,
       activityId: crypto.randomUUID(),
@@ -97,6 +98,8 @@ class NewTripAssembler {
       ...(row.link === '' ? {} : { officialUrl: row.link }),
       sourceFlags: [],
     };
+    this.placeByItem.set(item, row.place);
+    return item;
   }
 
   private applyStays() {
@@ -121,17 +124,28 @@ class NewTripAssembler {
     };
   }
 
-  /** 규격 §5-1: 지역·예약 원문은 체크인 날의 숙박 활동 메모에 남기고, 없으면 활동을 하나 만든다. */
+  /** 제목이나 장소 칸에 숙소 이름이 들어 있는 줄인가(다른 줄의 메모는 보지 않는다). */
+  private mentionsStay(item: PlanItem, stayName: string) {
+    return item.title.includes(stayName) || (this.placeByItem.get(item) ?? '').includes(stayName);
+  }
+
+  /**
+   * 규격 §5-1: 지역·예약 원문은 체크인 날의 숙박 활동 메모에 남기고, 없으면 활동을 하나 만든다.
+   * 숙소 이름이 든 숙박 줄을 먼저 고르고, 없으면 첫 숙박 줄에 `[숙소: 이름]`을 앞세워 덧붙인다.
+   */
   private noteStayMemo(stay: StayRow) {
     const memo = stayMemoText(stay);
     if (memo === '') {
       return;
     }
     const items = this.itemsByDate.get(stay.checkIn) ?? [];
-    const lodging = items.find((item) => item.category === LODGING_CATEGORY);
+    const lodgingItems = items.filter((item) => item.category === LODGING_CATEGORY);
+    const named = lodgingItems.find((item) => this.mentionsStay(item, stay.name));
+    const lodging = named ?? lodgingItems[0];
     if (lodging) {
-      lodging.summary = joinText([lodging.summary, memo]);
-      this.preview.memoAdditions.push({ date: stay.checkIn, activityTitle: lodging.title, text: memo });
+      const text = named ? memo : joinText([`[숙소: ${stay.name}]`, memo]);
+      lodging.summary = joinText([lodging.summary, text]);
+      this.preview.memoAdditions.push({ date: stay.checkIn, activityTitle: lodging.title, text });
       return;
     }
     const added = this.buildAddedLodgingItem(stay, items.length, memo);

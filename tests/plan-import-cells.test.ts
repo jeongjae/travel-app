@@ -360,14 +360,48 @@ describe('새 여행 변환', () => {
   it('숙소 지역·예약은 체크인 날 숙박 활동 메모에 덧붙인다', () => {
     const row = '|  | 2027-05-01 | 2027-05-03 | 호텔 A | 하카타 | 예약 필요 |';
     const trip = createdTrip(withStays(oneDay(act('15:00', '체크인', '숙박', { memo: '로비' })), [row]));
-    expect(trip.initialPlan.items[0].summary).toBe('로비 [숙소 지역: 하카타] [숙소 예약: 예약 필요]');
+    expect(trip.initialPlan.items[0].summary).toBe('로비 [숙소: 호텔 A] [숙소 지역: 하카타] [숙소 예약: 예약 필요]');
     expect(trip.preview.memoAdditions).toEqual([
-      { date: '2027-05-01', activityTitle: '체크인', text: '[숙소 지역: 하카타] [숙소 예약: 예약 필요]' },
+      {
+        date: '2027-05-01',
+        activityTitle: '체크인',
+        text: '[숙소: 호텔 A] [숙소 지역: 하카타] [숙소 예약: 예약 필요]',
+      },
     ]);
     expect(trip.preview.addedActivities).toEqual([]);
     expect(trip.initialPlan.stays).toHaveLength(1);
     expect(trip.initialPlan.stays[0]).toMatchObject({ baseText: '호텔 A', plannedNights: 2 });
     validateAsCreateTrip(trip);
+  });
+
+  it('R1: 같은 날 체크아웃 줄과 체크인 줄이 있으면 숙소 이름이 든 줄에 붙는다', () => {
+    const base = oneDay(
+      act('09:00', '이전 호텔 체크아웃', '숙박', { place: '이전 호텔' }),
+      act('15:00', '호텔 A 체크인', '숙박'),
+    );
+    const row = '|  | 2027-05-01 | 2027-05-03 | 호텔 A | 난바 | 예약 전 |';
+    const trip = createdTrip(withStays(base, [row]));
+    expect(trip.initialPlan.items[0].summary).toBe('[장소: 이전 호텔]');
+    expect(trip.initialPlan.items[1].summary).toBe('[숙소 지역: 난바] [숙소 예약: 예약 전]');
+  });
+
+  it('R1: 이름이 어느 줄에도 없으면 첫 숙박 줄에 [숙소: 이름]을 앞세운다', () => {
+    const base = oneDay(act('15:00', '체크인', '숙박', { memo: '로비' }));
+    const row = '|  | 2027-05-01 | 2027-05-03 | 오사카 호텔 | 난바 | 예약 전 |';
+    const trip = createdTrip(withStays(base, [row]));
+    expect(trip.initialPlan.items[0].summary).toBe('로비 [숙소: 오사카 호텔] [숙소 지역: 난바] [숙소 예약: 예약 전]');
+    expect(trip.preview.memoAdditions[0].text).toBe('[숙소: 오사카 호텔] [숙소 지역: 난바] [숙소 예약: 예약 전]');
+  });
+
+  it('R1: 같은 날 체크인하는 숙소 두 곳은 각자 이름이 든 줄에 붙는다', () => {
+    const base = oneDay(act('15:00', '호텔 A 체크인', '숙박'), act('18:00', '호텔 B', '숙박', { place: '호텔 B' }));
+    const rows = ['|  | 2027-05-01 | 2027-05-02 | 호텔 A | 가 |  |', '|  | 2027-05-01 | 2027-05-03 | 호텔 B |  | 나 |'];
+    const trip = createdTrip(withStays(base, rows));
+    expect(trip.initialPlan.items.map((item) => item.summary)).toEqual([
+      '[숙소 지역: 가]',
+      '[장소: 호텔 B] [숙소 예약: 나]',
+    ]);
+    expect(trip.initialPlan.stays).toHaveLength(2);
   });
 
   it('체크인 날에 숙박 줄이 없으면 맨 끝에 활동을 만든다', () => {
