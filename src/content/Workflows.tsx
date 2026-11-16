@@ -4,6 +4,7 @@ import type { ContentRepository } from '../repository';
 import type { PlanVersion, Proposal, TripDataset } from '../contracts/v2';
 import type { Review, Choice, Slot } from '../transfer/reimport';
 import { command, errorText, ErrorText, Modal } from './ui';
+import { applyBlockReason } from './ai-apply-block';
 import { operationReasonsRef } from '../ai-v2-semantics';
 import {
   confirmationsFor,
@@ -38,6 +39,12 @@ export function ProposalPanel({
     }
   });
   async function decide(p: Proposal, decision: 'apply' | 'reject', keep?: Proposal['operations']) {
+    const blocked = decision === 'apply' ? applyBlockReason(p) : undefined;
+    if (blocked) {
+      // 첫 저장 명령(SaveProposal)보다 먼저 막는다. 어떤 저장도 실행하지 않는다.
+      setError(blocked);
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -115,6 +122,7 @@ export function ProposalPanel({
             plan={plan}
             busy={busy}
             stale={p.baseDomainRevision !== header.domainRevision}
+            applyBlocked={applyBlockReason(p)}
             onApply={(keep) => void decide(p, 'apply', keep)}
             onReject={() => void decide(p, 'reject')}
           />
@@ -219,6 +227,7 @@ function ProposalReview({
   plan,
   busy,
   stale,
+  applyBlocked,
   onApply,
   onReject,
 }: {
@@ -227,6 +236,7 @@ function ProposalReview({
   plan: PlanVersion;
   busy: boolean;
   stale: boolean;
+  applyBlocked: string | undefined;
   onApply: (keep: Proposal['operations']) => void;
   onReject: () => void;
 }) {
@@ -284,10 +294,15 @@ function ProposalReview({
       </details>
       {pending ? (
         <>
+          {applyBlocked ? (
+            <p role="status" className="notice">
+              {applyBlocked}
+            </p>
+          ) : null}
           {excluded > 0 ? <p className="notice">확인 필요 {excluded}건은 표시하지 않으면 적용에서 빠집니다.</p> : null}
           <div className="button-row">
             <button
-              disabled={busy || stale || kept.length === 0}
+              disabled={busy || stale || kept.length === 0 || Boolean(applyBlocked)}
               className="primary"
               onClick={() => onApply(kept.map((review) => proposal.operations[review.index]))}
             >
@@ -332,7 +347,8 @@ function MockEditor({
               proposalRevision: 1,
               baseDomainRevision: header.domainRevision,
               basePlanVersionId: plan.planVersionId,
-              origin: 'ai',
+              // 모의 변경안은 사용자가 직접 만든 초안이다. AI 변경안 적용 차단(ai-apply-block)의 대상이 아니다.
+              origin: 'user',
               operations: [{ type: 'upsert-item', item: { ...plan.items[0], title } }],
               reason,
               evidenceRefs: plan.contextRefs.filter((r) => r.targetKind === 'evidence'),

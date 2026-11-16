@@ -115,7 +115,7 @@ async function setup(page: Page, options: SetupOptions = {}) {
   };
 }
 
-test('v2 모의 결과의 초안 저장·재진입·확인 적용은 한 요청으로 수행한다', async ({ page }) => {
+test('v2 모의 결과의 초안 저장·재진입은 한 요청으로 수행하고 AI 변경안 적용은 막혀 있다', async ({ page }) => {
   const fixture = await setup(page);
   await expect(page.getByText('변경안에 저장됨', { exact: false })).toBeVisible({ timeout: 20_000 });
   await page.reload();
@@ -128,12 +128,15 @@ test('v2 모의 결과의 초안 저장·재진입·확인 적용은 한 요청�
     .filter({ has: page.getByRole('heading', { name: fixture.output.reason }) });
   await proposal.scrollIntoViewIfNeeded();
   await page.screenshot({ path: test.info().outputPath('v2-ai-pending.png'), fullPage: false });
-  await proposal.getByRole('button', { name: '확인 후 적용', exact: true }).click();
+  // CL-39: AI 변경안은 적용이 막혀 있다. 확인·거절은 가능하다.
+  await expect(proposal.getByRole('button', { name: '확인 후 적용', exact: true })).toBeDisabled();
+  await expect(proposal.getByText('AI 변경안 적용은 개편 중이라 막아 두었습니다', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '오늘', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: fixture.output.operations[0].title, exact: true }).first(),
-  ).toBeVisible();
-  await expect(page.getByText('SYNTHETIC-PRIVATE-RESERVATION', { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: '가상 활동 1', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: fixture.output.operations[0].title, exact: true })).toHaveCount(0);
+  await openProposals(page);
+  await proposal.getByRole('button', { name: '변경안 거절', exact: true }).click();
+  await expect(proposal.getByText('거절됨', { exact: false })).toBeVisible();
   expect(fixture.calls()).toBe(1);
   expect(fixture.privateLeaks()).toBe(0);
   expect(fixture.errors).toEqual([]);
@@ -273,10 +276,13 @@ test('요약 카드를 보이고 확인 필요 항목은 일괄 적용에서 빠
   await expect(proposal.getByText('확인 필요 1건은 표시하지 않으면 적용에서 빠집니다.')).toBeVisible();
   await cards.scrollIntoViewIfNeeded();
   await shot(page, 'cards');
-  await proposal.getByRole('button', { name: '확인 후 적용', exact: true }).click();
+  // CL-39: 일부 항목만 적용하는 경로(확인 필요 1건 제외)도 막혀 있다. 변경안 새 revision이 저장되지 않는다.
+  await expect(proposal.getByRole('button', { name: '확인 후 적용', exact: true })).toBeDisabled();
+  await expect(proposal.getByText('AI 변경안 적용은 개편 중이라 막아 두었습니다', { exact: false })).toBeVisible();
+  await proposal.getByText('변경안 이력', { exact: true }).click();
+  await expect(proposal.locator('details', { hasText: '변경안 이력' }).locator('p')).toHaveCount(1);
   await page.getByRole('button', { name: '오늘', exact: true }).click();
   await expect(page.getByRole('heading', { name: '가상 활동 1', exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: '가상 활동 2', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '예약 활동 시각 변경', exact: true })).toHaveCount(0);
   expect(fixture.calls()).toBe(1);
   expect(fixture.errors).toEqual([]);
