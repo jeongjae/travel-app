@@ -23,7 +23,7 @@
 ## 다음 작업·확인 관문
 
 1. Claude: [T-E1](claude-task-e01-plan-import.md) C1(변환기) → Codex 확인 → C2~C4 → 검토·병합 → G-E1.
-2. 사용자: [P0 가이드 시험](p0-guide-trial.md) → E1 다음 순서(P1/E2)·G-2 결정. `d05-real` 검토 공간 삭제([결정 11/13 17:19](decisions.md)).
+2. 사용자: [P0 가이드 시험](p0-guide-trial.md) → E1 다음 순서(P1/E2)·G-2 결정.
 3. Codex: P1 지시서는 [MVP 설계](travel-prep-mvp-design.md)와 [검토](travel-prep-mvp-design-review.md)를 반영해 P0 뒤에 쓴다.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
