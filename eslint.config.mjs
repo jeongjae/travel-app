@@ -19,7 +19,7 @@ export default [
   {
     ignores: [
       '**/node_modules/**',
-      '.cache/**',
+      '**/.cache/**',
       '.venv/**',
       'local-data/**',
       'backup/**',

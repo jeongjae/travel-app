@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-16 · **D 단계 종료(11/13) / AI 개편 T-E1 C1 진행 중(11/16 전달)·Claude 보고 대기 / P0 가이드 시험 사용자 대기**
+2026-11-16 · **D 단계 종료(11/13) / AI 개편 T-E1 C1 검토 통과(11/16)·C2~C4 진행 / P0 가이드 시험 사용자 대기**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: [T-E1](claude-task-e01-plan-import.md) C1(변환기) → Codex 확인 → C2~C4 → 검토·병합 → G-E1.
+1. Claude: [T-E1](claude-task-e01-plan-import.md) C2~C4(첫 커밋에 [R1](claude-task-e01-review.md)) → Codex 검토·병합 → G-E1.
 2. 사용자: [P0 가이드 시험](p0-guide-trial.md) → E1 다음 순서(P1/E2)·G-2 결정.
 3. Codex: P1 지시서는 [MVP 설계](travel-prep-mvp-design.md)와 [검토](travel-prep-mvp-design-review.md)를 반영해 P0 뒤에 쓴다.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
