@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-16 · **D 단계 종료(11/13) / AI 개편 T-E1 C1 검토 통과(11/16)·C2~C4 진행 / 다음은 P1(가이드)**
+2026-11-16 · **AI 개편 T-E1 병합·배포 / G-E1 사용자 확인 대기 / 다음은 T-P1(가이드)**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -15,15 +15,15 @@
 
 ## 최근 검증·한계
 
-- CI: `e401bc6`까지 main·브랜치 성공. 11/13 커밋은 문서만이라 Pages 재배포 없음.
+- CI: T-E1 브랜치 `d9293d4` 성공(전체 E2E 포함). 병합 뒤 main CI·Pages는 [결정](decisions.md) 최신 절 참고.
 - G3 사용자 확인: iPhone 1시간 만료 재로그인 OK, PC 평소 공간 불변.
 - 미검증인 채 종료(사용자 수용): C3 미리보기 수·1회차 거절·작업 상태·이전 버전 조회, 운영 재작성 경로·429, U3·U4 일부, CL-29, CL-32(CPU 미측정).
-- AI 개편 양식: 챗봇 2종 6개 파일이 규칙 대조 통과. 변환기 코드는 없다.
+- T-E1 미검증: iPhone 붙여넣기·파일 선택, 실제 챗봇 왕복, 저장 실패 화면(G-E1에서 확인). 변환기는 고정 자료 8개 통과.
 
 ## 다음 작업·확인 관문
 
-1. Claude: [T-E1](claude-task-e01-plan-import.md) C2~C4(첫 커밋에 [R1](claude-task-e01-review.md)) → Codex 검토·병합 → G-E1.
-2. 순서 확정(11/16): **E1 → P1 → E2**. [P0](p0-guide-trial.md) 통과. [T-P1 초안](claude-task-p01-guide-select.md)·[가이드 규격](guide-format-v1.md)은 E1 병합 뒤 전달.
+1. **G-E1 사용자 확인**(PC·iPhone): 요청서 복사 → 챗봇 → AI 결과 붙여넣기 → 새 여행. [T-E1 검토](claude-task-e01-review.md).
+2. G-E1 뒤 Claude에 [T-P1](claude-task-p01-guide-select.md) 전달(순서 E1 → P1 → E2, [가이드 규격](guide-format-v1.md)).
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
