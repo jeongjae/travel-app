@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-16 · **D 단계 종료(11/13) / AI 개편 T-E1 C1 검토 통과(11/16)·C2~C4 진행 / P0 가이드 시험 사용자 대기**
+2026-11-16 · **D 단계 종료(11/13) / AI 개편 T-E1 C1 검토 통과(11/16)·C2~C4 진행 / 다음은 P1(가이드)**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -23,8 +23,8 @@
 ## 다음 작업·확인 관문
 
 1. Claude: [T-E1](claude-task-e01-plan-import.md) C2~C4(첫 커밋에 [R1](claude-task-e01-review.md)) → Codex 검토·병합 → G-E1.
-2. 사용자: [P0 가이드 시험](p0-guide-trial.md) → E1 다음 순서(P1/E2)·G-2 결정.
-3. Codex: P1 지시서는 [MVP 설계](travel-prep-mvp-design.md)와 [검토](travel-prep-mvp-design-review.md)를 반영해 P0 뒤에 쓴다.
+2. 순서 확정(11/16): **E1 → P1 → E2**. [P0](p0-guide-trial.md) 통과. [T-P1 초안](claude-task-p01-guide-select.md)·[가이드 규격](guide-format-v1.md)은 E1 병합 뒤 전달.
+3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
 - 기존 여행 삭제 금지. pnpm 12.14.0/Node 24.13.1. `pnpm dev`=Vite+Worker(`worker/.dev.vars`, `localhost:5173`), `dev:node`=Node. UI 5173, 미리보기 4173, 회귀 `check:deferred`.
