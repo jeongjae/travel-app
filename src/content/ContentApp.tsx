@@ -18,6 +18,7 @@ import { RecordBadge, TimelineRecordCard } from './TimelineRecords';
 import { AssetImage, GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
 import { PlanPasteDialog } from './PlanPaste';
+import { PlanBriefDialog } from './PlanBrief';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
 import { GuideAuthoring } from './GuideAuthoring';
 import { isReadingGuide } from './guide-rules';
@@ -89,6 +90,7 @@ export function ContentApp() {
     [sample, setSample] = useState(false),
     [newTrip, setNewTrip] = useState(false),
     [planPaste, setPlanPaste] = useState(false),
+    [planBrief, setPlanBrief] = useState(false),
     [authoring, setAuthoring] = useState<'region' | 'place' | 'guide' | null>(null),
     [stayEditor, setStayEditor] = useState<StayEditorState | null>(null),
     [legEditor, setLegEditor] = useState<LegEditorState | null>(null),
@@ -566,6 +568,7 @@ export function ContentApp() {
             <button onClick={() => setNewTrip(true)} disabled={meta?.mode !== 'v2'}>
               새 여행
             </button>
+            <button onClick={() => setPlanBrief(true)}>AI로 계획 만들기</button>
             <button onClick={() => setPlanPaste(true)} disabled={meta?.mode !== 'v2'}>
               AI 결과 붙여넣기
             </button>
@@ -1383,6 +1386,7 @@ export function ContentApp() {
           }}
         />
       ) : null}
+      {planBrief ? <PlanBriefDialog onClose={() => setPlanBrief(false)} /> : null}
       {planPaste ? (
         <PlanPasteDialog
           repo={repo}

@@ -590,3 +590,18 @@ dialog th {
   max-width: 100%;
   overflow-x: auto;
 }
+
+/* AI로 계획 만들기: 선택지 칩 묶음 */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border: 0;
+  margin: 0.5rem 0;
+  padding: 0;
+}
+.chip-group legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
