@@ -17,6 +17,7 @@ import { actualPayload, dayRecordView, placeOnTimeline } from './field-rules';
 import { RecordBadge, TimelineRecordCard } from './TimelineRecords';
 import { AssetImage, GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
+import { PlanPasteDialog } from './PlanPaste';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
 import { GuideAuthoring } from './GuideAuthoring';
 import { isReadingGuide } from './guide-rules';
@@ -87,6 +88,7 @@ export function ContentApp() {
     [busy, setBusy] = useState(false),
     [sample, setSample] = useState(false),
     [newTrip, setNewTrip] = useState(false),
+    [planPaste, setPlanPaste] = useState(false),
     [authoring, setAuthoring] = useState<'region' | 'place' | 'guide' | null>(null),
     [stayEditor, setStayEditor] = useState<StayEditorState | null>(null),
     [legEditor, setLegEditor] = useState<LegEditorState | null>(null),
@@ -563,6 +565,9 @@ export function ContentApp() {
           <div className="sidebar-actions">
             <button onClick={() => setNewTrip(true)} disabled={meta?.mode !== 'v2'}>
               새 여행
+            </button>
+            <button onClick={() => setPlanPaste(true)} disabled={meta?.mode !== 'v2'}>
+              AI 결과 붙여넣기
             </button>
             <button onClick={() => setSample(true)} disabled={busy || meta?.mode !== 'v2'}>
               가상 여행 둘러보기
@@ -1375,6 +1380,18 @@ export function ContentApp() {
             setNewTrip(false);
             select(id);
             setNotice('여행을 만들었습니다.');
+          }}
+        />
+      ) : null}
+      {planPaste ? (
+        <PlanPasteDialog
+          repo={repo}
+          existing={headers.map((h) => ({ name: h.name, startDate: h.startDate, endDate: h.endDate }))}
+          onClose={() => setPlanPaste(false)}
+          onSaved={(id, resultText) => {
+            setPlanPaste(false);
+            select(id);
+            setNotice(`여행을 만들었습니다. ${resultText}`);
           }}
         />
       ) : null}
