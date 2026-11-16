@@ -9,3 +9,6 @@ test-results/
 playwright-report/
 pnpm-lock.yaml
 public/pilot/
+
+# 챗봇 출력 원문 고정 자료(그대로 보존해야 하는 시험 입력)
+tests/fixtures/plan-format/
