@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { act, check, createdTrip, fixture, newPlan, withoutLines } from './plan-import-helpers';
 import { parsePlanFile } from '../src/plan-import';
+import { buildPlanPreview } from '../src/plan-import/preview';
 
 const FIXTURES = ['chatgpt-t1-run2.md', 'claude-t1-run2.md', 'chatgpt-t3-run2.md', 'claude-t2-run2.md'];
 
@@ -121,5 +122,20 @@ describe('여행ID 머리 줄 분류', () => {
 
   it('새 여행을 만드는 일은 new에서만 된다', () => {
     expect(createdTrip(base).header.name).toBe('시험 여행');
+  });
+});
+
+describe('가이드 글이 계획 쪽에 들어왔을 때', () => {
+  it('is-guide로 거부하고 안내한다', () => {
+    const file = parsePlanFile('# 가이드: 어딘가\n- 양식: travel-app-guide/1\n');
+    expect(file.rejection?.code).toBe('is-guide');
+    expect(file.rejection?.message).toContain('가이드');
+  });
+
+  it('미리보기는 챗봇 재요청 안내 없이 가이드 안내만 보여 준다', () => {
+    const preview = buildPlanPreview('# 가이드: 어딘가\n- 양식: travel-app-guide/1\n');
+    expect(preview.state).toBe('not-plan');
+    expect(preview.message).toContain('가이드');
+    expect(preview.message).not.toContain('다시 정리해 줘');
   });
 });

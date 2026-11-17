@@ -99,6 +99,9 @@ function stateOf(file: CheckedPlanFile): PreviewState {
 }
 
 function messageOf(file: CheckedPlanFile, state: PreviewState) {
+  if (state === 'not-plan' && file.rejection?.code === 'is-guide') {
+    return file.rejection.message;
+  }
   if (state === 'not-plan') {
     return `${file.rejection?.message ?? '앱 양식이 아닙니다.'} ${RETRY_REQUEST_HINT}`;
   }

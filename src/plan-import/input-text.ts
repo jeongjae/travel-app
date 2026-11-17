@@ -77,7 +77,16 @@ export type FormatSpec = {
   mismatch?: (value: string) => Rejection | undefined;
 };
 
-const PLAN_FORMAT_SPEC: FormatSpec = { format: PLAN_FORMAT, example: `- 양식: ${PLAN_FORMAT}` };
+const GUIDE_FORMAT_VALUE = 'travel-app-guide/1';
+
+const PLAN_FORMAT_SPEC: FormatSpec = {
+  format: PLAN_FORMAT,
+  example: `- 양식: ${PLAN_FORMAT}`,
+  mismatch: (value) =>
+    value === GUIDE_FORMAT_VALUE
+      ? { code: 'is-guide', message: '이것은 목적지 가이드입니다. "AI로 계획 만들기"의 가이드 칸에 넣으세요.' }
+      : undefined,
+};
 
 export function selectFormattedBody(lines: SourceLine[], spec: FormatSpec): BodySelection {
   const blocks = findFencedBlocks(lines);
