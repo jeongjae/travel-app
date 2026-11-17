@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import type { ContentRepository } from '../repository';
 import { buildPlanPreview, canSavePreview, type ExistingTrip, type PlanPreview } from '../plan-import/preview';
+import { ChosenList } from './ChosenList';
+import { readPrepDraft } from './prep-state';
 import { command, errorText, ErrorText, Modal } from './ui';
 
 type Props = {
@@ -127,6 +129,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved }: Props) {
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
   const savingRef = useRef(false);
+  const [draft] = useState(readPrepDraft);
 
   function showPreview(source: string) {
     setPreview(buildPlanPreview(source, existing));
@@ -227,45 +230,48 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved }: Props) {
       <button type="button" disabled={busy || text.trim() === ''} onClick={() => showPreview(text)}>
         미리보기
       </button>
-      {preview ? (
-        <section aria-label="해석 결과" aria-live="polite">
-          {preview.message ? (
-            <p role="alert" className="notice">
-              {preview.message}
-            </p>
-          ) : null}
-          {preview.state === 'ready' ? <PreviewSummary preview={preview} /> : null}
-          <Problems title="오류" problems={preview.errors} />
-          <Problems title="경고" problems={preview.warnings} />
-          <DroppedList preview={preview} />
-          <NotImportedList preview={preview} />
-          {preview.state === 'ready' && preview.dropped.length > 0 ? (
-            <label>
-              <input
-                type="checkbox"
-                checked={confirmedDropped}
-                onChange={(event) => setConfirmedDropped(event.target.checked)}
-              />
-              위 표는 빼고 나머지만 저장하는 것을 확인했습니다
-            </label>
-          ) : null}
-          {preview.state === 'ready' && preview.duplicateOfExisting ? (
-            <label>
-              <input
-                type="checkbox"
-                checked={confirmedDuplicate}
-                onChange={(event) => setConfirmedDuplicate(event.target.checked)}
-              />
-              같은 이름의 여행이 있습니다. 새 여행으로 하나 더 만듭니다
-            </label>
-          ) : null}
-          {preview.state === 'ready' ? (
-            <button type="button" className="primary" disabled={busy || !saveable} onClick={() => void save()}>
-              새 여행으로 저장
-            </button>
-          ) : null}
-        </section>
-      ) : null}
+      <div className="paste-compare">
+        {preview ? (
+          <section aria-label="해석 결과" aria-live="polite">
+            {preview.message ? (
+              <p role="alert" className="notice">
+                {preview.message}
+              </p>
+            ) : null}
+            {preview.state === 'ready' ? <PreviewSummary preview={preview} /> : null}
+            <Problems title="오류" problems={preview.errors} />
+            <Problems title="경고" problems={preview.warnings} />
+            <DroppedList preview={preview} />
+            <NotImportedList preview={preview} />
+            {preview.state === 'ready' && preview.dropped.length > 0 ? (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={confirmedDropped}
+                  onChange={(event) => setConfirmedDropped(event.target.checked)}
+                />
+                위 표는 빼고 나머지만 저장하는 것을 확인했습니다
+              </label>
+            ) : null}
+            {preview.state === 'ready' && preview.duplicateOfExisting ? (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={confirmedDuplicate}
+                  onChange={(event) => setConfirmedDuplicate(event.target.checked)}
+                />
+                같은 이름의 여행이 있습니다. 새 여행으로 하나 더 만듭니다
+              </label>
+            ) : null}
+            {preview.state === 'ready' ? (
+              <button type="button" className="primary" disabled={busy || !saveable} onClick={() => void save()}>
+                새 여행으로 저장
+              </button>
+            ) : null}
+          </section>
+        ) : null}
+        {draft?.guide ? <ChosenList guide={draft.guide} selections={draft.selections} /> : null}
+      </div>
       <ErrorText error={error} />
     </Modal>
   );

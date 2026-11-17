@@ -33,6 +33,9 @@ export type BriefOptions = {
   formatPrompt?: string;
 };
 
+/** 고른 가이드 항목 묶음이 있을 때만 부탁할 일에 끼우는 줄(양식 안내 바로 앞). */
+const GUIDE_ASK_STEP = '[꼭 포함]을 넣기 어렵거나 [제외]를 넣어야 한다면 먼저 나에게 알려 줘.';
+
 const REQUEST_STEPS = [
   '먼저 기간에 맞는 지역별 일정 구도를 제안해 줘.',
   '숙소를 어느 지역에 잡으면 좋은지 설명해 줘.',
@@ -142,6 +145,14 @@ function tasteLines(answers: TravelAnswers) {
   ];
 }
 
+function requestSteps(withGuideAsk: boolean) {
+  const steps = [...REQUEST_STEPS];
+  if (withGuideAsk) {
+    steps.splice(steps.length - 1, 0, GUIDE_ASK_STEP);
+  }
+  return steps.map((step, index) => `${index + 1}. ${step}`);
+}
+
 /**
  * 조건·취향 답변 → 챗봇에게 붙여 넣을 요청서. 순수 함수이며 같은 답이면 같은 글이 나온다.
  * 답하지 않은 줄은 통째로 빼고, 줄이 하나도 없는 묶음은 제목도 뺀다.
@@ -153,8 +164,8 @@ export function buildTravelBrief(answers: TravelAnswers, options: BriefOptions =
     section('[기본 조건]', basicLines(answers)),
     section('[취향]', tasteLines(answers)),
     section('[꼭 고려할 것]', notes === '' ? [] : [notes]),
-    options.guideSection ? [options.guideSection.trim()] : [],
-    ['[부탁할 일]', ...REQUEST_STEPS.map((step, index) => `${index + 1}. ${step}`)],
+    options.guideSection?.trim() ? [options.guideSection.trim()] : [],
+    ['[부탁할 일]', ...requestSteps(Boolean(options.guideSection?.trim()))],
     [(options.formatPrompt ?? PLAN_FORMAT_PROMPT).trim()],
   ];
   return blocks
