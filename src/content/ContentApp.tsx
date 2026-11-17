@@ -19,6 +19,8 @@ import { AssetImage, GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
 import { PlanPasteDialog } from './PlanPaste';
 import { PlanBriefDialog } from './PlanBrief';
+import { browserStorage, clearDraft } from '../guide-import/draft';
+import { readPrepDraft } from './prep-state';
 import { PlaceAuthoring, RegionAuthoring } from './Authoring';
 import { GuideAuthoring } from './GuideAuthoring';
 import { isReadingGuide } from './guide-rules';
@@ -91,6 +93,7 @@ export function ContentApp() {
     [newTrip, setNewTrip] = useState(false),
     [planPaste, setPlanPaste] = useState(false),
     [planBrief, setPlanBrief] = useState(false),
+    [draftOffer, setDraftOffer] = useState(false),
     [authoring, setAuthoring] = useState<'region' | 'place' | 'guide' | null>(null),
     [stayEditor, setStayEditor] = useState<StayEditorState | null>(null),
     [legEditor, setLegEditor] = useState<LegEditorState | null>(null),
@@ -602,6 +605,20 @@ export function ContentApp() {
           <p role="status" className="success">
             {notice}
             <button onClick={() => setNotice('')}>알림 닫기</button>
+          </p>
+        ) : null}
+        {draftOffer ? (
+          <p role="status" className="notice">
+            이 기기에 준비 초안(답·가이드·고른 것)이 남아 있습니다. 이 여행에는 쓰지 않으니 필요 없으면 지우세요.
+            <button
+              onClick={() => {
+                clearDraft(browserStorage());
+                setDraftOffer(false);
+              }}
+            >
+              준비 초안 지우기
+            </button>
+            <button onClick={() => setDraftOffer(false)}>남겨 두기</button>
           </p>
         ) : null}
         {!online ? (
@@ -1396,6 +1413,7 @@ export function ContentApp() {
             setPlanPaste(false);
             select(id);
             setNotice(`여행을 만들었습니다. ${resultText}`);
+            setDraftOffer(readPrepDraft() !== undefined);
           }}
         />
       ) : null}
