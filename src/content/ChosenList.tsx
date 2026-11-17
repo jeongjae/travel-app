@@ -17,6 +17,7 @@ export function ChosenList({ guide, selections }: Props) {
   return (
     <section aria-label="내가 고른 것" className="chosen-list">
       <h3>내가 고른 것 — 계획에 반영됐는지 확인하세요</h3>
+      <p className="muted">꼭 포함·제외만 보여 줍니다. 관심은 넣지 않습니다.</p>
       {groups.map((group) => (
         <div key={group.choice}>
           <h4>

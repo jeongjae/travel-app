@@ -87,7 +87,7 @@ test('① 가이드 붙여넣기 → 카드 34개 → 3·1·3 고르기 → 요�
   await choose(page, '구 영국영사관', '제외');
   await choose(page, '하코다테 열대식물원', '제외');
   await choose(page, '오누마 국정공원', '제외');
-  await expect(page.getByText('꼭 포함 3 · 관심 1 · 제외 3')).toBeVisible();
+  await expect(page.getByTestId('guide-total')).toContainText('꼭 포함 3 · 관심 1 · 제외 3');
   await expect(card(page, '구 영국영사관').getByRole('button', { name: '제외', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -110,7 +110,7 @@ test('① 가이드 붙여넣기 → 카드 34개 → 3·1·3 고르기 → 요�
   await page.reload();
   await page.getByRole('button', { name: 'AI로 계획 만들기', exact: true }).click();
   await expect(page.locator('.guide-card')).toHaveCount(34);
-  await expect(page.getByText('꼭 포함 3 · 관심 1 · 제외 3')).toBeVisible();
+  await expect(page.getByTestId('guide-total')).toContainText('꼭 포함 3 · 관심 1 · 제외 3');
   await expect(page.getByLabel('여행지 (여러 곳은 쉼표로)')).toHaveValue('하코다테');
   expect(await databaseSnapshot(page)).toBe(before);
   expect(await page.evaluate(() => localStorage.getItem('travel-app.prep-draft.v1'))).toContain('travel-app-guide/1');
@@ -121,12 +121,13 @@ test('② 종류로 거른 뒤 한 번에 고르기, 같은 이름 알림', asyn
   await pasteGuide(page);
   await page.getByRole('group', { name: '종류로 거르기' }).getByRole('button', { name: '먹거리', exact: true }).click();
   await expect(page.locator('.guide-card')).toHaveCount(8);
-  await expect(page.getByRole('button', { name: '꼭 포함으로 (8개 바뀜)' })).toBeVisible();
-  await page.getByRole('button', { name: '꼭 포함으로 (8개 바뀜)' }).click();
-  await expect(page.getByText('꼭 포함 8 · 관심 0 · 제외 0')).toBeVisible();
-  await expect(page.getByRole('button', { name: '꼭 포함으로 (0개 바뀜)' })).toBeDisabled();
-  await page.getByRole('button', { name: '고르지 않음으로 (8개 바뀜)' }).click();
-  await expect(page.getByText('꼭 포함 0 · 관심 0 · 제외 0')).toBeVisible();
+  await page.getByText('한 번에 고르기', { exact: false }).click();
+  await expect(page.getByText('8개가 바뀝니다')).toHaveCount(3);
+  await page.getByRole('button', { name: '모두 꼭 포함', exact: true }).click();
+  await expect(page.getByTestId('guide-total')).toContainText('꼭 포함 8 · 관심 0 · 제외 0');
+  await expect(page.getByRole('button', { name: '모두 꼭 포함', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: '모두 고르지 않음', exact: true }).click();
+  await expect(page.getByTestId('guide-total')).toContainText('꼭 포함 0 · 관심 0 · 제외 0');
 
   await page.getByRole('group', { name: '종류로 거르기' }).getByRole('button', { name: '전체', exact: true }).click();
   await choose(page, '오누마 국정공원', '제외');
@@ -143,20 +144,20 @@ test('③ 가이드 바꾸기는 확인 뒤에만, 오류 가이드는 기존 �
 
   await pasteGuide(page, GUIDE.replace('| 볼거리 | 가네모리', '| 숙소 | 가네모리'));
   await expect(page.getByRole('list', { name: '가이드 오류' })).toContainText('종류 "숙소"');
-  await expect(page.getByText('꼭 포함 1 · 관심 0 · 제외 0')).toBeVisible();
+  await expect(page.getByTestId('guide-total')).toContainText('꼭 포함 1 · 관심 0 · 제외 0');
 
   const other = GUIDE.replace('# 가이드: 일본 하코다테', '# 가이드: 가상 다른 곳');
   await pasteGuide(page, other);
   await expect(page.getByText('고른 것이 모두 지워집니다')).toBeVisible();
   await page.getByRole('button', { name: '취소', exact: true }).click();
   await expect(page.getByRole('heading', { name: /일본 하코다테 가이드/ })).toBeVisible();
-  await expect(page.getByText('꼭 포함 1 · 관심 0 · 제외 0')).toBeVisible();
+  await expect(page.getByTestId('guide-total')).toContainText('꼭 포함 1 · 관심 0 · 제외 0');
 
   await page.getByLabel('붙여 넣은 가이드').fill(other);
   await page.getByRole('button', { name: '가이드 읽기', exact: true }).click();
   await page.getByRole('button', { name: '바꾸기', exact: true }).click();
   await expect(page.getByRole('heading', { name: /가상 다른 곳 가이드/ })).toBeVisible();
-  await expect(page.getByText('꼭 포함 0 · 관심 0 · 제외 0')).toBeVisible();
+  await expect(page.getByTestId('guide-total')).toContainText('꼭 포함 0 · 관심 0 · 제외 0');
 });
 
 test('④ 가이드 없이도 요청서가 만들어지고, 가이드 요청문은 여행지가 있어야 복사된다', async ({ page }) => {
@@ -253,4 +254,72 @@ test('새 여행을 저장해도 초안은 자동으로 지워지지 않고, 지
   expect(await page.evaluate(() => localStorage.getItem('travel-app.prep-draft.v1'))).not.toBeNull();
   await page.getByRole('button', { name: '준비 초안 지우기', exact: true }).click();
   expect(await page.evaluate(() => localStorage.getItem('travel-app.prep-draft.v1'))).toBeNull();
+});
+
+test('R2-1 걸렀을 때 전체 수와 보이는 수가 따로 맞게 나온다', async ({ page }) => {
+  await openBrief(page);
+  await pasteGuide(page);
+  await choose(page, '하코다테산 전망대', '꼭 포함');
+  await choose(page, '하코다테 시오라멘', '관심');
+  await choose(page, '구 영국영사관', '제외');
+  const total = page.getByTestId('guide-total');
+  await expect(total).toContainText('고른 항목 — 꼭 포함 1 · 관심 1 · 제외 1 (전체 34개 중)');
+  await expect(page.getByTestId('guide-visible')).toHaveCount(0);
+
+  await page.getByRole('group', { name: '종류로 거르기' }).getByRole('button', { name: '먹거리', exact: true }).click();
+  await expect(total).toContainText('꼭 포함 1 · 관심 1 · 제외 1 (전체 34개 중)');
+  await expect(page.getByTestId('guide-visible')).toContainText('지금 보이는 8개 중 — 꼭 포함 0 · 관심 1 · 제외 0');
+
+  await page.getByRole('group', { name: '종류로 거르기' }).getByRole('button', { name: '전체', exact: true }).click();
+  await page.getByLabel('고른 것만 보기').check();
+  await expect(page.getByTestId('guide-visible')).toContainText('지금 보이는 3개 중 — 꼭 포함 1 · 관심 1 · 제외 1');
+  await expect(total).toContainText('(전체 34개 중)');
+});
+
+test('R2-2 카드는 접혀 있고 눌러 펼치며, 모두 펼치기·접기와 고르기가 따로 동작한다', async ({ page }) => {
+  await openBrief(page);
+  await pasteGuide(page);
+  const first = card(page, '하코다테산 전망대');
+  const detail = first.locator('.guide-card-detail');
+  await expect(detail).toBeHidden();
+  await first.getByRole('button', { name: /하코다테산 전망대/, expanded: false }).click();
+  await expect(detail).toBeVisible();
+  await expect(detail).toContainText('확인 필요');
+  await first.getByRole('button', { name: /하코다테산 전망대/, expanded: true }).click();
+  await expect(detail).toBeHidden();
+
+  await choose(page, '하코다테산 전망대', '꼭 포함');
+  await expect(detail).toBeHidden();
+  await expect(page.getByTestId('guide-total')).toContainText('꼭 포함 1');
+
+  await page.getByRole('button', { name: '모두 펼치기', exact: true }).click();
+  await expect(page.locator('.guide-card-detail:visible')).toHaveCount(34);
+  await page.getByRole('button', { name: '모두 접기', exact: true }).click();
+  await expect(page.locator('.guide-card-detail:visible')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '요청서 만들기로', exact: true })).toBeVisible();
+});
+
+test('R2-3 날짜 두 칸이 한 줄이고, 같은 묶음의 단추 높이가 같다', async ({ page }) => {
+  await openBrief(page);
+  const start = await page.getByLabel('시작 날짜').boundingBox();
+  const end = await page.getByLabel('종료 날짜').boundingBox();
+  expect(start && end).toBeTruthy();
+  expect(Math.abs(start!.y - end!.y)).toBeLessThan(2);
+  expect(start!.width).toBeLessThanOrEqual(11 * 16 + 2);
+  expect(end!.x).toBeGreaterThan(start!.x + start!.width - 1);
+
+  await pasteGuide(page);
+  const heights = await page
+    .locator('.guide-panel .prep-actions button, .guide-panel .guide-card-choices button')
+    .evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().height)));
+  expect(heights.length).toBeGreaterThan(3);
+  expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
+
+  const kinds = page.getByRole('group', { name: '종류로 거르기' });
+  await kinds.getByRole('button', { name: '먹거리', exact: true }).click();
+  const boxes = await kinds
+    .getByRole('button')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect()).map((box) => [box.top, box.height]));
+  expect(new Set(boxes.map(([top]) => Math.round(top))).size).toBe(1);
+  expect(new Set(boxes.map(([, height]) => Math.round(height))).size).toBe(1);
 });

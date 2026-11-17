@@ -196,7 +196,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved }: Props) {
       <p className="muted">
         챗봇이 정리해 준 여행 계획의 코드 블록을 복사해 붙여 넣으세요. 이 화면은 서버에 아무것도 보내지 않습니다.
       </p>
-      <div className="button-row">
+      <div className="button-row prep-actions">
         <button type="button" onClick={() => void readClipboard()} disabled={busy}>
           클립보드에서 붙여넣기
         </button>
@@ -227,9 +227,16 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved }: Props) {
           placeholder="여기에 길게 눌러 붙여 넣기"
         />
       </label>
-      <button type="button" disabled={busy || text.trim() === ''} onClick={() => showPreview(text)}>
-        미리보기
-      </button>
+      <div className="button-row prep-actions">
+        <button
+          type="button"
+          className="primary"
+          disabled={busy || text.trim() === ''}
+          onClick={() => showPreview(text)}
+        >
+          미리보기
+        </button>
+      </div>
       <div className="paste-compare">
         {preview ? (
           <section aria-label="해석 결과" aria-live="polite">
@@ -264,9 +271,11 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved }: Props) {
               </label>
             ) : null}
             {preview.state === 'ready' ? (
-              <button type="button" className="primary" disabled={busy || !saveable} onClick={() => void save()}>
-                새 여행으로 저장
-              </button>
+              <div className="button-row prep-actions">
+                <button type="button" className="primary" disabled={busy || !saveable} onClick={() => void save()}>
+                  새 여행으로 저장
+                </button>
+              </div>
             ) : null}
           </section>
         ) : null}

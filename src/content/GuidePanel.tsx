@@ -76,36 +76,53 @@ type CardProps = {
   item: GuideItem;
   items: GuideItem[];
   prep: PrepState;
+  open: boolean;
+  onToggleOpen: () => void;
   onChange: (next: PrepState) => void;
 };
 
-function GuideCard({ item, items, prep, onChange }: CardProps) {
+const SHORT_LABEL: Record<Choice, string> = { must: '꼭', interest: '관심', exclude: '제외' };
+
+/** 접힌 한 줄(종류·이름·지역 + 고르기)이 기본이고, 누르면 설명·예상 소요·확인 필요가 펼쳐진다. */
+function GuideCard({ item, items, prep, open, onToggleOpen, onChange }: CardProps) {
   const current = prep.selections[item.key];
   const similar = similarRemaining(item, items, prep.selections);
+  const hasDetail = Boolean(item.description || item.durationText || item.needsCheck);
+  const detailId = `guide-detail-${item.key}`;
   return (
     <li className="guide-card">
-      <p>
-        <strong>{item.name}</strong> · {item.kind}
-        {item.area ? ` · ${item.area}` : ''}
-      </p>
-      {item.description ? <p>{item.description}</p> : null}
-      <p className="muted">
-        {item.durationText ? `예상 소요: ${item.durationText}` : ''}
-        {item.durationText && item.needsCheck ? ' · ' : ''}
-        {item.needsCheck ? `확인 필요: ${item.needsCheck}` : ''}
-      </p>
-      <div className="chip-group" role="group" aria-label={`${item.name} 고르기`}>
-        {CHOICES.map((choice) => (
-          <button
-            type="button"
-            key={choice}
-            aria-pressed={current === choice}
-            className={current === choice ? 'primary' : undefined}
-            onClick={() => onChange({ ...prep, selections: toggleChoice(prep.selections, item.key, choice) })}
-          >
-            {CHOICE_LABEL[choice]}
-          </button>
-        ))}
+      <div className="guide-card-line">
+        <button
+          type="button"
+          className="guide-card-title"
+          aria-expanded={open}
+          aria-controls={detailId}
+          onClick={onToggleOpen}
+        >
+          <span className="guide-card-kind">{item.kind}</span>
+          <strong>{item.name}</strong>
+          {item.area ? <span className="muted">{item.area}</span> : null}
+        </button>
+        <div className="chip-group guide-card-choices" role="group" aria-label={`${item.name} 고르기`}>
+          {CHOICES.map((choice) => (
+            <button
+              type="button"
+              key={choice}
+              aria-label={CHOICE_LABEL[choice]}
+              aria-pressed={current === choice}
+              className={current === choice ? 'primary' : undefined}
+              onClick={() => onChange({ ...prep, selections: toggleChoice(prep.selections, item.key, choice) })}
+            >
+              {SHORT_LABEL[choice]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div id={detailId} hidden={!open} className="guide-card-detail">
+        {hasDetail ? null : <p className="muted">더 적힌 내용이 없습니다.</p>}
+        {item.description ? <p>{item.description}</p> : null}
+        {item.durationText ? <p className="muted">예상 소요: {item.durationText}</p> : null}
+        {item.needsCheck ? <p className="muted">확인 필요: {item.needsCheck}</p> : null}
       </div>
       {similar.length > 0 ? (
         <p role="note" className="notice">
@@ -127,61 +144,125 @@ function downloadGuide(text: string, destination: string) {
 
 type BrowserProps = { prep: PrepState; onChange: (next: PrepState) => void };
 
+function goToBrief() {
+  const heading = document.getElementById('brief-preview-heading');
+  heading?.scrollIntoView({ block: 'start' });
+  heading?.focus();
+}
+
 /** 붙여 넣은 가이드의 카드 목록·거르기·고르기·현황. */
 function GuideBrowser({ prep, onChange }: BrowserProps) {
   const [kind, setKind] = useState<GuideKind | 'all'>('all');
   const [onlyChosen, setOnlyChosen] = useState(false);
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const guide = prep.guide!;
+  const filtered = kind !== 'all' || onlyChosen;
   const visible = guide.items.filter(
     (item) => (kind === 'all' || item.kind === kind) && (!onlyChosen || prep.selections[item.key] !== undefined),
   );
   const visibleKeys = visible.map((item) => item.key);
   const counts = countByChoice(prep.selections, guide.items);
+  const visibleCounts = countByChoice(prep.selections, visible);
+  const allOpen = visible.length > 0 && visible.every((item) => openKeys.has(item.key));
   const bulkChoices: (Choice | undefined)[] = [...CHOICES, undefined];
+
+  function toggleOpen(key: string) {
+    const next = new Set(openKeys);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    setOpenKeys(next);
+  }
+
+  function toggleAll() {
+    const next = new Set(openKeys);
+    for (const key of visibleKeys) {
+      if (allOpen) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+    }
+    setOpenKeys(next);
+  }
+
   return (
     <>
-      <p role="status">
-        꼭 포함 {counts.must} · 관심 {counts.interest} · 제외 {counts.exclude}
-      </p>
-      <div className="chip-group" role="group" aria-label="종류로 거르기">
-        {(['all', ...GUIDE_KINDS] as const).map((value) => (
-          <button
-            type="button"
-            key={value}
-            aria-pressed={kind === value}
-            className={kind === value ? 'primary' : undefined}
-            onClick={() => setKind(value)}
-          >
-            {value === 'all' ? '전체' : value}
-          </button>
-        ))}
-      </div>
-      <label>
-        <input type="checkbox" checked={onlyChosen} onChange={(event) => setOnlyChosen(event.target.checked)} />
-        고른 것만 보기
-      </label>
-      <fieldset className="chip-group">
-        <legend>보이는 항목 {visible.length}개 모두</legend>
-        {bulkChoices.map((choice) => {
-          const label = choice ? CHOICE_LABEL[choice] : '고르지 않음';
-          const changes = countChanges(prep.selections, visibleKeys, choice);
-          return (
+      <div className="guide-sticky">
+        <p role="status" data-testid="guide-total">
+          고른 항목 — 꼭 포함 {counts.must} · 관심 {counts.interest} · 제외 {counts.exclude} (전체 {guide.items.length}
+          개 중)
+        </p>
+        {filtered ? (
+          <p className="muted" data-testid="guide-visible">
+            지금 보이는 {visible.length}개 중 — 꼭 포함 {visibleCounts.must} · 관심 {visibleCounts.interest} · 제외{' '}
+            {visibleCounts.exclude}
+          </p>
+        ) : null}
+        <div className="chip-group" role="group" aria-label="종류로 거르기">
+          {(['all', ...GUIDE_KINDS] as const).map((value) => (
             <button
               type="button"
-              key={label}
-              disabled={changes === 0}
-              onClick={() => onChange({ ...prep, selections: setChoices(prep.selections, visibleKeys, choice) })}
+              key={value}
+              aria-pressed={kind === value}
+              className={kind === value ? 'primary' : undefined}
+              onClick={() => setKind(value)}
             >
-              {label}으로 ({changes}개 바뀜)
+              {value === 'all' ? '전체' : value}
             </button>
-          );
-        })}
-      </fieldset>
+          ))}
+        </div>
+      </div>
+      <div className="button-row guide-tools">
+        <label className="check-line">
+          <input type="checkbox" checked={onlyChosen} onChange={(event) => setOnlyChosen(event.target.checked)} />
+          고른 것만 보기
+        </label>
+        <button type="button" onClick={toggleAll} disabled={visible.length === 0}>
+          {allOpen ? '모두 접기' : '모두 펼치기'}
+        </button>
+      </div>
+      <details className="guide-bulk">
+        <summary>한 번에 고르기 (보이는 항목 {visible.length}개)</summary>
+        <div className="guide-bulk-list">
+          {bulkChoices.map((choice) => {
+            const label = choice ? `모두 ${CHOICE_LABEL[choice]}` : '모두 고르지 않음';
+            const changes = countChanges(prep.selections, visibleKeys, choice);
+            return (
+              <div key={label} className="guide-bulk-item">
+                <button
+                  type="button"
+                  disabled={changes === 0}
+                  onClick={() => onChange({ ...prep, selections: setChoices(prep.selections, visibleKeys, choice) })}
+                >
+                  {label}
+                </button>
+                <small className="muted">{changes}개가 바뀝니다</small>
+              </div>
+            );
+          })}
+        </div>
+      </details>
       <ul className="guide-cards" aria-label="가이드 항목">
         {visible.map((item) => (
-          <GuideCard key={item.key} item={item} items={guide.items} prep={prep} onChange={onChange} />
+          <GuideCard
+            key={item.key}
+            item={item}
+            items={guide.items}
+            prep={prep}
+            open={openKeys.has(item.key)}
+            onToggleOpen={() => toggleOpen(item.key)}
+            onChange={onChange}
+          />
         ))}
       </ul>
+      <div className="button-row prep-actions">
+        <button type="button" className="primary" onClick={goToBrief}>
+          요청서 만들기로
+        </button>
+      </div>
     </>
   );
 }
@@ -250,7 +331,7 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
 
   const pasteArea = (
     <div>
-      <div className="button-row">
+      <div className="button-row prep-actions">
         <button type="button" onClick={() => void readClipboard()}>
           가이드 클립보드에서 붙여넣기
         </button>
@@ -283,9 +364,11 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
           }}
         />
       </label>
-      <button type="button" disabled={text.trim() === ''} onClick={() => read(text)}>
-        가이드 읽기
-      </button>
+      <div className="button-row prep-actions">
+        <button type="button" className="primary" disabled={text.trim() === ''} onClick={() => read(text)}>
+          가이드 읽기
+        </button>
+      </div>
       {result ? <GuideProblems result={result} /> : null}
       {pending !== null ? (
         <div role="alert" className="notice">
@@ -312,7 +395,7 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
           </h3>
           {guide.referenceDate ? <p className="muted">기준일 {guide.referenceDate} (챗봇이 글을 쓴 날)</p> : null}
           <GuideBrowser prep={prep} onChange={onChange} />
-          <div className="button-row">
+          <div className="button-row prep-actions">
             <button type="button" onClick={() => setReplacing(!replacing)}>
               가이드 바꾸기
             </button>
@@ -341,7 +424,7 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
           <p className="muted">
             가이드 요청문을 챗봇에 붙여 넣어 목적지 가이드를 받고, 아래에 붙여 넣어 골라 보세요. 건너뛰어도 됩니다.
           </p>
-          <div className="button-row">
+          <div className="button-row prep-actions">
             <button
               type="button"
               disabled={destinationMissing}

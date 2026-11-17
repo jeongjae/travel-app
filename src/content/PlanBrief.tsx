@@ -123,22 +123,24 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
         여행지 (여러 곳은 쉼표로)
         <input value={answers.destination ?? ''} onChange={(event) => update({ destination: event.target.value })} />
       </label>
-      <label>
-        시작 날짜
-        <input
-          type="date"
-          value={answers.startDate ?? ''}
-          onChange={(event) => update({ startDate: event.target.value })}
-        />
-      </label>
-      <label>
-        종료 날짜
-        <input
-          type="date"
-          value={answers.endDate ?? ''}
-          onChange={(event) => update({ endDate: event.target.value })}
-        />
-      </label>
+      <div className="date-row">
+        <label>
+          시작 날짜
+          <input
+            type="date"
+            value={answers.startDate ?? ''}
+            onChange={(event) => update({ startDate: event.target.value })}
+          />
+        </label>
+        <label>
+          종료 날짜
+          <input
+            type="date"
+            value={answers.endDate ?? ''}
+            onChange={(event) => update({ endDate: event.target.value })}
+          />
+        </label>
+      </div>
       {problem ? (
         <p role="alert" className="error">
           {problem}
@@ -202,9 +204,14 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
         </label>
       </details>
       <GuidePanel prep={prep} onChange={setPrep} copy={copy} />
-      <h3>요청서 미리보기</h3>
+      <h3 id="brief-preview-heading" tabIndex={-1}>
+        요청서 미리보기
+      </h3>
       <textarea readOnly rows={10} aria-label="요청서 미리보기" value={brief} />
-      <div className="button-row">
+      <div className="button-row prep-actions">
+        <button type="button" onClick={() => void copy(PLAN_FORMAT_PROMPT, '양식 안내문만 복사했습니다.')}>
+          양식 안내문만 복사
+        </button>
         <button
           type="button"
           className="primary"
@@ -213,19 +220,18 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
         >
           요청서 복사
         </button>
-        <button type="button" onClick={() => void copy(PLAN_FORMAT_PROMPT, '양식 안내문만 복사했습니다.')}>
-          양식 안내문만 복사
+      </div>
+      <div className="button-row prep-actions">
+        <button
+          type="button"
+          onClick={() => {
+            discard();
+            setStatus('준비 초안을 지웠습니다.');
+          }}
+        >
+          준비 초안 지우기
         </button>
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          discard();
-          setStatus('준비 초안을 지웠습니다.');
-        }}
-      >
-        준비 초안 지우기
-      </button>
       {status ? <p role="status">{status}</p> : null}
       {fallbackText ? <textarea readOnly rows={8} aria-label="복사할 글" value={fallbackText} /> : null}
     </Modal>
