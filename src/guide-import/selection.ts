@@ -57,24 +57,28 @@ export function pruneSelections(selections: Selections, items: GuideItem[]): Sel
   );
 }
 
-/** 이름의 앞 낱말. 공백으로 나누고, 없으면 `·` 앞까지. */
-export function leadingWord(name: string): string {
-  return name.trim().split(/[\s·]+/)[0] ?? '';
+const MIN_NAME_LENGTH = 2;
+
+/** `text` 안에 `name` 전체가 글자 그대로 들어 있는지. 짧은 이름은 우연히 겹치기 쉬워 비교하지 않는다. */
+function mentions(text: string, name: string) {
+  const target = name.trim();
+  return target.length >= MIN_NAME_LENGTH && text.trim().includes(target);
+}
+
+function isRelated(excluded: GuideItem, other: GuideItem) {
+  const otherTexts = [other.name, other.area, other.description];
+  return otherTexts.some((text) => mentions(text, excluded.name)) || mentions(excluded.name, other.name);
 }
 
 /**
- * 제외한 항목과 앞 낱말이 같은데 제외하지 않은 다른 항목들. 자동으로 바꾸지 않고 알리는 데만 쓴다.
- * 한 글자 낱말은 우연히 겹치기 쉬워 비교하지 않는다.
+ * 제외한 항목과 이어진 다른 항목들(제외하지 않은 것만). 자동으로 바꾸지 않고 알리는 데만 쓴다.
+ * 이어짐: 다른 항목의 이름·지역·설명이 제외한 항목의 이름 전체를 포함하거나, 제외한 항목의 이름이 그 항목의 이름 전체를 포함한다.
  */
 export function similarRemaining(item: GuideItem, items: GuideItem[], selections: Selections): GuideItem[] {
   if (selections[item.key] !== 'exclude') {
     return [];
   }
-  const word = leadingWord(item.name);
-  if (word.length < 2) {
-    return [];
-  }
   return items.filter(
-    (other) => other.key !== item.key && selections[other.key] !== 'exclude' && leadingWord(other.name) === word,
+    (other) => other.key !== item.key && selections[other.key] !== 'exclude' && isRelated(item, other),
   );
 }

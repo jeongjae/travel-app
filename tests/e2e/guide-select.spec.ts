@@ -129,8 +129,8 @@ test('② 종류로 거른 뒤 한 번에 고르기, 같은 이름 알림', asyn
   await expect(page.getByText('꼭 포함 0 · 관심 0 · 제외 0')).toBeVisible();
 
   await page.getByRole('group', { name: '종류로 거르기' }).getByRole('button', { name: '전체', exact: true }).click();
-  await choose(page, '하코다테 시오라멘', '제외');
-  await expect(card(page, '하코다테 시오라멘').getByRole('note')).toContainText('비슷한 항목이 더 있습니다');
+  await choose(page, '오누마 국정공원', '제외');
+  await expect(card(page, '오누마 국정공원').getByRole('note')).toContainText('겨울 오누마 설경 산책');
   await page.getByLabel('고른 것만 보기').check();
   await expect(page.locator('.guide-card')).toHaveCount(1);
 });

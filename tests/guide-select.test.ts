@@ -70,19 +70,55 @@ describe('고르기', () => {
     expect(pruneSelections(selections, items)).not.toHaveProperty('낯선키');
   });
 
-  it('제외한 항목과 앞 낱말이 같은 다른 항목을 알린다(자동으로 바꾸지 않는다)', () => {
-    const a = items.find((item) => item.name.startsWith('하코다테 '))!;
-    const twins = items.filter((item) => item.name.split(/[\s·]+/)[0] === a.name.split(/[\s·]+/)[0] && item !== a);
-    expect(twins.length).toBeGreaterThan(0);
-    const selections = toggleChoice({}, a.key, 'exclude');
-    expect(similarRemaining(a, items, selections).map((item) => item.key)).toEqual(twins.map((item) => item.key));
-    const allExcluded = setChoices(
-      selections,
-      twins.map((item) => item.key),
-      'exclude',
-    );
-    expect(similarRemaining(a, items, allExcluded)).toEqual([]);
-    expect(similarRemaining(a, items, {})).toEqual([]);
+  describe('비슷한 항목 알림 (R1)', () => {
+    const similarTo = (name: string) => {
+      const target = byName(name);
+      const selections = toggleChoice({}, target.key, 'exclude');
+      return similarRemaining(target, items, selections).map((item) => item.name);
+    };
+
+    it('이름이 다르게 시작해도 지역 칸이 제외 항목의 이름이면 알린다', () => {
+      expect(similarTo('오누마 국정공원')).toContain('겨울 오누마 설경 산책·스노 액티비티');
+    });
+
+    it('이름·지역·설명에 이름 전체가 들어 있는 항목을 알린다', () => {
+      const names = similarTo('유노카와 온천');
+      expect(names).toEqual(
+        expect.arrayContaining([
+          '유노카와 온천 입욕',
+          '하코다테 열대식물원 온천 원숭이 관찰',
+          '고료카쿠·온천 휴식 코스',
+        ]),
+      );
+    });
+
+    it('앞 낱말만 같은 무관한 항목은 알리지 않는다', () => {
+      const names = similarTo('하코다테 열대식물원 온천 원숭이 관찰');
+      expect(names).not.toContain('하코다테 아침시장');
+      expect(names).not.toContain('하코다테 시오라멘');
+    });
+
+    it('제외한 항목의 이름이 다른 항목 이름을 통째로 포함해도 알린다', () => {
+      const long = { ...items[0], key: 'x1', name: '가나다라 마바사', area: '', description: '' };
+      const short = { ...items[0], key: 'x2', name: '가나다라', area: '', description: '' };
+      const selections = { x1: 'exclude' } as const;
+      expect(similarRemaining(long, [long, short], selections)).toEqual([short]);
+    });
+
+    it('제외하지 않은 항목만, 이미 제외한 것은 빼고, 제외하지 않은 항목 자신은 알리지 않는다', () => {
+      const target = byName('오누마 국정공원');
+      const twin = byName('겨울 오누마 설경 산책·스노 액티비티');
+      const both = setChoices({}, [target.key, twin.key], 'exclude');
+      expect(similarRemaining(target, items, both).map((item) => item.name)).not.toContain(twin.name);
+      expect(similarRemaining(target, items, {})).toEqual([]);
+    });
+
+    it('2글자 미만 이름은 비교하지 않는다', () => {
+      const tiny = { ...items[0], key: 'y1', name: '온', area: '', description: '' };
+      const other = { ...items[0], key: 'y2', name: '온천 마을', area: '', description: '온천' };
+      expect(similarRemaining(tiny, [tiny, other], { y1: 'exclude' })).toEqual([]);
+      expect(similarRemaining(other, [tiny, other], { y2: 'exclude' })).toEqual([]);
+    });
   });
 });
 
