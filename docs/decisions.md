@@ -1,5 +1,9 @@
 # 결정 기록
 
+## 2026-11-17 14:25 · T-P1 R1 확인 통과, main 병합 (Codex 판정)
+
+- `codex/p01-guide-select` `3bc1cf3`: R1 지시대로 수정, CI 성공. [검토](claude-task-p01-review.md). **main 병합 → Pages 배포.** 상태: **사용자 확인 대기(G-P1)**.
+
 ## 2026-11-17 13:50 · T-P1 C2~C4 검토 — 조건부 통과, R1 뒤 병합 (Codex 판정)
 
 - 대상 `codex/p01-guide-select` `f29ca44`. [검토](claude-task-p01-review.md): 데이터 경계 변경 0건, CI(전체 E2E) 성공, 고친 기존 시험 없음.
