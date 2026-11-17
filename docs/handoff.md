@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-17 · **AI 개편 T-E1 확인 완료(G-E1 11/17) / 다음은 T-P1(가이드) 전달**
+2026-11-17 · **AI 개편 T-E1 확인 완료(G-E1 11/17) / T-P1 C1 검토 통과(11/17)·C2~C4 진행**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. 사용자 확인 2건(G-2 준비 초안 저장 위치, 가이드 화면 위치) → Claude에 [T-P1](claude-task-p01-guide-select.md) 전달.
+1. Claude: [T-P1](claude-task-p01-guide-select.md) C2~C4([검토 보충](claude-task-p01-review.md)) → Codex 검토·병합 → G-P1.
 2. 순서 E1 → P1 → E2. [가이드 규격](guide-format-v1.md). E2에 장소 단계 포함.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
