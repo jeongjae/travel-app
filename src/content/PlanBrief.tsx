@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { buildGuideSection } from '../guide-import/guide-request';
 import { PLAN_FORMAT_PROMPT } from '../plan-import/format-prompt';
 import {
   buildTravelBrief,
@@ -12,6 +13,8 @@ import {
   VISIT_OPTIONS,
   type TravelAnswers,
 } from '../plan-import/travel-brief';
+import { GuidePanel } from './GuidePanel';
+import { usePrepState } from './prep-state';
 import { Modal } from './ui';
 
 type SingleProps = {
@@ -75,14 +78,16 @@ async function copyText(text: string) {
 }
 
 export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
-  const [answers, setAnswers] = useState<TravelAnswers>({});
+  const { prep, setPrep, discard, saveFailed, discardedNotice } = usePrepState();
+  const answers = prep.answers;
   const [status, setStatus] = useState('');
   const [fallbackText, setFallbackText] = useState('');
   const problem = travelBriefProblem(answers);
-  const brief = buildTravelBrief(answers);
+  const guideSection = prep.guide ? buildGuideSection(prep.guide.items, prep.selections) : '';
+  const brief = buildTravelBrief(answers, { guideSection });
 
   function update(patch: Partial<TravelAnswers>) {
-    setAnswers((current) => ({ ...current, ...patch }));
+    setPrep({ ...prep, answers: { ...answers, ...patch } });
     setStatus('');
     setFallbackText('');
   }
@@ -102,8 +107,17 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
     <Modal title="AI로 계획 만들기" onClose={onClose}>
       <p className="muted">
         모두 선택 사항입니다. 답하지 않은 것은 요청서에 넣지 않습니다. 요청서를 복사해 챗봇에 붙여 넣고 대화하세요. 이
-        화면은 서버에 아무것도 보내지 않으며 답은 저장하지 않습니다.
+        화면은 서버에 아무것도 보내지 않습니다.
       </p>
+      <p className="muted" data-testid="draft-notice">
+        준비 초안(답·가이드·고른 것)은 이 기기에만 저장됩니다. 백업에 들어가지 않고 다른 기기로 옮겨지지 않습니다.
+      </p>
+      {discardedNotice ? <p role="status">{discardedNotice}</p> : null}
+      {saveFailed ? (
+        <p role="alert" className="error">
+          이 기기에 저장하지 못했습니다(용량 또는 차단). 이 화면을 닫으면 사라집니다.
+        </p>
+      ) : null}
       <h3>빠른 설정</h3>
       <label>
         여행지 (여러 곳은 쉼표로)
@@ -187,6 +201,7 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
           <textarea rows={3} value={answers.notes ?? ''} onChange={(event) => update({ notes: event.target.value })} />
         </label>
       </details>
+      <GuidePanel prep={prep} onChange={setPrep} copy={copy} />
       <h3>요청서 미리보기</h3>
       <textarea readOnly rows={10} aria-label="요청서 미리보기" value={brief} />
       <div className="button-row">
@@ -202,6 +217,15 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
           양식 안내문만 복사
         </button>
       </div>
+      <button
+        type="button"
+        onClick={() => {
+          discard();
+          setStatus('준비 초안을 지웠습니다.');
+        }}
+      >
+        준비 초안 지우기
+      </button>
       {status ? <p role="status">{status}</p> : null}
       {fallbackText ? <textarea readOnly rows={8} aria-label="복사할 글" value={fallbackText} /> : null}
     </Modal>

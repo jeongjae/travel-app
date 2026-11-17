@@ -605,3 +605,32 @@ dialog th {
   margin-bottom: 0.25rem;
   font-weight: 600;
 }
+
+.guide-panel {
+  margin: 0.75rem 0;
+}
+.guide-cards {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+}
+.guide-card {
+  border-top: 1px solid var(--border, #ccc);
+  padding: 0.5rem 0;
+}
+.guide-card p {
+  margin: 0.2rem 0;
+}
+.guide-card .chip-group button {
+  min-height: 44px;
+  min-width: 44px;
+}
+.paste-compare {
+  display: grid;
+  gap: 1rem;
+}
+@media (min-width: 900px) {
+  .paste-compare:has(.chosen-list) {
+    grid-template-columns: 2fr 1fr;
+  }
+}
