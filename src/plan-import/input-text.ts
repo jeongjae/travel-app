@@ -65,6 +65,21 @@ export type BodySelection = { body: SourceLine[] } | { rejection: Rejection };
  * 표 안의 글자(`|`로 시작하는 줄)와 인용(`> `)은 줄 시작이 달라 양식 줄로 세지 않는다.
  */
 export function selectBody(lines: SourceLine[]): BodySelection {
+  return selectFormattedBody(lines, PLAN_FORMAT_SPEC);
+}
+
+/** 양식 값이 다른 글(가이드 등)도 같은 규칙으로 본문을 고르도록 양식 정보를 받는다. */
+export type FormatSpec = {
+  format: string;
+  /** 거부 문장에 쓰는 양식 줄 예시. */
+  example: string;
+  /** 양식 줄이 하나인데 값이 다를 때의 거부를 정한다. 없으면 `format-version`. */
+  mismatch?: (value: string) => Rejection | undefined;
+};
+
+const PLAN_FORMAT_SPEC: FormatSpec = { format: PLAN_FORMAT, example: `- 양식: ${PLAN_FORMAT}` };
+
+export function selectFormattedBody(lines: SourceLine[], spec: FormatSpec): BodySelection {
   const blocks = findFencedBlocks(lines);
   const candidates = blocks.length > 0 ? blocks : [lines];
   const counts = candidates.map(countFormatLines);
@@ -73,7 +88,7 @@ export function selectBody(lines: SourceLine[]): BodySelection {
     return {
       rejection: {
         code: 'not-plan',
-        message: '양식 줄(- 양식: travel-app-plan/1)이 없어 앱 양식이 아닙니다.',
+        message: `양식 줄(${spec.example})이 없어 앱 양식이 아닙니다.`,
       },
     };
   }
@@ -87,11 +102,15 @@ export function selectBody(lines: SourceLine[]): BodySelection {
   }
   const body = candidates[counts.findIndex((count) => count === 1)];
   const value = formatLineValue(body.find((entry) => formatLineValue(entry.text) !== undefined)!.text);
-  if (value !== PLAN_FORMAT) {
+  if (value !== spec.format) {
+    const other = spec.mismatch?.(value ?? '');
+    if (other) {
+      return { rejection: other };
+    }
     return {
       rejection: {
         code: 'format-version',
-        message: `지원하지 않는 양식 값입니다(${value || '비어 있음'}). ${PLAN_FORMAT}만 읽을 수 있습니다.`,
+        message: `지원하지 않는 양식 값입니다(${value || '비어 있음'}). ${spec.format}만 읽을 수 있습니다.`,
       },
     };
   }

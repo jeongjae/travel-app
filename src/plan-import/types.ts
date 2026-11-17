@@ -16,7 +16,7 @@ export type PlanIssue = {
   message: string;
 };
 
-export type RejectionCode = 'too-large' | 'not-plan' | 'ambiguous' | 'format-version';
+export type RejectionCode = 'too-large' | 'not-plan' | 'ambiguous' | 'format-version' | 'is-plan';
 
 export type Rejection = { code: RejectionCode; message: string };
 
