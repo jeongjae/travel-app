@@ -1,59 +1,52 @@
-# Codex 역할 세션 인계 · 2026-11-13
+# Codex 역할 세션 인계 · 2026-11-18
 
-Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다. 11/11 인계([history](history/codex-session-handoff-2026-11-11.md))를 대체한다. 현재 상태는 [handoff.md](handoff.md), 결정은 [decisions.md](decisions.md), 열린 항목은 [change-log.md](change-log.md) CL 표.
+Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다. 11/13 인계([history](history/codex-session-handoff-2026-11-13.md))를 대체한다. 현재 상태는 [handoff.md](handoff.md), 결정은 [decisions.md](decisions.md) 맨 위부터.
 
-## 1. 역할 (사용자 지시 11/09: Claude 대화 세션이 Codex 역할을 대신한다)
+## 1. 역할
 
-- **Codex 역할 세션**: 작업 지시서 작성, Claude 결과 독립 검토(검토서 `docs/claude-task-<id>-review.md`), 결정 기록, change-log·handoff 관리, **main 병합·push·Pages 확인·PC main 참조 갱신**, Worker 배포 관문 판정. 결함은 직접 고치지 않고 수정 지시(R1…)로 돌린다. 문서·CI 설정은 직접 고친다.
-- **Claude Code(사용자 PC)**: 구현·시험·스크린샷·결과 문서, `codex/<id>` 브랜치 push, `wrangler deploy`(로그인된 PC에서만).
-- **사용자**: 결정, 관문 알림, 비밀값 입력, 동의 단추 클릭, 확인 완료.
-- 확인 상태는 `검토 준비 / 확인 대기 / 수정 요청 / 확인 완료`. 시험 통과·무응답은 확인 완료가 아니다. **결정은 `decisions.md`에 기록돼야 유효**(Claude 세션에서 사용자가 직접 답한 결정도 사후 기록).
-- **11/12 예외(11/13 확정: 그 1건만, 임시)**: 사용자가 실제 호출 시험 중 드러난 미비 1건을 Claude가 직접 고치도록 했고 검토 전 브랜치 배포도 승인했다. 이후 기준은 "멈춤 보고 → Codex 수정 지시"다.
-- 토큰 절약: 결과 문서 요약 → 데이터 경계 diff → 위험 diff → CI로 안 잡히는 것만 독립 검사. 시험 재실행은 보통 하지 않고 코드·시험 단언을 정독한다.
+- **Codex 역할 세션(Claude 대화 세션)**: 지시서 작성, Claude Code 결과 독립 검토(`docs/claude-task-<id>-review.md`), 결정 기록, handoff 관리, **main 병합·push·CI/Pages 확인·PC main 참조 갱신**. git 명령은 이 세션이 직접 한다.
+- **Claude Code(사용자 PC, Sonnet)**: 구현·시험·캡처·결과 문서, `codex/<id>` 브랜치 push.
+- **사용자**: 결정, Claude Code에 전달, 화면 확인. 완료 보고를 이 대화에 붙여 넣는다.
+- 앱 결함은 Codex가 고치지 않고 수정 지시(R)로 돌린다. 문서·CI 설정은 직접 고친다.
+- 확인 상태 `검토 준비 / 확인 대기 / 수정 요청 / 확인 완료`. "통과" 한마디는 세부를 "보고 없음"으로 적는다. 제안·가정을 사용자 합의로 적지 않는다.
+- 응답: `[상태] → [적용한 변경] → [다음 행동]`, 사실·해석·미확인 구분, 간단명료, 기술 용어에 짧은 풀이, Claude Code 전달 문구를 코드 블록으로 준다.
 
 ## 2. 한 사이클
 
-1. 지시서 `docs/claude-task-<id>-<name>.md` 작성 → main 커밋·push. 사용자가 Claude Code에 한 줄로 전달(전달 문구를 함께 준다).
-2. Claude 완료 보고(사용자가 붙여 넣음) → `git fetch` → `git diff origin/main...<head> --stat -- src/contracts src/storage src/transfer src/repository.ts` = **0건** → `gh run list -b <branch>`로 CI → 위험 파일 정독.
-3. 검토서 작성(판정 통과/조건부/반려). 조건부면 R 지시 → Claude → 확인 절 추가.
-4. 통과: `decisions.md`·`change-log.md`(CL 표 + 처리 이력 1줄)·`handoff.md`(50줄·2,500자, 이전본 `docs/history/`) 갱신 → 브랜치에 push → main fast-forward(브랜치가 뒤면 먼저 main을 브랜치에 병합) → push → `travel-app checks`·`Publish travel-app to GitHub Pages` 성공 확인 → PC `git fetch; git branch -f main origin/main`.
-5. 상태 기록은 프로젝트 문서(`claude/status-review-…`)에도 남긴다.
-6. main push 1회마다 CI·Pages가 약 15분씩 돈다. 작은 문서 기록은 다음 검토 커밋에 모은다.
+1. 지시서를 main에 push → 전달 문구 제공.
+2. 보고를 받으면: `git fetch -q --depth=200 origin +refs/heads/X:refs/remotes/origin/X` → 데이터 경계 diff(`src/contracts`·`src/storage`·`src/transfer`·`src/repository.ts`) **0건** → 변경 범위 → `gh run list --branch X`로 CI → 위험한 diff 정독 → 캡처가 있으면 본다.
+3. 검토 절 작성(통과/조건부). 조건부면 R 지시.
+4. 통과: main을 브랜치에 병합 → 브랜치 push → main fast-forward → `decisions.md`(맨 위에 `## 날짜 시각 · 제목`)·`handoff.md`(**50줄·2,500자**, `wc -lm`) → push → CI·Pages 확인(각 약 15분, 30초 간격 `gh run list` 반복이 `gh run watch`보다 안정적) → PC `git fetch; git branch -f main origin/main`.
+5. 프로젝트 문서 `claude/status-review-YYYY-MM-DD-HHMM.md`에 상태를 남긴다(사실/해석/미확인/다음 행동). 지시서 사본도 `claude/`에 올린다.
 
 ## 3. 환경과 함정
 
 | 항목 | 내용 |
 |---|---|
-| 권한 | 세션 시작 시 **GitHub push**(`add_repo jeongjae/travel-app push` → `git clone --depth 1` → `register_repo_root`), **PC 폴더 연결**(`device_request_folder_access` — 연결돼 있지 않을 수 있다), **PC 삭제 권한**(`device_request_delete_permission` — 날이 바뀌면 다시 요청해야 했다). 사용자 지시: 부족한 권한은 승인 요청한다 |
-| 클라우드 클론 | 얕은 클론. 브랜치는 `git fetch --depth=150 origin +refs/heads/X:refs/remotes/origin/X`. 커밋은 `-c user.name="Jason-jeongjae" -c user.email="jeongjae.kim@bankwareglobal.com"` + 세션 attribution 줄 |
-| PC git | `$HOME/mnt/travel-app`. fetch가 `.git/objects/*/tmp_obj_*`·`maintenance.lock`을 남기면 삭제 권한 뒤 `find … -delete`·`rm -f`. 작업 트리·stash는 건드리지 않는다 |
-| 프록시 | `github.io`·저장소 변수 API 접근 불가. Pages 번들 확인은 Claude Code가 한다 |
-| CI | `travel-app checks` 1 job이 check·check:pilot·test:e2e 순차 실행. Pages 워크플로가 경쟁 조건으로 1회 실패하면 `gh run rerun --failed` |
-| PC 로컬 check | Windows에서 Node 서버 시험 간헐 실패(CL-36). CI 통과면 판정에 영향 없음 |
-| Worker 운영 | `https://travel-app-ai.jeongjae-kim.workers.dev`, 버전 `c5bc2d69…`(롤백 `b3720c46…`). `--env production` 필수. DAILY_LIMIT 20, 월 $10 하드 리밋, preview URL 끔 |
-| `wrangler tail` | `Ok`는 "잡히지 않은 예외 없음"일 뿐 200이 아니다(401·400·409도 Ok). 성공 여부는 화면이 증거 |
-| 실제 호출 | 사용자가 동의 단추를 직접 누른다. 가상 여행은 검토 공간 `?workspace=content&review=<이름>`. 실제 패키지·백업은 `local-data/`(gitignore), 본문·사진은 어디에도 기록하지 않음 |
-| 문서 | 저장소 안은 LF. `handoff.md`는 Python으로 고친 뒤 `wc -lm`으로 50줄·2,500자 확인 |
-| 사용자 선호 | 설명은 간단명료, 기술 용어에 짧은 풀이, 불명확하면 먼저 질문. iPhone 점검은 Chrome 기준 |
+| 세션 시작 | `add_repo jeongjae/travel-app`(push) → `/home/claude/travel-app`에 얕은 클론 → `register_repo_root`. PC 폴더 `C:\Users\NB-24021500\Projects\travel-app` 연결 요청(`device_bash` 경로 `$HOME/mnt/travel-app`) |
+| 커밋 | `-c user.name="Jason-jeongjae" -c user.email="jeongjae.kim@bankwareglobal.com"`, 메시지 끝에 세션 attribution 두 줄. push는 `git -c push.negotiate=true push origin HEAD:main` |
+| PC git | fetch가 `.git/objects/maintenance.lock`을 남긴다. 삭제 권한 없이 `mv … .git/stale-…`로 치운다. 체크아웃된 브랜치가 main이면 `branch -f` 불가. 작업 트리는 건드리지 않는다 |
+| 접근 불가 | `github.io`(배포 화면). 배포는 워크플로 성공까지만 확인하고 그렇게 적는다 |
+| CI | `travel-app checks` 한 job(check → check:pilot → 전체 E2E). 11/18부터 chromium + **webkit** 설치. Claude의 PC 로컬 vitest 흔들림(서버 시험)은 CI에서 재현되지 않는다 |
+| 자동 시험의 한계 | Playwright는 실기기 iPhone Safari의 날짜 입력 폭을 재현하지 못했다(R2-3 통과 → 실기기 겹침). iPhone 화면은 사용자 확인이 기준 |
+| 문서 | LF. 파이썬으로 고치고 치환이 실제로 됐는지 확인한다 |
+| 금지 | 실제 여행 데이터·백업·비밀값 커밋, 기존 여행 삭제, PC 평소 공간 DB·"Clear site data" |
 
-## 4. 현재 진행 (11/13 10:30)
+## 4. 현재 진행 (11/18 14:30)
 
 | 항목 | 상태 | 다음 |
 |---|---|---|
-| T-D5 C1(두 번째 패스키·작업 목록·officialUrl·관측) | 검토 통과·병합·배포 | — |
-| T-D5 C2 iPhone 실기기 | G-D·G-P·G-B 통과, U1~U6 사용자 통과 보고 | U3·U4 기록 처리·U5 만료는 보고 없음 → 근거표에서 미검증 |
-| T-D5 C3 실제 여행 호출 | **마감(사용자 11/12)**: 4회·$0.15, 실패 1(형식) | 미보고: 미리보기 항목 수, 1회차 거절, 2단계 원복(추가 항목 삭제), 작업 상태, `d05-real` 삭제 |
-| 수정 `a3fcac5`(형식 실패 재작성) | Codex 사후 검토 통과, main 병합, 운영 배포 | 운영에서 재작성 경로가 실제로 돈 사례 없음 |
-| **11/13 iPhone 시험 결과** | 사용자가 Claude Code에 전달함. **저장소에는 아직 없다**(브랜치 최신 `d78c0b7` 11/12 16:28) | Claude 보고·push를 받아 검토. 코드 수정이 들어오면 §1 예외 규칙으로 사후 검토 |
-| T-D5 C4 종료 근거표 | 미작성(`docs/d-phase-closeout.md` 없음) | [C2~C4 지시](claude-task-d05-c2-iphone.md) §4 → Codex 검토 → 사용자 G3 |
-| U4 사용자 재수행 | 대기(10월부터 이월) | CL-20·REG-02 종결 |
-| CL-39 AI 방식 개편 | D 단계 뒤 | 입력: CL-42·43·44·45. 그 전까지 AI 기능 확장 동결 |
+| AI 개편 T-E1(새 여행 가져오기) | 확인 완료(G-E1 11/17) | — |
+| T-P1(가이드 고르기) | 기능 확인 완료. R2 병합. 사용자: 단추 높이 OK, **U-3 숫자·U-4 길이는 확인 대기** | 사용자 확인 |
+| T-P1 R3(iPhone 날짜 칸 겹침) | R3-1 `efc700a` 병합. **사용자 iPhone 확인 완료**(11/18 15:51), 한 줄 유지 확정 | — |
+| T-E2 E2-A(기존 여행 고치기) | A1 통과([검토](claude-task-e02-review.md)). A3 push(`687fe1f`), A2 WIP, A4 남음 — **Claude 진행 중, Codex는 A3 이후를 아직 읽지 않았다** | 완료 보고 → 검토(변경 계산·적용이 핵심) → 병합 → G-E2A |
+| T-E2 E2-B(장소) | 지시서에 있음, 미착수 | E2-A 뒤 |
+| 이월 | U4 대본 v2 재수행(CL-20·REG-02), CL-46, Node 서버 정리, T-E3, P2 | [change-log](change-log.md) |
 
-**사용자 확인 대기 4건은 11/13 14:59 답으로 정리**([결정](decisions.md)): ① 직접 수정은 11/12 1건만 ② Codex 판단 2건 동의 ③ iPhone 평소 공간의 2단계 추가 항목은 남아 있음(둘지 지울지 미정) ④ PC "계획 2" 표기는 G3 때 화면 확인.
+E2-A 검토 때 볼 것: [지시서](claude-task-e02-update-import.md) "A1 검토 뒤 보완" 5건, 완료 조건 표(AC), 빈 칸=변경 없음·`(비움)`=지움, 삭제는 삭제 구역만, 오래된 기준 차단, `ChangePlan` 1회, 실패 시 불변. Claude 보고(11/18): `CreateTrip`·`ImportNewTrip`을 뺀 거의 모든 저장이 `domainRevision`을 올린다(예외 `SaveProposal`·거절) — 복사 뒤 다른 저장이 있으면 붙여넣기가 막힌다는 점을 사용자에게 알렸다.
 
-## 5. 최근 판단 요약 (근거는 각 검토서)
+## 5. 최근 판단 요약
 
-- T-D1~T-D4(11/6~11): [11/11 인계](history/codex-session-handoff-2026-11-11.md) §5.
-- T-D5 C1(11/11): 통과. 재인증 없는 패스키 추가·삭제는 수용(CL-40). 운영 DO 열 추가·iPhone QR 패스키·iOS 교차 출처 로그인은 실기기에서 확인됨.
-- T-D5 C3(11/12): 실제 응답이 형식 검사에서 실패했는데 원인이 남지 않았다 → 위치 코드만 남기는 재작성으로 수정. 품질 불만(길이 0·겹침, 장소 없는 활동 미조사)은 고치지 않고 개편 입력으로 넘김.
-- 교훈: 사용자 단계는 "통과" 한마디로 끝나기 쉽다. 관문(G)에 필요한 값만 2~3개 물어 확정하고, 나머지는 "보고 없음"으로 적어 통과로 쓰지 않는다. 실제 비용 단계에서는 사용자가 속도를 위해 순서를 바꿀 수 있으니, 사후 검토와 main-운영 일치를 Codex가 챙긴다.
+- 양식은 md 표, 앱이 AI 없이 읽는다(E0 시험). 새 여행에는 장소를 한 번에 못 넣어 메모 앞 `[장소: 이름]`으로 보존, 장소 생성은 E2-B.
+- T-E2 사용자 확정(11/17~18): E2-A 먼저 / 내보낼 때 `[장소: X]`를 장소 칸으로 / 숙소 표 지역·예약 칸 비움 / 예약 메모 기본 제외 / 40,000자 넘으면 날짜 범위 권함.
+- 교훈: ① 지시서의 규칙이 틀릴 수 있다(T-P1 "비슷한 항목") — 실제 자료로 확인한다 ② Claude가 "관련 E2E만" 돌렸다고 하면 CI 전체 결과를 반드시 본다(R3) ③ 새 시험 프로젝트를 추가하면 CI 설치 단계도 함께 본다.

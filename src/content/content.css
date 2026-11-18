@@ -717,19 +717,29 @@ dialog th {
   }
 }
 
-/* 시작·종료 날짜: 한 줄에 나란히, 칸은 내용 폭으로 */
+/* 시작·종료 날짜: 칸 폭을 나눠 갖고 줄어들며 한 줄을 유지한다(약 340px 이하에서만 두 줄). iOS의 날짜 입력은 고유 최소 폭이 있어 줄어들게 한다 */
 .date-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 11rem));
   gap: 0.75rem;
 }
-.date-row label {
-  margin-bottom: 0.75rem;
-}
 @media (max-width: 340px) {
   .date-row {
-    grid-template-columns: minmax(0, 11rem);
+    grid-template-columns: minmax(0, 1fr);
   }
+}
+.date-row label {
+  min-width: 0;
+  margin-bottom: 0.75rem;
+}
+.date-row input[type='date'] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  font-size: 1rem;
 }
 
 /* 고르는 화면: 요약·종류 칩은 스크롤해도 위에 붙는다 */
