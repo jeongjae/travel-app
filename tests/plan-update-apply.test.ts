@@ -182,6 +182,49 @@ describe('내보내기 → 수정 → 적용 (실제 저장소)', () => {
   });
 });
 
+describe('시간순 자리 (R1, 실제 저장소)', () => {
+  it('끼워 넣은 활동이 시간순 자리에 저장되고 기존 활동의 순서·내용은 그대로다', async () => {
+    const { repo, tripId } = await savedTrip();
+    const before = await latest(repo, tripId);
+    const dayId = before.plan.days[0].dayId;
+    const day = before.plan.days[0];
+    const sorted = before.plan.items.filter((item) => item.dayId === dayId).sort((a, b) => a.order - b.order);
+    const start = sorted[0].time.start;
+    const clock = start?.precision === 'local' ? start.localTime.slice(0, 5) : '09:00';
+    const text = partialUpdate(exportPlan({ header: before.header, plan: before.plan }).text, {
+      days: [{ heading: day.date, rows: [`|  | ${clock} | 끼운 활동 | 기타 |  |  |  |  |`] }],
+    });
+    const current = { header: before.header, plan: before.plan };
+    const result = ready(computeUpdate(check(text), current));
+    const picked = buildSelection(result, new Set(result.changes.map((change) => change.key)), current);
+    if (!picked.ok) {
+      throw new Error(picked.problems.join(' '));
+    }
+    await repo.execute(
+      envelope(
+        tripId,
+        'ChangePlan',
+        { currentPlanVersionId: before.plan.planVersionId, operations: picked.operations, reason: picked.reason },
+        before.header.domainRevision,
+      ),
+    );
+    const after = await latest(repo, tripId);
+    const titles = after.plan.items
+      .filter((item) => item.dayId === dayId)
+      .sort((a, b) => a.order - b.order)
+      .map((item) => item.title);
+    expect(titles).toEqual([sorted[0].title, '끼운 활동', ...sorted.slice(1).map((item) => item.title)]);
+    expect(after.trip.plans).toHaveLength(before.trip.plans.length + 1);
+    expect(after.plan.reason).toBe('AI 결과 붙여넣기: 수정 0·추가 1·삭제 0');
+    const unchanged = (items: typeof after.plan.items) =>
+      items
+        .filter((item) => item.title !== '끼운 활동')
+        .map(({ planVersionId: _version, order: _order, ...item }) => item)
+        .sort((a, b) => a.activityId.localeCompare(b.activityId));
+    expect(unchanged(after.plan.items)).toEqual(unchanged(before.plan.items));
+  });
+});
+
 describe('어떤 저장이 domainRevision을 올리는가 (E2 보완 5 조사)', () => {
   it('계획 수정·메모·여행 정보 수정은 올리고, 읽기와 다른 여행의 저장은 올리지 않는다', async () => {
     const { repo, tripId } = await savedTrip();

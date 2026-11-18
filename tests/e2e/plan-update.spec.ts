@@ -159,6 +159,30 @@ test('일부만 골라 적용하고, 삭제는 확인해야 적용할 수 있다
   await expect(page.getByText('계획을 고쳤습니다. 수정 1·추가 0·삭제 0')).toBeVisible();
 });
 
+test('새 활동은 그날 맨 끝이 아니라 시간순 자리에 보인다', async ({ page }) => {
+  await page.goto('/?workspace=content');
+  await importTrip(page, T1, T1_NAME);
+  const text = await exportedText(page);
+  const [first, second] = rowsOf(text).map((line) => line.split(' | '));
+  const clock = first[1].split('-')[0];
+  const edited = text
+    .split('\n')
+    .flatMap((line) =>
+      line === rowsOf(text)[0] ? [line, `|  | ${clock} | 시간순 새 활동 | 기타 |  |  |  |  |`] : [line],
+    )
+    .join('\n');
+  await pasteUpdate(page, edited);
+  await expect(page.getByText('그날 마지막에 들어갑니다.').or(page.getByText('앞에 들어갑니다.'))).toBeVisible();
+  await expect(page.getByTestId('order-shifted')).toContainText('순서 조정');
+  await page.getByRole('button', { name: /^고른 1건 적용/ }).click();
+  await expect(page.getByText('계획을 고쳤습니다. 수정 0·추가 1·삭제 0')).toBeVisible();
+  await page.getByRole('button', { name: '오늘', exact: true }).first().click();
+  const titles = page.locator('.day-timeline h3');
+  await expect(titles.nth(0)).toHaveText(first[2]);
+  await expect(titles.nth(1)).toHaveText('시간순 새 활동');
+  await expect(titles.nth(2)).toHaveText(second[2]);
+});
+
 test('삭제는 확인 칸을 체크해야 적용되고, 적용하면 그 활동이 사라진다', async ({ page }) => {
   await page.goto('/?workspace=content');
   await importTrip(page, T1, T1_NAME);

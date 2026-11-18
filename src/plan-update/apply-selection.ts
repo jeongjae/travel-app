@@ -1,4 +1,5 @@
 import { planItemSchema, planStaySchema } from '../contracts/v2';
+import { placeInOrder } from './place-in-order';
 import type { ChangeEntry, CurrentTrip, SelectionResult, UpdateOperation, UpdateResult } from './update-types';
 
 type ReadyResult = Extract<UpdateResult, { status: 'ready' }>;
@@ -80,9 +81,12 @@ export function buildSelection(
   }
   const count = (kinds: ChangeEntry['kind'][]) => entries.filter((entry) => kinds.includes(entry.kind)).length;
   const counts = { edit: count(['edit', 'move']), add: count(['add']), remove: count(['delete']) };
+  const ordered = placeInOrder(entries, current);
   return {
     ok: true,
-    operations: entries.map((entry) => entry.operation),
+    operations: ordered.operations,
+    shifted: ordered.shifted,
+    placements: ordered.placements,
     counts,
     reason: `AI 결과 붙여넣기: 수정 ${counts.edit}·추가 ${counts.add}·삭제 ${counts.remove}`,
   };

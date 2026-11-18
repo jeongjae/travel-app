@@ -24,11 +24,13 @@ function ChangeItem({
   checked,
   onToggle,
   disabled,
+  placement,
 }: {
   entry: ChangeEntry;
   checked: boolean;
   onToggle: () => void;
   disabled: boolean;
+  placement?: string;
 }) {
   return (
     <li>
@@ -49,6 +51,7 @@ function ChangeItem({
           ))}
         </ul>
       ) : null}
+      {placement ? <p className="muted">{placement}</p> : null}
       {entry.notes.map((note) => (
         <p key={note} className="muted">
           {note}
@@ -58,6 +61,10 @@ function ChangeItem({
   );
 }
 
+function checked(entry: ChangeEntry, selected: ReadonlySet<string>) {
+  return selected.has(entry.key);
+}
+
 type GroupProps = {
   title: string;
   entries: ChangeEntry[];
@@ -65,9 +72,10 @@ type GroupProps = {
   toggle: (key: string) => void;
   disabled: boolean;
   note?: string;
+  placements: ReadonlyMap<string, string>;
 };
 
-function Group({ title, entries, selected, toggle, disabled, note }: GroupProps) {
+function Group({ title, entries, selected, toggle, disabled, note, placements }: GroupProps) {
   if (entries.length === 0) {
     return null;
   }
@@ -85,6 +93,7 @@ function Group({ title, entries, selected, toggle, disabled, note }: GroupProps)
             checked={selected.has(entry.key)}
             onToggle={() => toggle(entry.key)}
             disabled={disabled}
+            placement={checked(entry, selected) ? placements.get(entry.key) : undefined}
           />
         ))}
       </ul>
@@ -144,6 +153,12 @@ function ReadyView({ repo, result, current, droppedConfirmed, onApplied }: Props
     }
   }
 
+  const placementText = new Map<string, string>(
+    (picked.ok ? picked.placements : []).map((placement) => [
+      placement.key,
+      placement.beforeTitle ? `"${placement.beforeTitle}" 앞에 들어갑니다.` : '그날 마지막에 들어갑니다.',
+    ]),
+  );
   const groupOf = (kinds: ChangeEntry['kind'][]) => result.changes.filter((change) => kinds.includes(change.kind));
   const canApply = picked.ok && (deleteCount === 0 || confirmDelete) && droppedConfirmed && !busy;
   const nothing = result.changes.length + result.skipped.length === 0;
@@ -157,15 +172,37 @@ function ReadyView({ repo, result, current, droppedConfirmed, onApplied }: Props
         <p className="muted">범위 내보내기: 날짜 범위만 내보낸 글입니다. 범위 밖 계획은 그대로 둡니다.</p>
       ) : null}
       {nothing ? <p role="status">바뀐 곳이 없습니다.</p> : null}
-      <Group title="추가" entries={groupOf(['add'])} selected={selected} toggle={toggle} disabled={busy} />
-      <Group title="수정" entries={groupOf(['edit', 'move'])} selected={selected} toggle={toggle} disabled={busy} />
-      <Group title="삭제" entries={groupOf(['delete'])} selected={selected} toggle={toggle} disabled={busy} />
+      <Group
+        title="추가"
+        entries={groupOf(['add'])}
+        selected={selected}
+        toggle={toggle}
+        disabled={busy}
+        placements={placementText}
+      />
+      <Group
+        title="수정"
+        entries={groupOf(['edit', 'move'])}
+        selected={selected}
+        toggle={toggle}
+        disabled={busy}
+        placements={placementText}
+      />
+      <Group
+        title="삭제"
+        entries={groupOf(['delete'])}
+        selected={selected}
+        toggle={toggle}
+        disabled={busy}
+        placements={placementText}
+      />
       <Group
         title="건너뜀 후보"
         entries={result.skipped}
         selected={selected}
         toggle={toggle}
         disabled={busy}
+        placements={placementText}
         note="이미 있는 항목과 같아 보이는 새 줄입니다. 기본은 넣지 않습니다. 넣으려면 체크하세요."
       />
       {result.errors.length > 0 ? (
@@ -209,6 +246,11 @@ function ReadyView({ repo, result, current, droppedConfirmed, onApplied }: Props
           ))}
         </ul>
       ) : null}
+      {picked.ok && picked.shifted > 0 ? (
+        <p className="muted" data-testid="order-shifted">
+          순서 조정 {picked.shifted}건(기존 활동의 내용은 바뀌지 않습니다)
+        </p>
+      ) : null}
       {deleteCount > 0 ? (
         <label>
           <input type="checkbox" checked={confirmDelete} onChange={(event) => setConfirmDelete(event.target.checked)} />
@@ -218,7 +260,7 @@ function ReadyView({ repo, result, current, droppedConfirmed, onApplied }: Props
       <div className="button-row prep-actions">
         <button type="button" className="primary" disabled={!canApply} onClick={() => void apply()}>
           {picked.ok
-            ? `고른 ${picked.operations.length}건 적용 (수정 ${picked.counts.edit}·추가 ${picked.counts.add}·삭제 ${picked.counts.remove})`
+            ? `고른 ${picked.counts.edit + picked.counts.add + picked.counts.remove}건 적용 (수정 ${picked.counts.edit}·추가 ${picked.counts.add}·삭제 ${picked.counts.remove})`
             : '적용'}
         </button>
       </div>

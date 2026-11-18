@@ -105,3 +105,26 @@
 - 수정 뒤 재실행: `plan-paste`·`c06-integration`·`plan-update`(desktop+mobile 12건 통과, plan-update 10건 통과), `c06-integration`·`retrospective`(desktop 6건 통과).
 - **미실행**: 수정 뒤의 전체 `test:e2e` 2차 재실행은 시스템 메모리 부족으로 백그라운드 작업이 중단되어 끝내지 못했다. `retrospective` mobile은 수정 뒤 재실행하지 않았다. 다시 돌리려면 `pnpm run build && pnpm run test:e2e`.
 - 고친 기존 시험 전체: `plan-update-export.test.ts`, `plan-import-preview.test.ts`, `c06-integration.spec.ts`, `retrospective.spec.ts`.
+
+---
+
+## R1 — 추가·날짜 이동 활동을 시간순 자리에 넣기 (브랜치 `codex/e02a-r1-order`, main `a1d3439` 기준)
+
+### 구현 (지시 1~4, 6)
+
+- `src/plan-update/place-in-order.ts`(새): `buildSelection`이 **고른 뒤** 자리를 정한다. 기존 활동끼리의 순서는 그대로 두고, 시작 시각(날짜 포함)이 있는 끼우는 활동은 "자기보다 시작 시각이 늦은 첫 기존 활동" 바로 앞(같은 시각이면 기존 활동 뒤)에 들어간다. 늦은 활동이 없거나 시간 미정이면 맨 끝. 시간 미정인 기존 활동은 비교에서 건너뛴다. 같은 자리 여럿은 시작 시각순, 같으면 글의 줄 순서.
+- `order` 번호: 기존 번호를 최대한 유지하고, 겹칠 때만 뒤의 기존 활동 번호를 민다. 번호만 바뀌는 기존 활동은 `upsert-item`으로 더하고, 같은 글에서 수정도 고른 활동이면 연산 하나로 합친다(입력 연산은 복제해 바꾸지 않음). `ChangePlan` 1회 그대로.
+- `SelectionResult`에 `shifted`(번호만 밀린 활동 수)·`placements`(끼우는 항목의 "앞에 들어갈 활동") 추가. 수정 수·적용 사유에는 들어가지 않는다.
+- `UpdatePreview.tsx`: 끼우는 항목 아래에 `"○○" 앞에 들어갑니다.` / `그날 마지막에 들어갑니다.`, 적용 단추 근처에 `순서 조정 n건(기존 활동의 내용은 바뀌지 않습니다)`. 적용 단추 문구의 "고른 n건"은 연산 수가 아니라 고른 변경 수(수정+추가+삭제)로 바꿨다.
+- 바꾸지 않은 것: 내보내기→그대로 가져오기 변경 0건(기존 시험 통과), 제자리 수정의 순서, 이동(leg)·숙소, 재검사.
+- **지시 5(시간 칸만 바뀐 기존 활동을 시간순으로 옮길지)는 사용자 확인 대기라 구현하지 않았다.**
+
+### 시험
+
+- 단위 `tests/plan-update-order.test.ts` 10건: 가운데 끼우기 / 맨 끝 / 시간 미정 / 같은 날 여럿 / 시간순 아닌 기존 날짜의 기존 순서 보존 / 일부만 고르기 / 추가+삭제 / 날짜 이동 / 번호가 밀린 활동을 같은 글에서 수정(연산 1개) / 입력 연산 불변·제자리 수정 불변.
+- 실제 저장소 `tests/plan-update-apply.test.ts` 1건 추가(적용 뒤 순서, 기존 활동 내용 불변, 계획 버전 +1).
+- E2E `tests/e2e/plan-update.spec.ts` 1건 추가(desktop·mobile): 첫 활동과 같은 시각의 활동을 추가해 적용하면 일정 화면에서 첫 활동 바로 다음에 보인다.
+- 고친 기존 시험: 없음.
+- `pnpm run check`: 통과(vitest 729건).
+- 전체 `pnpm run build` 뒤 `pnpm run test:e2e`: **262 통과·7 건너뜀·실패 0**(desktop·mobile·webkit-iphone, 16.1분).
+- 미검증: 실제 챗봇 왕복, iPhone 실기기, 사용자 화면 확인(상태: 검토 준비). 데이터 경계(`src/contracts`·`src/storage`·`src/transfer`·`src/repository.ts`) 변경 0건.
