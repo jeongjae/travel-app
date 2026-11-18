@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-18 · **AI 개편 T-E1 확인 완료 / T-P1 R3-1 병합(11/18) → iPhone 날짜 칸·U-3·U-4 확인 대기 / T-E2 E2-A: A1 통과(11/18), A2~A4 진행**
+2026-11-18 · **AI 개편 T-E1 확인 완료 / T-P1 날짜 칸 확인 완료(11/18), U-3·U-4 확인 대기 / T-E2 E2-A: A1 통과(11/18), A2~A4 진행**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. 사용자: iPhone에서 날짜 칸 확인([R3-1 확인](claude-task-p01-review.md): 겹침·빈 칸·고르기), U-3·U-4 확인.
+1. 사용자: T-P1 U-3(숫자 표기)·U-4(화면 길이) 확인([검토](claude-task-p01-review.md)). 날짜 칸은 확인 완료·한 줄 유지.
 2. Claude: [T-E2](claude-task-e02-update-import.md) E2-A A2~A4(`codex/e02a-update-import`) → Codex [검토](claude-task-e02-review.md)·병합 → G-E2A. 그다음 E2-B.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
