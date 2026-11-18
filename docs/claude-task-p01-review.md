@@ -138,3 +138,25 @@ PC에서 날짜 칸이 어떤지는 보고 없음.
 - 범위: `content.css`(필요하면 `PlanBrief.tsx`의 class만). 다른 화면의 날짜 입력은 건드리지 않는다. 데이터 경계 0건.
 - 시험: Playwright의 WebKit(iPhone 기기 설정)로 두 입력 칸의 사각형이 서로 겹치지 않고 대화상자 폭을 넘지 않는지 확인하는 E2E 1건. WebKit 프로젝트가 없어 추가가 크면 멈추고 보고한다. WebKit 캡처 1장을 결과 문서에 붙인다.
 - 브랜치: `codex/p01-r3-date`(origin/main 기준). E2-A 브랜치와 섞지 않는다.
+
+## R3 확인 (2026-11-18 14:30) — **조건부, 병합 보류 → R3-1**
+
+대상 `codex/p01-r3-date` `86ff719` + Codex의 CI 설정 커밋 `c170fce`(CI가 WebKit을 설치하지 않아 새 시험이 실행 파일 없음으로 실패 → `checks.yml`·`browser:install`에 webkit 추가).
+
+| 확인 | 결과 |
+|---|---|
+| 데이터 경계 4경로 diff | 0건 |
+| 바뀐 코드 | `content.css`의 `.date-row`, `playwright.config.ts`(webkit-iphone 프로젝트), 새 시험 1개 |
+| CI(`c170fce`) | **실패 1건**: `guide-select.spec.ts` R2-3(mobile 390px) "날짜 두 칸이 한 줄" — 두 칸의 세로 차이 104px. WebKit 시험 3건과 나머지는 통과 |
+
+판정 근거:
+
+- R3 뒤에는 390px(대부분의 iPhone 폭)에서 날짜가 **두 줄**이 된다(Claude 캡처도 두 줄). R3 지시는 "들어가지 않는 폭에서만 두 줄"이었고 390px는 두 칸이 들어가야 하는 폭이다. 기존 시험 R2-3이 이것을 잡았다 — Claude는 전체 E2E를 돌리지 않았다.
+- 새 WebKit 시험은 수정 전 CSS에서도 통과한다(Claude 보고). 실기기 겹침을 재현하지 못하는 회귀 방지용이다.
+
+### 수정 지시 R3-1
+
+1. 390px·360px에서 날짜 두 칸이 **한 줄**이고 겹치지 않게 한다. 두 칸이 칸 폭을 나눠 갖고 줄어들 수 있게 한다(예: `grid-template-columns: repeat(2, minmax(0, 11rem))` 유지 + R3에서 넣은 input의 `min-width: 0`·`width: 100%`·`appearance: none`). 두 줄은 아주 좁은 폭(약 340px 이하)에서만.
+2. 기존 R2-3 시험을 고치지 않고 통과시킨다. WebKit 시험에 "390·360px에서는 한 줄" 단언을 더한다.
+3. `guide-select`·`plan-brief`·`date-row-webkit` E2E를 desktop·mobile·webkit-iphone으로 돌린 결과를 적는다.
+4. 실기기에서 고쳐졌는지는 자동 시험으로 알 수 없다 — 사용자 iPhone 확인이 판정 기준이다. 병합 뒤에도 겹치면 "항상 두 줄"로 바꾸는 것을 사용자에게 묻는다.
