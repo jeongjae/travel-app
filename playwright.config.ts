@@ -29,8 +29,18 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:4173', trace: 'retain-on-failure' },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1504, height: 1040 } } },
-    { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } } },
+    {
+      name: 'desktop',
+      testIgnore: /-webkit\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1504, height: 1040 } },
+    },
+    {
+      name: 'mobile',
+      testIgnore: /-webkit\.spec\.ts/,
+      use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
+    },
+    // T-P1 R3: 실기기 iPhone의 날짜 입력 차이를 잡으려고 WebKit(iPhone 설정)으로만 도는 시험(*-webkit.spec.ts).
+    { name: 'webkit-iphone', testMatch: /-webkit\.spec\.ts/, use: { ...devices['iPhone 13'] } },
   ],
   // Opt in only after verifying that the listener belongs to this checkout's Vite preview.
   webServer: [

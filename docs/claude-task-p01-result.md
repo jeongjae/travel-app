@@ -171,3 +171,14 @@ PC(`desktop-*`)·iPhone 폭(`mobile-*`, Playwright mobile 프로젝트 뷰포트
 
 - iPhone 실기기(Safari의 날짜 입력·sticky·고정 폭)는 확인하지 않았다. 사용자 확인: 없음(수정 요청 → 확인 대기).
 - 전체 `test:e2e`는 돌리지 않았다(관련 3개 파일만).
+
+## R3 · iPhone 날짜 칸 겹침 (CSS만) — `codex/p01-r3-date`
+
+구분: **구현 / Claude 자체 검사 통과 / 실기기 미확인 / Codex 검토 대기 / 사용자 확인 없음.**
+
+- 고친 것: `src/content/content.css`의 `.date-row`만. 칸은 `repeat(auto-fit, minmax(min(100%, 9.5rem), 11rem))`로 두 칸이 안 들어가면 두 줄로 내려가고, `label`에 `min-width: 0`, `input[type=date]`에 `width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; appearance: none; font-size: 1rem(16px)`. 기존 `max-width: 340px` 규칙은 auto-fit으로 대체. 다른 화면의 날짜 입력·TSX는 바꾸지 않았다. 데이터 경계 4경로 diff 0건.
+- 시험: `tests/e2e/date-row-webkit.spec.ts`(390·360·320px, 3건) — 두 입력 칸이 서로 겹치지 않고 대화상자 폭을 넘지 않는지 사각형으로 확인. 통과.
+- 추가한 것: Playwright 프로젝트 `webkit-iphone`(iPhone 13 설정, `*-webkit.spec.ts`만 실행)과 기존 두 프로젝트의 `testIgnore`. WebKit 브라우저(60MB)는 `.cache/ms-playwright`에 설치했다(`node scripts/playwright.mjs`가 그 경로를 쓴다. 새 환경은 `PLAYWRIGHT_BROWSERS_PATH=.cache/ms-playwright pnpm exec playwright install webkit`).
+- 캡처: [iphone-webkit-390-date-row.png](p01-r3-screens/iphone-webkit-390-date-row.png) — 390px에서 두 칸이 위아래 두 줄로 놓인다.
+- **한계(중요)**: 수정 전 CSS로도 이 시험이 통과했다. Windows의 Playwright WebKit은 실기기 iOS Safari의 날짜 입력 고유 폭을 재현하지 못한다. 이 시험은 "겹치지 않는다"는 회귀 방지용이며 **실기기에서 고쳐졌다는 증거가 아니다.** iPhone 실기기 확인이 필요하다.
+- 미실행: 전체 `test:e2e`, iPhone 실기기.
