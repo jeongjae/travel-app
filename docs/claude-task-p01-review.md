@@ -120,3 +120,21 @@ Codex가 본 것(수정 지시 아님, 사용자 화면 확인에서 판단):
 
 미검증: 실기기 iPhone Safari(날짜 칸·sticky), 배포 화면 직접 확인(이 세션은 `github.io` 접근 불가), `PlanPaste.tsx`·CSS 전체 정독은 diff 범위만.
 
+## R2 사용자 화면 확인 (2026-11-18 12:09) — **1건 수정 요청, 1건 통과, 2건 확인 보류**
+
+| # | 사용자 보고 | 상태 |
+|---|---|---|
+| U-1 날짜 | "한 줄로 만들었는데 아이폰에서는 시작/종료 날짜 입력 칸 폭이 넓어서 서로 겹친다" | **수정 요청 → R3** |
+| U-2 단추 | "높이는 맞춘 것 같다" | 확인 완료(정렬·주요 단추 위치는 언급 없음) |
+| U-3 숫자 · U-4 길이 | "나중에 다시 확인해 주겠다" | 확인 대기 |
+
+PC에서 날짜 칸이 어떤지는 보고 없음.
+
+### 수정 지시 R3 (날짜 칸, CSS만)
+
+- 현상: 실기기 iPhone에서 `.date-row`의 두 날짜 입력 칸이 칸 폭을 넘어 서로 겹친다. R2-3 시험(Playwright mobile)은 통과했으므로 **시험이 실기기 차이를 잡지 못했다.**
+- Codex 추정(실기기 미확인): iOS Safari의 `input[type=date]`는 자체 최소 폭과 고유 모양이 있어 격자 칸 안에서 줄어들지 않는다. 지금 CSS에는 `.date-row`의 label·input에 `min-width: 0`·`width: 100%`·`box-sizing`·`-webkit-appearance` 지정이 없다.
+- 할 일: `.date-row label`과 그 안의 `input[type=date]`가 칸 폭을 넘지 않게 한다(예: label `min-width: 0`, input `width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; -webkit-appearance: none; appearance: none`, 필요하면 안쪽 여백·글자 크기 조정. 글자 크기는 16px 미만으로 내리지 않는다 — iOS가 화면을 확대한다). 그래도 두 칸이 들어가지 않는 폭에서는 겹치지 말고 **두 줄로 내린다**(지금 기준 340px를 올리거나 `auto-fit` 사용).
+- 범위: `content.css`(필요하면 `PlanBrief.tsx`의 class만). 다른 화면의 날짜 입력은 건드리지 않는다. 데이터 경계 0건.
+- 시험: Playwright의 WebKit(iPhone 기기 설정)로 두 입력 칸의 사각형이 서로 겹치지 않고 대화상자 폭을 넘지 않는지 확인하는 E2E 1건. WebKit 프로젝트가 없어 추가가 크면 멈추고 보고한다. WebKit 캡처 1장을 결과 문서에 붙인다.
+- 브랜치: `codex/p01-r3-date`(origin/main 기준). E2-A 브랜치와 섞지 않는다.

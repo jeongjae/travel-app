@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-18 · **AI 개편 T-E1 확인 완료 / T-P1 R2 병합(11/17), 화면 확인 대기 / T-E2 E2-A: A1 통과(11/18), A2~A4 진행**
+2026-11-18 · **AI 개편 T-E1 확인 완료 / T-P1 R2: 날짜 칸 R3 지시(11/18), U-3·U-4 확인 대기 / T-E2 E2-A: A1 통과(11/18), A2~A4 진행**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -18,11 +18,11 @@
 - CI: T-E1 브랜치 `d9293d4` 성공(전체 E2E 포함). 병합 뒤 main CI·Pages는 [결정](decisions.md) 최신 절 참고.
 - G3 사용자 확인: iPhone 1시간 만료 재로그인 OK, PC 평소 공간 불변.
 - 미검증인 채 종료(사용자 수용): C3 미리보기 수·1회차 거절·작업 상태·이전 버전 조회, 운영 재작성 경로·429, U3·U4 일부, CL-29, CL-32(CPU 미측정).
-- T-E1 미검증: iPhone 붙여넣기·파일 선택, 실제 챗봇 왕복, 저장 실패 화면(G-E1에서 확인). 변환기는 고정 자료 8개 통과.
+- T-E1 변환기는 고정 자료 8개 통과. 사용자 확인 G-E1 완료.
 
 ## 다음 작업·확인 관문
 
-1. 사용자: T-P1 [R2](claude-task-p01-review.md) 화면 확인(PC·iPhone, 4건).
+1. Claude: T-P1 [R3](claude-task-p01-review.md)(iPhone 날짜 칸 겹침) → Codex 검토·병합. 사용자: U-3·U-4 확인.
 2. Claude: [T-E2](claude-task-e02-update-import.md) E2-A A2~A4(`codex/e02a-update-import`) → Codex [검토](claude-task-e02-review.md)·병합 → G-E2A. 그다음 E2-B.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
