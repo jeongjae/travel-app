@@ -1,10 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { CheckedPlanFile } from '../src/plan-import';
-import { activityCellsOf, EXPORT_RULE_LINES, exportPlan, tableCell, timeCellOf } from '../src/plan-update';
+import { EXPORT_RULE_LINES, exportPlan, tableCell, timeCellOf } from '../src/plan-update';
 import { act, check, createdTrip, fixture, newPlan } from './plan-import-helpers';
-
-const NO_PLACES = new Map<string, string>();
+import { expectZeroChanges } from './plan-update-helpers';
 
 /** 새 여행 글 → 앱 안의 여행(가져오기 결과) → 내보내기 → 다시 읽기. */
 function roundTrip(text: string, options: Parameters<typeof exportPlan>[1] = {}) {
@@ -13,55 +12,19 @@ function roundTrip(text: string, options: Parameters<typeof exportPlan>[1] = {})
   return { created, exported, again: check(exported.text) };
 }
 
-/** 칸 값을 표를 거친 뒤의 모습(줄바꿈 공백, 앞뒤 공백 제거)으로 만든다. */
-function viaTable(value: string) {
-  return value.replace(/\r\n|\r|\n/g, ' ').trim();
-}
-
 /**
- * 변경 0건의 칸 단위 기준: 다시 읽은 모든 ID 줄의 칸이 그 항목에서 계산한 칸과 같고,
- * 삭제 줄이 없고, 오류·경고·빠진 표가 없다. (A3의 변경 계산이 만들어지면 그 결과가 0건인지로 바꿔 확인한다.)
+ * 변경 0건의 기준(AC-04): 다시 읽은 글을 A3의 변경 계산에 넣으면 변경·건너뜀·오류가 0건이고
+ * 모든 활동·숙소가 "변경 없음"이다. 머리 줄의 여행ID·기준계획·기준revision도 내부 값과 같아야 한다.
  */
 function expectNoCellChanges(
   created: ReturnType<typeof createdTrip>,
   again: CheckedPlanFile,
   includeReservation = false,
 ) {
-  const plan = created.initialPlan;
-  expect(again.kind).toBe('update');
-  expect(again.issues).toEqual([]);
-  expect(again.dropped).toEqual([]);
-  expect(again.deletions).toEqual([]);
   expect(again.header.tripId?.value).toBe(created.header.tripId);
-  expect(again.header.basePlanId?.value).toBe(plan.planVersionId);
+  expect(again.header.basePlanId?.value).toBe(created.initialPlan.planVersionId);
   expect(again.header.baseRevision?.value).toBe(String(created.header.domainRevision));
-  for (const day of plan.days) {
-    const items = plan.items.filter((item) => item.dayId === day.dayId).sort((a, b) => a.order - b.order);
-    const parsedDay = again.days.find((candidate) => candidate.date === day.date);
-    expect(parsedDay, `${day.date} 표`).toBeDefined();
-    expect(parsedDay!.rows.map((row) => row.id)).toEqual(items.map((item) => item.activityId));
-    items.forEach((item, index) => {
-      const { cells } = activityCellsOf(item, { date: day.date, placeNames: NO_PLACES, includeReservation });
-      const row = parsedDay!.rows[index];
-      expect({ ...row, line: 0, tableLine: 0, cleared: [], span: undefined, id: '' }).toEqual({
-        line: 0,
-        tableLine: 0,
-        cleared: [],
-        span: undefined,
-        id: '',
-        time: viaTable(cells.time),
-        title: viaTable(cells.title),
-        category: viaTable(cells.category),
-        place: viaTable(cells.place),
-        memo: viaTable(cells.memo),
-        reservation: viaTable(cells.reservation),
-        link: viaTable(cells.link),
-      });
-    });
-  }
-  expect(again.stays.map((stay) => [stay.id, stay.checkIn, stay.checkOut, stay.name])).toEqual(
-    plan.stays.map((stay) => [stay.stayId, stay.time.start.date, stay.time.end?.date, stay.baseText]),
-  );
+  expectZeroChanges(created, again, includeReservation);
 }
 
 describe('내보내기 규칙 글', () => {

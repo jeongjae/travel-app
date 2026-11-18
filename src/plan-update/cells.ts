@@ -98,11 +98,11 @@ export function timeCellOf(time: TimeRange, date: string): TimeCell {
   return { text: `${clock(from.minute)}-${clock(endMinute)}${overnight}` };
 }
 
-function joinText(parts: string[]) {
+export function joinText(parts: string[]) {
   return parts.filter((part) => part !== '').join(' ');
 }
 
-function linkedPlaceName(item: PlanItem, placeNames: ReadonlyMap<string, string>) {
+export function linkedPlaceName(item: PlanItem, placeNames: ReadonlyMap<string, string>) {
   const links = [...item.placeLinks].sort((a, b) => Number(b.relation === 'visit') - Number(a.relation === 'visit'));
   for (const link of links) {
     const name = placeNames.get(link.placeId);
@@ -162,4 +162,14 @@ export function tableCell(value: string): { text: string; changed: boolean } {
   const trimmed = flat.trim();
   const marked = trimmed === CLEAR_MARK ? `\\${CLEAR_MARK}` : trimmed;
   return { text: marked.replace(/\|/g, '\\|'), changed };
+}
+
+/** 표현할 수 없는 시간의 메모 표시(`[원래 시간: …]`)를 메모 끝에서 뺀다. 저장할 메모에 이 표시가 남지 않게 한다. */
+export function withoutTimeNote(memo: string) {
+  return memo.replace(/\s*\[원래 시간: [^\]]*\]$/, '').trim();
+}
+
+/** 칸 비교용: 표에 쓰였다 읽힌 뒤의 모습(줄바꿈은 공백, 앞뒤 공백 제거). */
+export function viaTable(value: string) {
+  return value.replace(/\r\n|\r|\n/g, ' ').trim();
 }
