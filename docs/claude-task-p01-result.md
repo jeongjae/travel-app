@@ -182,3 +182,13 @@ PC(`desktop-*`)·iPhone 폭(`mobile-*`, Playwright mobile 프로젝트 뷰포트
 - 캡처: [iphone-webkit-390-date-row.png](p01-r3-screens/iphone-webkit-390-date-row.png) — 390px에서 두 칸이 위아래 두 줄로 놓인다.
 - **한계(중요)**: 수정 전 CSS로도 이 시험이 통과했다. Windows의 Playwright WebKit은 실기기 iOS Safari의 날짜 입력 고유 폭을 재현하지 못한다. 이 시험은 "겹치지 않는다"는 회귀 방지용이며 **실기기에서 고쳐졌다는 증거가 아니다.** iPhone 실기기 확인이 필요하다.
 - 미실행: 전체 `test:e2e`, iPhone 실기기.
+
+## R3-1 (2026-11-18)
+
+- 상태: R3에서 390px가 두 줄이 되어 기존 시험 R2-3이 CI에서 실패했다. Claude가 전체 E2E를 돌리지 않은 탓이다.
+- 수정: `.date-row`를 `repeat(2, minmax(0, 11rem))`로 되돌려 두 칸이 폭을 나눠 갖게 했다. input의 `min-width: 0`·`width: 100%`·`appearance: none`은 유지했다. 두 줄은 `max-width: 340px`에서만이다.
+- 시험: 기존 R2-3은 고치지 않았다. WebKit 시험에 "360px 이상이면 두 칸 y 차이 2px 미만(한 줄)" 단언을 더했다. 320px는 한 줄·두 줄 모두 허용하되 겹치거나 넘치지 않는다.
+- E2E(빌드 후 `guide-select`·`plan-brief`·`date-row-webkit`, desktop·mobile·webkit-iphone): 35건 모두 통과. 주의: 미리보기는 `dist`를 쓰므로 CSS를 고친 뒤 `pnpm run build`를 하지 않으면 옛 결과가 나온다(처음 두 번이 그랬다).
+- 캡처: `docs/p01-r3-screens/iphone-webkit-390-date-row.png` 갱신(한 줄).
+- 미검증: 실기기 iPhone의 겹침. 자동 시험으로 알 수 없으며 사용자 확인이 판정 기준이다. 병합 뒤에도 겹치면 "항상 두 줄"로 바꾸는 것을 사용자에게 묻는다.
+- 데이터 경계(`src/contracts`·`src/storage`·`src/transfer`·`src/repository.ts`) 변경 0건.

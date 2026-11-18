@@ -29,6 +29,9 @@ for (const width of [390, 360, 320]) {
     const overlapsHorizontally = startBox!.x < endBox!.x + endBox!.width && endBox!.x < startBox!.x + startBox!.width;
     const overlapsVertically = startBox!.y < endBox!.y + endBox!.height && endBox!.y < startBox!.y + startBox!.height;
     expect(overlapsHorizontally && overlapsVertically).toBe(false);
+    if (width >= 360) {
+      expect(Math.abs(startBox!.y - endBox!.y)).toBeLessThan(2);
+    }
     if (CAPTURE && width === 390) {
       await dialog.screenshot({ path: CAPTURE });
     }
