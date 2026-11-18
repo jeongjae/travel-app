@@ -160,3 +160,24 @@ PC에서 날짜 칸이 어떤지는 보고 없음.
 2. 기존 R2-3 시험을 고치지 않고 통과시킨다. WebKit 시험에 "390·360px에서는 한 줄" 단언을 더한다.
 3. `guide-select`·`plan-brief`·`date-row-webkit` E2E를 desktop·mobile·webkit-iphone으로 돌린 결과를 적는다.
 4. 실기기에서 고쳐졌는지는 자동 시험으로 알 수 없다 — 사용자 iPhone 확인이 판정 기준이다. 병합 뒤에도 겹치면 "항상 두 줄"로 바꾸는 것을 사용자에게 묻는다.
+
+## R3-1 확인 (2026-11-18 14:50) — **통과, main 병합. 사용자 iPhone 확인 대기**
+
+대상 `codex/p01-r3-date` `efc700a`(수정 `a6925cf` + main `285ea2f`·CI 설정 `c170fce` 병합).
+
+| 확인 | 결과 |
+|---|---|
+| 데이터 경계 4경로 diff | 0건 |
+| 바뀐 코드(main 대비) | `content.css`의 `.date-row`, `playwright.config.ts`(webkit-iphone), `checks.yml`·`package.json`(webkit 설치), 새 시험 `date-row-webkit.spec.ts`. 기존 시험 파일 변경 0건 |
+| CI(`efc700a`) | **성공**(check → check:pilot → 전체 E2E, 기존 R2-3 포함) |
+| 캡처(390px WebKit) | 시작·종료 날짜 칸이 한 줄, 겹침 없음(Codex가 봄) |
+
+- CSS는 R3-1 지시대로다: 두 칸 `repeat(2, minmax(0, 11rem))`, 340px 이하에서만 한 칸, input에 `min-width: 0`·`width: 100%`·`appearance: none`. `.date-row`는 `PlanBrief.tsx` 한 곳에서만 쓴다.
+- Codex 관찰(해석): `appearance: none`(브라우저 기본 모양 끄기) 때문에 캡처에서 빈 날짜 칸에 연·월·일 자리 표시와 달력 그림이 없다. 눌러서 고르는 동작은 자동 시험에서 확인하지 않았다 — 사용자 확인 항목에 넣는다.
+- Claude가 적은 원인(미리보기는 `dist`를 써서 CSS 수정 뒤 빌드가 필요)은 CI와 무관하다(CI는 매번 빌드).
+
+### 미검증 → 사용자 iPhone 확인
+
+1. 날짜 두 칸이 겹치지 않는가(수정 요청의 판정 기준).
+2. 빈 날짜 칸이 어색하지 않은가, 눌러서 날짜를 고를 수 있는가.
+3. 여전히 겹치면 "항상 두 줄"로 바꿀지 사용자에게 묻는다.
