@@ -1,5 +1,13 @@
 # 결정 기록
 
+## 2026-11-18 11:10 · T-E2 E2-A A1 검토 통과 (Codex 판정)
+
+- 사용자가 11/17에 E2-A를 Claude Code에 전달했고, 11/18 A1 중간 보고를 붙였다.
+- `codex/e02a-update-import` `3405766`: 데이터 경계 0건, 새 폴더 `src/plan-update/`만 추가, CI 성공. [검토](claude-task-e02-review.md). **A2~A4 진행.** main 병합은 E2-A 끝에(화면 없음).
+- 기준revision은 `header.domainRevision`(저장 명령의 `expectedDomainRevision`과 같은 값)으로 확정. 대가: 복사한 뒤 그 여행에 다른 저장이 있으면 붙여넣기가 막힌다 — 어떤 저장이 값을 올리는지는 **미확인**, Claude에 조사 지시.
+- [지시서](claude-task-e02-update-import.md)에 "A1 검토 뒤 보완" 5건 추가, [규격 §6](plan-format-v1.md)에 예시와 실제 내보내기의 차이를 적음.
+- 미확인(사용자 보고 없음): R2 화면 확인 결과, A2의 40,000자 기준.
+
 ## 2026-11-17 16:45 · T-P1 R2 확인 통과·main 병합, T-E2 확정 (Codex 판정·사용자 확정)
 
 - R2 `codex/p01-r2-ui` `8d293a3`: 데이터 경계·변환기 diff 0건, 바꾼 코드는 지시한 5개 파일, CI(전체 E2E) 성공. [검토](claude-task-p01-review.md) R2 확인 절. **main 병합 → Pages 배포.** 상태: **사용자 화면 확인 대기**(PC·iPhone). 미검증: 실기기 iPhone, 배포 화면 직접 확인.
