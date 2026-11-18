@@ -208,7 +208,7 @@ test('날짜별 회고에서 당시 계획·정정 원문·변경 이유·당시
   await expect(page.getByRole('heading', { name: '가상 카페', exact: true, level: 2 })).toBeVisible();
   await expect(page.getByText('처음 요약', { exact: true })).toBeVisible();
   await expect(page.getByText('바뀐 요약', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /수정|본문 저장|정정/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^(?!AI로 수정하기).*(수정|본문 저장|정정)/ })).toHaveCount(0);
   await page.getByRole('button', { name: '실제 기록으로 돌아가기', exact: true }).click();
   await expect(page.getByRole('region', { name: '날짜별 회고' }).getByLabel('회고 날짜')).toHaveValue('2032-06-02');
 

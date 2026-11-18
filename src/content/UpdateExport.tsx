@@ -179,10 +179,7 @@ export function UpdateExportDialog({ repo, header, places, onClose }: Props) {
             <button type="button" className="primary" onClick={() => void copy()}>
               복사
             </button>
-            <button
-              type="button"
-              onClick={() => downloadText(`travel-plan-${header.tripId.slice(0, 8)}.md`, fullText)}
-            >
+            <button type="button" onClick={() => downloadText(`travel-plan-${header.tripId.slice(0, 8)}.md`, fullText)}>
               파일로 저장
             </button>
           </div>

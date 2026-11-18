@@ -18,6 +18,7 @@ import { RecordBadge, TimelineRecordCard } from './TimelineRecords';
 import { AssetImage, GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
 import { PlanPasteDialog } from './PlanPaste';
+import { UpdateExportDialog } from './UpdateExport';
 import { PlanBriefDialog } from './PlanBrief';
 import { browserStorage, clearDraft } from '../guide-import/draft';
 import { readPrepDraft } from './prep-state';
@@ -92,6 +93,7 @@ export function ContentApp() {
     [sample, setSample] = useState(false),
     [newTrip, setNewTrip] = useState(false),
     [planPaste, setPlanPaste] = useState(false),
+    [updateExport, setUpdateExport] = useState(false),
     [planBrief, setPlanBrief] = useState(false),
     [draftOffer, setDraftOffer] = useState(false),
     [authoring, setAuthoring] = useState<'region' | 'place' | 'guide' | null>(null),
@@ -572,6 +574,11 @@ export function ContentApp() {
               새 여행
             </button>
             <button onClick={() => setPlanBrief(true)}>AI로 계획 만들기</button>
+            {!planId ? (
+              <button onClick={() => setUpdateExport(true)} disabled={!header || meta?.mode !== 'v2'}>
+                AI로 수정하기
+              </button>
+            ) : null}
             <button onClick={() => setPlanPaste(true)} disabled={meta?.mode !== 'v2'}>
               AI 결과 붙여넣기
             </button>
@@ -1404,11 +1411,32 @@ export function ContentApp() {
         />
       ) : null}
       {planBrief ? <PlanBriefDialog onClose={() => setPlanBrief(false)} /> : null}
+      {updateExport && header ? (
+        <UpdateExportDialog
+          repo={repo}
+          header={header}
+          places={activePlaces.map((place) => ({ entityId: place.entityId, name: place.payload.name }))}
+          onClose={() => setUpdateExport(false)}
+        />
+      ) : null}
       {planPaste ? (
         <PlanPasteDialog
           repo={repo}
           existing={headers.map((h) => ({ name: h.name, startDate: h.startDate, endDate: h.endDate }))}
           onClose={() => setPlanPaste(false)}
+          current={
+            header
+              ? {
+                  header,
+                  places: activePlaces.map((place) => ({ entityId: place.entityId, name: place.payload.name })),
+                  trips: headers.map((h) => ({ tripId: h.tripId, name: h.name })),
+                }
+              : undefined
+          }
+          onUpdated={(resultText) => {
+            setPlanPaste(false);
+            setNotice(`계획을 고쳤습니다. ${resultText}. 이전 버전은 버전 목록에 남아 있습니다.`);
+          }}
           onSaved={(id, resultText) => {
             setPlanPaste(false);
             select(id);

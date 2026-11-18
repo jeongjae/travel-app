@@ -285,7 +285,7 @@ async function evidenceRoundTrip(page: Page) {
   await expect(page.getByText('당시 고정 내용', { exact: true })).toBeVisible();
   await expect(page.getByText(EVIDENCE_THEN, { exact: true })).toBeVisible();
   await expect(page.getByText(EVIDENCE_NOW, { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /수정|본문 저장|정정/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^(?!AI로 수정하기).*(수정|본문 저장|정정)/ })).toHaveCount(0);
   await page.getByRole('button', { name: '실제 기록으로 돌아가기', exact: true }).click();
   expect(await selection(page.getByRole('region', { name: '날짜별 회고' }))).toEqual(picked);
 }

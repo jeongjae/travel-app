@@ -40,7 +40,7 @@ describe('미리보기 계산', () => {
   it('수정 파일은 저장할 수 없고 다음 단계 안내를 보여 준다', () => {
     const preview = buildPlanPreview(fixture('claude-t3-run2.md'));
     expect(preview.state).toBe('update');
-    expect(preview.message).toContain('다음 단계');
+    expect(preview.message).toContain('바뀐 곳');
     expect(canSavePreview(preview, true, true)).toBe(false);
   });
 

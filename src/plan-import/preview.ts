@@ -46,7 +46,7 @@ export type ExistingTrip = { name: string; startDate: string; endDate: string };
 export const RETRY_REQUEST_HINT =
   '챗봇에게 "앱 양식의 코드 블록 하나로 다시 정리해 줘"라고 요청한 뒤 그 블록을 복사해 붙여 넣으세요.';
 
-const UPDATE_MESSAGE = '기존 여행을 고치는 글입니다. 이 기능은 다음 단계에서 지원합니다.';
+const UPDATE_MESSAGE = '기존 여행을 고치는 글입니다. 열려 있는 여행과 비교해 바뀐 곳을 아래에 보여 줍니다.';
 const INVALID_MESSAGE =
   '여행ID·기준계획·기준revision 줄이 일부만 있거나 중복되어 새 여행인지 수정인지 알 수 없습니다. 저장할 수 없습니다.';
 
@@ -66,6 +66,11 @@ function notImportedText(item: NotImported) {
     return `열 "${item.name}"(${item.where ?? ''}) ${item.lineCount}줄`;
   }
   return `머리 줄 "${item.name}"`;
+}
+
+/** 날짜 범위로 내보낸 수정 글의 `- 범위:` 머리 줄은 가져오지 않음 목록이 아니라 안내로만 보인다. */
+function isRangeHeader(file: CheckedPlanFile, item: NotImported) {
+  return file.kind === 'update' && item.kind === 'header' && item.name === '범위';
 }
 
 function clockOf(spec: PlanVersion['items'][number]['time']['start'] | undefined) {
@@ -173,7 +178,7 @@ export function buildPlanPreview(text: string, existing: ExistingTrip[] = []): P
       where: whereOf(item.line),
       rowCount: item.rowCount,
     })),
-    notImported: file.notImported.map(notImportedText),
+    notImported: file.notImported.filter((item) => !isRangeHeader(file, item)).map(notImportedText),
     duplicateOfExisting: trip ? sameTrip(file, existing) : false,
     trip,
   };

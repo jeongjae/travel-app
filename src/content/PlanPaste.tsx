@@ -1,8 +1,11 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import type { TripDataset } from '../contracts/v2';
 import type { ContentRepository } from '../repository';
 import { buildPlanPreview, canSavePreview, type ExistingTrip, type PlanPreview } from '../plan-import/preview';
 import { ChosenList } from './ChosenList';
 import { readPrepDraft } from './prep-state';
+import { UpdatePreview } from './UpdatePreview';
 import { command, errorText, ErrorText, Modal } from './ui';
 
 type Props = {
@@ -10,6 +13,13 @@ type Props = {
   existing: ExistingTrip[];
   onClose: () => void;
   onSaved: (tripId: string, resultText: string) => void;
+  /** 지금 열려 있는 여행. 있으면 수정 글(`update`)을 이 여행과 비교해 적용할 수 있다. */
+  current?: {
+    header: TripDataset['header'];
+    places: { entityId: string; name: string }[];
+    trips: { tripId: string; name: string }[];
+  };
+  onUpdated?: (resultText: string) => void;
 };
 
 function Problems({ title, problems }: { title: string; problems: PlanPreview['errors'] }) {
@@ -120,7 +130,7 @@ function DroppedList({ preview }: { preview: PlanPreview }) {
   );
 }
 
-export function PlanPasteDialog({ repo, existing, onClose, onSaved }: Props) {
+export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onUpdated }: Props) {
   const [text, setText] = useState('');
   const [preview, setPreview] = useState<PlanPreview | null>(null);
   const [confirmedDropped, setConfirmedDropped] = useState(false);
@@ -130,6 +140,21 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved }: Props) {
   const [hint, setHint] = useState('');
   const savingRef = useRef(false);
   const [draft] = useState(readPrepDraft);
+  const currentPlan = useLiveQuery(
+    () => (current ? repo.plan(current.header.tripId, current.header.currentPlanVersionId) : undefined),
+    [current?.header.tripId, current?.header.currentPlanVersionId],
+  );
+  const currentTrip = useMemo(
+    () =>
+      current && currentPlan
+        ? {
+            header: current.header,
+            plan: currentPlan,
+            placeNames: new Map(current.places.map((place) => [place.entityId, place.name])),
+          }
+        : undefined,
+    [current, currentPlan],
+  );
 
   function showPreview(source: string) {
     setPreview(buildPlanPreview(source, existing));
@@ -245,19 +270,36 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved }: Props) {
                 {preview.message}
               </p>
             ) : null}
+            {preview.state === 'update' && current && currentTrip ? (
+              <UpdatePreview
+                repo={repo}
+                file={preview.file}
+                current={currentTrip}
+                trips={current.trips}
+                droppedConfirmed={preview.dropped.length === 0 || confirmedDropped}
+                onApplied={(resultText) => onUpdated?.(resultText)}
+              />
+            ) : null}
+            {preview.state === 'update' && !current ? (
+              <p role="alert" className="notice">
+                고칠 여행을 먼저 여세요. 수정 글은 열려 있는 여행과 비교해 적용합니다.
+              </p>
+            ) : null}
             {preview.state === 'ready' ? <PreviewSummary preview={preview} /> : null}
             <Problems title="오류" problems={preview.errors} />
             <Problems title="경고" problems={preview.warnings} />
             <DroppedList preview={preview} />
             <NotImportedList preview={preview} />
-            {preview.state === 'ready' && preview.dropped.length > 0 ? (
+            {(preview.state === 'ready' || preview.state === 'update') && preview.dropped.length > 0 ? (
               <label>
                 <input
                   type="checkbox"
                   checked={confirmedDropped}
                   onChange={(event) => setConfirmedDropped(event.target.checked)}
                 />
-                위 표는 빼고 나머지만 저장하는 것을 확인했습니다
+                {preview.state === 'update'
+                  ? '위 표는 빼고 나머지만 적용하는 것을 확인했습니다'
+                  : '위 표는 빼고 나머지만 저장하는 것을 확인했습니다'}
               </label>
             ) : null}
             {preview.state === 'ready' && preview.duplicateOfExisting ? (
