@@ -607,8 +607,19 @@ dialog::backdrop {
   margin: 0;
 }
 .dialog-heading button {
+  position: relative;
   font-size: 12px;
-  min-height: 36px;
+  height: 28px;
+  min-height: 28px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1;
+}
+/* 보이는 높이는 글자 줄에 맞추고, 누르는 영역은 44px을 유지한다. */
+.dialog-heading button::after {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
 }
 form label {
   display: flex;

@@ -180,3 +180,24 @@
 - 20개 초과로 나눠 만들 때 중간에 실패하면 앞 묶음은 남는다(각 묶음은 전부 또는 전무). 다시 누르면 남은 것만 만든다. 승인 한 번이 묶음 여러 개일 때의 한계다.
 - 기존 장소의 내용은 글로 고치지 않는다(보완 4). 이름·지역 완전 일치 외의 비슷한 장소는 찾지 않는다.
 - 실제 챗봇 왕복, iPhone 실기기, 사용자 화면 확인(G-E2B)은 하지 못했다. 데이터 경계 4경로 변경 0건, `ChangePlan`·`CreateContentBatch`만 사용.
+
+## R3 + R3 추가 결과 (브랜치 `codex/e02a-r3-leg-radio`, main 32e7977 기준)
+
+상태: 구현·자체 검사 완료, **Codex 검토 대기, 사용자 확인 대기**.
+
+### 구현
+
+- **1~3 이동이 연결된 활동도 옮긴다**: `place-in-order.ts`에서 `pinned`를 없앴다. 이동(leg) 연결 여부와 상관없이 R2와 같은 규칙으로 시간순 자리로 옮기고 이동 연산은 만들지 않는다. `Placement`는 `mode: 'insert'|'relocate'`와 `legCount`(출발이거나 도착인 이동 수)를 가진다. 미리보기 문구: `… 옮깁니다. 연결된 이동 n건은 그대로 남습니다. 적용 뒤 확인하세요.`(n=0이면 붙이지 않는다). 날짜를 옮기는 활동의 이동 연결 오류, 종료 시각만·시간 미정 활동의 제자리는 그대로.
+- **4 범위 선택 단추**: `content.css`의 체크박스 크기·줄 규칙(`label:has(> input)`, `input[type=…]`)에 radio를 함께 걸었다(20px, 줄 높이 44px 유지, 한 줄 가운데 맞춤). `.content-app`의 다른 radio는 없다.
+- **8 창 제목 줄이 가려짐**: 원인은 T-P1 R2의 `.guide-sticky`(`top: 0`)가 제목 줄 자리에 붙은 것. `journey.css`에 `--dialog-heading-h`(PC 56px·좁은 화면 50px)와 `--dialog-pad`(창 안쪽 여백 28px·22px)를 두고 제목 줄 높이를 그 값으로 고정했으며, `.guide-sticky`는 `top: calc(var(--dialog-heading-h) - var(--dialog-pad))`(sticky 기준선이 안쪽 여백만큼 안쪽이라 뺀다)로 제목 줄 바로 아래에 붙는다. z-index는 제목 줄(2) > 요약 줄(1). 틈 없음(시험에서 1px 이내).
+- **9 "닫기" 단추**: `styles.css` `.dialog-heading button`을 높이 28px로 줄이고 `::after`(inset -8px)로 누르는 영역은 44px 유지. 이 창틀을 쓰는 모든 창에 적용된다("AI로 수정하기"에서 캡처로 확인).
+
+### 시험
+
+- 단위 `plan-update-order.test.ts`: 기존 `pinned` 시험 1건을 새 규칙(뒤로 옮김·이동 연산 없음·`legCount` 1)으로 **고쳤다**, 앞당기기 시험 1건 추가, R1·R2 시험 2건은 `legCount: 0` 기대로 갱신(필드 추가).
+- E2E `dialog-heading.spec.ts`(desktop·mobile)·`dialog-heading-webkit.spec.ts`(iPhone): 목록 한가운데까지 스크롤한 뒤 ① 제목·닫기가 창 안에 보임 ② 요약 줄이 제목 줄 바로 아래(오차 1px 이하), 겹침 없음 ③ 닫기 동작 ④ 닫기 높이 30px 이하. 범위 radio 20px 이하·줄 44px 이상·가운데 맞춤(PC·390px). `plan-update.spec.ts`에 이동이 연결된 활동의 시각을 늦춰 적용 → 일정 화면에서 마지막으로 옮겨지고 이동 줄이 남는 시험 추가.
+  - "목록 끝까지" 스크롤은 목록이 끝나면 요약 줄도 목록 컨테이너와 함께 올라가는 것이 정상이라, 목록 한가운데(패널 60% 지점)로 했다.
+- 캡처(`docs/design/e02-r3/`): `export-scope-{desktop,mobile}.png`("AI로 수정하기" 범위 줄), `guide-select-scrolled-{desktop,mobile,webkit-iphone}.png`.
+- **고정 영역 높이**(창 위쪽에서 요약 줄 아래까지, 제목 줄 포함): 390px(mobile) **160px**, iPhone WebKit 160px, PC 144px. 이전 값(약 220px)은 요약 줄이 제목 줄 위치까지 올라가 제목 줄을 가린 상태였으므로 비교는 "제목 줄이 보이면서 오히려 줄었다"이다.
+- `pnpm run check`: 포맷·린트·빌드 통과, vitest 726 통과(과부하 때 알려진 `ai`·`ai-v2`·`ai-v2-job-retention` 14건은 단독 실행에서 통과).
+- 전체 E2E: **끝내지 못했다** — 시작 직후 시스템 메모리 부족으로 중단됐고 요청이 없어 다시 돌리지 않았다. 대신 관련 시험만 통과를 확인했다: `dialog-heading`(desktop·mobile)·`dialog-heading-webkit`·`plan-update`의 R3 시험(5건+이동 연결 시험 2건).

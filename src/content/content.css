@@ -184,7 +184,8 @@ dialog th {
 .content-app select {
   max-width: 100%;
 }
-.content-app label:has(> input[type='checkbox']) {
+.content-app label:has(> input[type='checkbox']),
+.content-app label:has(> input[type='radio']) {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -192,7 +193,8 @@ dialog th {
   min-height: 44px;
   margin: 12px 0;
 }
-.content-app input[type='checkbox'] {
+.content-app input[type='checkbox'],
+.content-app input[type='radio'] {
   flex: 0 0 20px;
   width: 20px;
   height: 20px;
@@ -745,8 +747,10 @@ dialog th {
 /* 고르는 화면: 요약·종류 칩은 스크롤해도 위에 붙는다 */
 .guide-sticky {
   position: sticky;
-  top: 0;
-  z-index: 2;
+  /* 창 제목 줄(제목 + 닫기) 바로 아래에 붙는다. 제목 줄 높이는 journey.css의 --dialog-heading-h.
+     sticky 기준선은 창 안쪽 여백(--dialog-pad)만큼 안쪽이라 그만큼 뺀다. */
+  top: calc(var(--dialog-heading-h, 0px) - var(--dialog-pad, 0px));
+  z-index: 1;
   padding: 0.4rem 0 0.1rem;
   background: #fff;
   border-bottom: 1px solid var(--line, #ccc);

@@ -61,15 +61,16 @@ function ChangeItem({
   );
 }
 
-function placementMessage(placement: { beforeTitle?: string; mode: 'insert' | 'relocate' | 'pinned' }) {
-  if (placement.mode === 'pinned') {
-    return '이동이 연결돼 자리는 그대로 둡니다.';
-  }
+function placementMessage(placement: { beforeTitle?: string; mode: 'insert' | 'relocate'; legCount: number }) {
   const verb =
     placement.mode === 'relocate'
       ? ['앞으로 옮깁니다.', '그날 마지막으로 옮깁니다.']
       : ['앞에 들어갑니다.', '그날 마지막에 들어갑니다.'];
-  return placement.beforeTitle ? `"${placement.beforeTitle}" ${verb[0]}` : verb[1];
+  const where = placement.beforeTitle ? `"${placement.beforeTitle}" ${verb[0]}` : verb[1];
+  if (placement.legCount > 0) {
+    return `${where} 연결된 이동 ${placement.legCount}건은 그대로 남습니다. 적용 뒤 확인하세요.`;
+  }
+  return where;
 }
 
 function checked(entry: ChangeEntry, selected: ReadonlySet<string>) {
