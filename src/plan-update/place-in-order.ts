@@ -7,8 +7,10 @@ export type Placement = {
   key: string;
   /** 이 활동 앞에 들어간다. 없으면 그날 마지막. */
   beforeTitle?: string;
-  /** `insert`: 새 활동·날짜 이동 / `relocate`: 시각이 바뀌어 자리를 옮김 / `pinned`: 이동(leg)이 연결돼 자리를 그대로 둠. */
-  mode: 'insert' | 'relocate' | 'pinned';
+  /** `insert`: 새 활동·날짜 이동 / `relocate`: 시각이 바뀌어 자리를 옮김. */
+  mode: 'insert' | 'relocate';
+  /** 옮기는 활동에 연결된 이동(출발이거나 도착) 수. 이동 자체는 고치지 않는다. */
+  legCount: number;
 };
 
 export type OrderedOperations = {
@@ -56,7 +58,8 @@ export function placeInOrder(entries: ChangeEntry[], current: CurrentTrip): Orde
 
   const placements: Placement[] = [];
   const mode = new Map<string, Placement['mode']>();
-  const linked = new Set(current.plan.legs.flatMap((leg) => [leg.fromActivityId, leg.toActivityId]));
+  const legCountOf = (activityId: string) =>
+    current.plan.legs.filter((leg) => leg.fromActivityId === activityId || leg.toActivityId === activityId).length;
   const originals = new Map(current.plan.items.map((item) => [item.activityId, item]));
   const candidates = entries.flatMap((entry, index) => {
     const operation = operations[index];
@@ -66,10 +69,6 @@ export function placeInOrder(entries: ChangeEntry[], current: CurrentTrip): Orde
     }
     const start = startKeyOf(operation.item);
     if (start === undefined || start === startKeyOf(original) || operation.item.dayId !== original.dayId) {
-      return [];
-    }
-    if (linked.has(original.activityId)) {
-      placements.push({ key: entry.key, mode: 'pinned' });
       return [];
     }
     return [{ entry, item: operation.item, original, start }];
@@ -128,7 +127,12 @@ export function placeInOrder(entries: ChangeEntry[], current: CurrentTrip): Orde
             });
       const slot = index === -1 ? existing.length : index;
       slots[slot].inserters.push(entry);
-      placements.push({ key: entry.key, beforeTitle: existing[slot]?.title, mode: mode.get(entry.key) ?? 'insert' });
+      placements.push({
+        key: entry.key,
+        beforeTitle: existing[slot]?.title,
+        mode: mode.get(entry.key) ?? 'insert',
+        legCount: legCountOf(item.activityId),
+      });
     }
 
     let previous = -1;

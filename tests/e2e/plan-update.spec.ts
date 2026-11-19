@@ -201,6 +201,32 @@ test('기존 활동의 시각을 그날 마지막보다 늦게 고치면 일정 
   await expect(titles.last()).toHaveText(cells[2]);
 });
 
+test('이동이 연결된 활동도 시각을 늦추면 마지막으로 옮기고, 이동은 그대로 남는다 (R3)', async ({ page }) => {
+  await page.goto('/?workspace=content');
+  await importTrip(page, T1, T1_NAME);
+  await page.getByRole('button', { name: '오늘', exact: true }).first().click();
+  await page.getByRole('button', { name: '이동 추가', exact: true }).first().click();
+  await page.getByLabel('이동 수단').fill('버스');
+  await page.getByRole('button', { name: '이동 저장', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  const legLine = page.getByText(/^이동 .+ → /).first();
+  await expect(legLine).toBeVisible();
+  const legText = (await legLine.textContent()) ?? '';
+  const text = await exportedText(page);
+  const [firstRow, secondRow] = rowsOf(text);
+  const cells = firstRow.split(' | ');
+  cells[1] = '23:50';
+  await pasteUpdate(page, text.replace(firstRow, cells.join(' | ')));
+  await expect(page.getByText('그날 마지막으로 옮깁니다. 연결된 이동 1건은 그대로 남습니다.')).toBeVisible();
+  await page.getByRole('button', { name: /^고른 1건 적용/ }).click();
+  await expect(page.getByText('계획을 고쳤습니다. 수정 1·추가 0·삭제 0')).toBeVisible();
+  await page.getByRole('button', { name: '오늘', exact: true }).first().click();
+  const titles = page.locator('.day-timeline h3');
+  await expect(titles.first()).toHaveText(secondRow.split(' | ')[2]);
+  await expect(titles.last()).toHaveText(cells[2]);
+  await expect(page.getByText(legText.trim(), { exact: false }).first()).toBeVisible();
+});
+
 test('삭제는 확인 칸을 체크해야 적용되고, 적용하면 그 활동이 사라진다', async ({ page }) => {
   await page.goto('/?workspace=content');
   await importTrip(page, T1, T1_NAME);
