@@ -7,6 +7,8 @@ export type Placement = {
   key: string;
   /** 이 활동 앞에 들어간다. 없으면 그날 마지막. */
   beforeTitle?: string;
+  /** `insert`: 새 활동·날짜 이동 / `relocate`: 시각이 바뀌어 자리를 옮김 / `pinned`: 이동(leg)이 연결돼 자리를 그대로 둠. */
+  mode: 'insert' | 'relocate' | 'pinned';
 };
 
 export type OrderedOperations = {
@@ -52,11 +54,47 @@ export function placeInOrder(entries: ChangeEntry[], current: CurrentTrip): Orde
     }
   });
 
+  const placements: Placement[] = [];
+  const mode = new Map<string, Placement['mode']>();
+  const linked = new Set(current.plan.legs.flatMap((leg) => [leg.fromActivityId, leg.toActivityId]));
+  const originals = new Map(current.plan.items.map((item) => [item.activityId, item]));
+  const candidates = entries.flatMap((entry, index) => {
+    const operation = operations[index];
+    const original = operation.type === 'upsert-item' ? originals.get(operation.item.activityId) : undefined;
+    if (entry.kind !== 'edit' || operation.type !== 'upsert-item' || !original) {
+      return [];
+    }
+    const start = startKeyOf(operation.item);
+    if (start === undefined || start === startKeyOf(original) || operation.item.dayId !== original.dayId) {
+      return [];
+    }
+    if (linked.has(original.activityId)) {
+      placements.push({ key: entry.key, mode: 'pinned' });
+      return [];
+    }
+    return [{ entry, item: operation.item, original, start }];
+  });
+  const fixedIds = new Set([...inserterByKey.values(), ...candidates].map(({ item }) => item.activityId));
+  for (const candidate of candidates) {
+    const base = [...items.values()]
+      .filter((item) => item.dayId === candidate.item.dayId && !fixedIds.has(item.activityId))
+      .sort((a, b) => a.order - b.order);
+    const found = base.findIndex((other) => {
+      const otherStart = startKeyOf(other);
+      return otherStart !== undefined && otherStart > candidate.start;
+    });
+    const newSlot = found === -1 ? base.length : found;
+    const originalSlot = base.filter((other) => other.order < candidate.original.order).length;
+    if (newSlot !== originalSlot) {
+      inserterByKey.set(candidate.entry.key, { entry: candidate.entry, item: candidate.item });
+      mode.set(candidate.entry.key, 'relocate');
+    }
+  }
+
   const inserterIds = new Set([...inserterByKey.values()].map(({ item }) => item.activityId));
   const lineOf = new Map(entries.map((entry, index) => [entry.key, index]));
   const dayIds = new Set([...inserterByKey.values()].map(({ item }) => item.dayId));
   const extra: UpdateOperation[] = [];
-  const placements: Placement[] = [];
 
   for (const dayId of dayIds) {
     const existing = [...items.values()]
@@ -90,7 +128,7 @@ export function placeInOrder(entries: ChangeEntry[], current: CurrentTrip): Orde
             });
       const slot = index === -1 ? existing.length : index;
       slots[slot].inserters.push(entry);
-      placements.push({ key: entry.key, beforeTitle: existing[slot]?.title });
+      placements.push({ key: entry.key, beforeTitle: existing[slot]?.title, mode: mode.get(entry.key) ?? 'insert' });
     }
 
     let previous = -1;

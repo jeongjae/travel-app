@@ -74,6 +74,6 @@ export type SelectionResult =
       /** 내용은 그대로이고 번호만 밀리는 기존 활동 수(수정 수에 넣지 않는다). */
       shifted: number;
       /** 새 활동·날짜를 옮긴 활동이 들어갈 자리. `beforeTitle`이 없으면 그날 마지막. */
-      placements: { key: string; beforeTitle?: string }[];
+      placements: { key: string; beforeTitle?: string; mode: 'insert' | 'relocate' | 'pinned' }[];
     }
   | { ok: false; problems: string[] };

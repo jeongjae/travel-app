@@ -183,6 +183,24 @@ test('새 활동은 그날 맨 끝이 아니라 시간순 자리에 보인다', 
   await expect(titles.nth(2)).toHaveText(second[2]);
 });
 
+test('기존 활동의 시각을 그날 마지막보다 늦게 고치면 일정 화면에서 마지막에 보인다', async ({ page }) => {
+  await page.goto('/?workspace=content');
+  await importTrip(page, T1, T1_NAME);
+  const text = await exportedText(page);
+  const [firstRow, secondRow] = rowsOf(text);
+  const cells = firstRow.split(' | ');
+  cells[1] = '23:50';
+  const edited = text.replace(firstRow, cells.join(' | '));
+  await pasteUpdate(page, edited);
+  await expect(page.getByText('그날 마지막으로 옮깁니다.')).toBeVisible();
+  await page.getByRole('button', { name: /^고른 1건 적용/ }).click();
+  await expect(page.getByText('계획을 고쳤습니다. 수정 1·추가 0·삭제 0')).toBeVisible();
+  await page.getByRole('button', { name: '오늘', exact: true }).first().click();
+  const titles = page.locator('.day-timeline h3');
+  await expect(titles.first()).toHaveText(secondRow.split(' | ')[2]);
+  await expect(titles.last()).toHaveText(cells[2]);
+});
+
 test('삭제는 확인 칸을 체크해야 적용되고, 적용하면 그 활동이 사라진다', async ({ page }) => {
   await page.goto('/?workspace=content');
   await importTrip(page, T1, T1_NAME);

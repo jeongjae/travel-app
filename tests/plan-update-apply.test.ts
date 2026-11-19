@@ -225,6 +225,39 @@ describe('시간순 자리 (R1, 실제 저장소)', () => {
   });
 });
 
+describe('시각이 바뀐 기존 활동의 자리 (R2, 실제 저장소)', () => {
+  it('시각을 그날 마지막보다 늦추면 저장 뒤 마지막에 온다', async () => {
+    const { repo, tripId } = await savedTrip();
+    const before = await latest(repo, tripId);
+    const day = before.plan.days[0];
+    const sorted = before.plan.items.filter((item) => item.dayId === day.dayId).sort((a, b) => a.order - b.order);
+    const text = rewriteRow(exportPlan({ header: before.header, plan: before.plan }).text, sorted[0].activityId, {
+      시간: '23:50',
+    });
+    const current = { header: before.header, plan: before.plan };
+    const result = ready(computeUpdate(check(text), current));
+    const picked = buildSelection(result, new Set(result.changes.map((change) => change.key)), current);
+    if (!picked.ok) {
+      throw new Error(picked.problems.join(' '));
+    }
+    await repo.execute(
+      envelope(
+        tripId,
+        'ChangePlan',
+        { currentPlanVersionId: before.plan.planVersionId, operations: picked.operations, reason: picked.reason },
+        before.header.domainRevision,
+      ),
+    );
+    const after = await latest(repo, tripId);
+    const titles = after.plan.items
+      .filter((item) => item.dayId === day.dayId)
+      .sort((a, b) => a.order - b.order)
+      .map((item) => item.title);
+    expect(titles).toEqual([...sorted.slice(1).map((item) => item.title), sorted[0].title]);
+    expect(after.plan.reason).toBe('AI 결과 붙여넣기: 수정 1·추가 0·삭제 0');
+  });
+});
+
 describe('어떤 저장이 domainRevision을 올리는가 (E2 보완 5 조사)', () => {
   it('계획 수정·메모·여행 정보 수정은 올리고, 읽기와 다른 여행의 저장은 올리지 않는다', async () => {
     const { repo, tripId } = await savedTrip();

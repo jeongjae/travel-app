@@ -57,7 +57,9 @@ describe('시간순 자리에 넣기 (R1)', () => {
       '끼운 활동',
       ...first.slice(1).map((i) => i.title),
     ]);
-    expect(picked.ok && picked.placements).toEqual([{ key: expect.any(String), beforeTitle: first[1].title }]);
+    expect(picked.ok && picked.placements).toEqual([
+      { key: expect.any(String), beforeTitle: first[1].title, mode: 'insert' },
+    ]);
     expect(picked.ok && picked.shifted).toBe(first.length - 1);
     expect(picked.ok && picked.counts).toEqual({ edit: 0, add: 1, remove: 0 });
     expect(picked.ok && picked.reason).toBe('AI 결과 붙여넣기: 수정 0·추가 1·삭제 0');
@@ -180,5 +182,105 @@ describe('시간순 자리에 넣기 (R1)', () => {
     const before = JSON.stringify(result.changes.map((change) => change.operation));
     buildSelection(result, new Set(result.changes.map((change) => change.key)), current);
     expect(JSON.stringify(result.changes.map((change) => change.operation))).toBe(before);
+  });
+});
+
+describe('시작 시각이 바뀐 기존 활동의 자리 (R2)', () => {
+  const clockOf = (item: { time: { start?: { precision: string; localTime?: string } } }) =>
+    item.time.start?.precision === 'local' ? item.time.start.localTime!.slice(0, 5) : '';
+
+  function rowFor(id: string, time: string) {
+    return `| ${id} | ${time} |  |  |  |  |  |  |`;
+  }
+
+  it('전제: 첫날 활동은 시간순이다', () => {
+    const { first } = setup();
+    expect(first.map(clockOf).slice(0, 5)).toEqual(['14:00', '15:30', '16:30', '17:30', '19:00']);
+  });
+
+  it('시각을 늦추면 뒤로 옮기고, 번호만 바뀐 활동은 수정으로 세지 않는다', () => {
+    const { current, day, first } = setup();
+    const { picked } = select(current, text(current, { [day.date]: [rowFor(first[0].activityId, '18:00')] }));
+    const names = first.map((item) => item.title);
+    expect(titlesAfter(current, picked, day.dayId)).toEqual([names[1], names[2], names[3], names[0], names[4]]);
+    expect(picked.ok && picked.placements).toEqual([
+      { key: expect.any(String), beforeTitle: names[4], mode: 'relocate' },
+    ]);
+    expect(picked.ok && picked.counts).toEqual({ edit: 1, add: 0, remove: 0 });
+  });
+
+  it('시각을 앞당기면 앞으로 옮긴다', () => {
+    const { current, day, first } = setup();
+    const { picked } = select(current, text(current, { [day.date]: [rowFor(first[3].activityId, '15:00')] }));
+    const names = first.map((item) => item.title);
+    expect(titlesAfter(current, picked, day.dayId)).toEqual([names[0], names[3], names[1], names[2], names[4]]);
+    expect(picked.ok && picked.placements[0]).toMatchObject({ beforeTitle: names[1], mode: 'relocate' });
+  });
+
+  it('그날 마지막보다 늦추면 마지막으로 옮긴다는 안내가 붙는다', () => {
+    const { current, day, first } = setup();
+    const { picked } = select(current, text(current, { [day.date]: [rowFor(first[1].activityId, '23:00')] }));
+    const names = first.map((item) => item.title);
+    expect(titlesAfter(current, picked, day.dayId)).toEqual([names[0], names[2], names[3], names[4], names[1]]);
+    expect(picked.ok && picked.placements[0].beforeTitle).toBeUndefined();
+  });
+
+  it('자리가 같으면 번호도 안내도 바꾸지 않는다', () => {
+    const { current, day, first } = setup();
+    const { picked } = select(current, text(current, { [day.date]: [rowFor(first[1].activityId, '15:45')] }));
+    expect(picked.ok && picked.placements).toEqual([]);
+    expect(picked.ok && picked.shifted).toBe(0);
+    expect(titlesAfter(current, picked, day.dayId)).toEqual(first.map((item) => item.title));
+    if (picked.ok) {
+      const op = picked.operations[0];
+      expect(op.type === 'upsert-item' && op.item.order).toBe(first[1].order);
+    }
+  });
+
+  it('종료 시각만 바뀌면 자리를 옮기지 않는다', () => {
+    const { current, day, first } = setup();
+    const { picked } = select(current, text(current, { [day.date]: [rowFor(first[1].activityId, '15:30-16:10')] }));
+    expect(picked.ok && picked.placements).toEqual([]);
+    expect(titlesAfter(current, picked, day.dayId)).toEqual(first.map((item) => item.title));
+  });
+
+  it('시각을 (비움)으로 지우면 시간 미정이 되어도 자리는 그대로다', () => {
+    const { current, day, first } = setup();
+    const { picked } = select(current, text(current, { [day.date]: [rowFor(first[1].activityId, '(비움)')] }));
+    expect(picked.ok && picked.placements).toEqual([]);
+    expect(titlesAfter(current, picked, day.dayId)).toEqual(first.map((item) => item.title));
+  });
+
+  it('이동이 연결된 활동은 시각이 바뀌어도 자리를 그대로 두고 안내한다', () => {
+    const { current, day, first } = setup();
+    const linked = structuredClone(current);
+    linked.plan.legs.push({
+      tripId: current.header.tripId,
+      planVersionId: current.plan.planVersionId,
+      legId: 'leg-r2',
+      dayId: day.dayId,
+      fromActivityId: first[1].activityId,
+      toActivityId: first[2].activityId,
+      mode: '도보',
+    });
+    const { picked } = select(linked, text(linked, { [day.date]: [rowFor(first[1].activityId, '23:00')] }));
+    expect(picked.ok && picked.placements).toEqual([{ key: expect.any(String), mode: 'pinned' }]);
+    expect(titlesAfter(linked, picked, day.dayId)).toEqual(first.map((item) => item.title));
+  });
+
+  it('같은 날 추가와 시각 변경을 함께 고르면 둘 다 시간순에 놓인다', () => {
+    const { current, day, first } = setup();
+    const rows = ['|  | 15:00 | 끼운 활동 | 기타 |  |  |  |  |', rowFor(first[3].activityId, '15:10')];
+    const { picked } = select(current, text(current, { [day.date]: rows }));
+    const names = first.map((item) => item.title);
+    expect(titlesAfter(current, picked, day.dayId)).toEqual([
+      names[0],
+      '끼운 활동',
+      names[3],
+      names[1],
+      names[2],
+      names[4],
+    ]);
+    expect(picked.ok && picked.counts).toEqual({ edit: 1, add: 1, remove: 0 });
   });
 });

@@ -61,6 +61,17 @@ function ChangeItem({
   );
 }
 
+function placementMessage(placement: { beforeTitle?: string; mode: 'insert' | 'relocate' | 'pinned' }) {
+  if (placement.mode === 'pinned') {
+    return '이동이 연결돼 자리는 그대로 둡니다.';
+  }
+  const verb =
+    placement.mode === 'relocate'
+      ? ['앞으로 옮깁니다.', '그날 마지막으로 옮깁니다.']
+      : ['앞에 들어갑니다.', '그날 마지막에 들어갑니다.'];
+  return placement.beforeTitle ? `"${placement.beforeTitle}" ${verb[0]}` : verb[1];
+}
+
 function checked(entry: ChangeEntry, selected: ReadonlySet<string>) {
   return selected.has(entry.key);
 }
@@ -154,10 +165,7 @@ function ReadyView({ repo, result, current, droppedConfirmed, onApplied }: Props
   }
 
   const placementText = new Map<string, string>(
-    (picked.ok ? picked.placements : []).map((placement) => [
-      placement.key,
-      placement.beforeTitle ? `"${placement.beforeTitle}" 앞에 들어갑니다.` : '그날 마지막에 들어갑니다.',
-    ]),
+    (picked.ok ? picked.placements : []).map((placement) => [placement.key, placementMessage(placement)]),
   );
   const groupOf = (kinds: ChangeEntry['kind'][]) => result.changes.filter((change) => kinds.includes(change.kind));
   const canApply = picked.ok && (deleteCount === 0 || confirmDelete) && droppedConfirmed && !busy;
