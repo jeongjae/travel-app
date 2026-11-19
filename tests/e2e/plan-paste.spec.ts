@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
-import { openTripMenu } from './helpers/nav';
+import { openTripMenu, skipPlaceStage } from './helpers/nav';
 
 /**
  * T-E1 C2: AI 결과 붙여넣기 → 미리보기 → 새 여행 저장. 가상 고정 자료만 쓴다.
@@ -39,6 +39,7 @@ async function pasteAndPreview(page: Page, text: string) {
 
 async function saveTrip(page: Page) {
   await page.getByRole('button', { name: '새 여행으로 저장', exact: true }).click();
+  await skipPlaceStage(page);
   await expect(page.getByRole('heading', { name: T1_NAME, exact: true, level: 1 })).toBeVisible();
 }
 

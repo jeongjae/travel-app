@@ -74,3 +74,14 @@ export async function guideMenu(scope: Page | Locator, item: string) {
   await scope.locator('.guide-head .menu-toggle').click();
   await scope.getByRole('button', { name: item, exact: true }).click();
 }
+
+/** 새 여행을 저장한 뒤 장소 단계 창이 뜨면(장소 표가 든 글) "장소 없이 닫기"로 넘긴다. 없으면 그대로 둔다. */
+export async function skipPlaceStage(page: Page) {
+  const skip = page.getByRole('button', { name: '장소 없이 닫기', exact: true });
+  const created = page.getByTestId('new-trip-created');
+  const heading = page.locator('h1').first();
+  await expect(skip.or(heading).first()).toBeVisible();
+  if (await created.isVisible()) {
+    await skip.click();
+  }
+}

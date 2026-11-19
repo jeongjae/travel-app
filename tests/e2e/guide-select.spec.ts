@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
-import { openTripMenu } from './helpers/nav';
+import { openTripMenu, skipPlaceStage } from './helpers/nav';
 
 /** T-P1 C2~C4: 가이드 붙여넣기 → 카드 고르기 → 요청서 결합 → 초안 복원 → AI 결과 옆 목록. 가상 고정 자료만 쓴다. */
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
@@ -250,6 +250,7 @@ test('새 여행을 저장해도 초안은 자동으로 지워지지 않고, 지
   await page.getByLabel('붙여 넣은 글').fill(plan);
   await page.getByRole('button', { name: '미리보기', exact: true }).click();
   await page.getByRole('button', { name: '새 여행으로 저장', exact: true }).click();
+  await skipPlaceStage(page);
   await expect(page.getByRole('heading', { level: 1, name: '후쿠오카 봄 여행 3박 4일' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('travel-app.prep-draft.v1'))).not.toBeNull();
   await page.getByRole('button', { name: '준비 초안 지우기', exact: true }).click();

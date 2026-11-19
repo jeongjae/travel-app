@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
-import { openMore, openTripMenu } from './helpers/nav';
+import { openMore, openTripMenu, skipPlaceStage } from './helpers/nav';
 
 /**
  * T-E2 A2·A4: "AI로 수정하기"로 내보내고, 글을 고쳐 "AI 결과 붙여넣기"로 비교·적용한다.
@@ -39,6 +39,7 @@ async function importTrip(page: Page, text: string, name: string) {
     await duplicate.check();
   }
   await save.click();
+  await skipPlaceStage(page);
   await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible();
 }
 
