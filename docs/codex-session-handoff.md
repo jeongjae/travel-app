@@ -39,8 +39,8 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 | AI 개편 T-E1(새 여행 가져오기) | 확인 완료(G-E1 11/17) | — |
 | T-P1(가이드 고르기) | 기능 확인 완료. R2 병합. 사용자: 단추 높이 OK, **U-3 숫자·U-4 길이는 확인 대기** | 사용자 확인 |
 | T-P1 R3(iPhone 날짜 칸 겹침) | R3-1 `efc700a` 병합. **사용자 iPhone 확인 완료**(11/18 15:51), 한 줄 유지 확정 | — |
-| T-E2 E2-A(기존 여행 고치기) | 병합 `4f20ef6`, **G-E2A 확인 완료**(11/18 18:23). 수정 지시 [R1](claude-task-e02-review.md): 추가·날짜 이동 활동을 시간순 자리에(사용자 확정) | Claude R1(`codex/e02a-r1-order`) → 검토·병합. R1 5번은 사용자 확인 대기 |
-| T-E2 E2-B(장소) | 지시서에 있음, 미착수 | R1 병합 뒤 전달 |
+| T-E2 E2-A(기존 여행 고치기) | G-E2A 확인 완료(11/18). R1(추가·날짜 이동 활동을 시간순 자리에) `04990e0` **통과·병합**(11/19). [R2](claude-task-e02-review.md)(시각이 바뀐 활동도 옮긴다, 사용자 확정) 지시 | Claude R2(`codex/e02a-r2-time-move`) → 검토·병합. 사용자 R1·R2 화면 확인 |
+| T-E2 E2-B(장소) | R2 보고 뒤 Claude가 바로 시작(`codex/e02b-places`, R2 브랜치 위) | 완료 보고 → 검토 → G-E2B |
 | 이월 | U4 대본 v2 재수행(CL-20·REG-02), CL-46, Node 서버 정리, T-E3, P2 | [change-log](change-log.md) |
 
 E2-A 검토 때 볼 것: [지시서](claude-task-e02-update-import.md) "A1 검토 뒤 보완" 5건, 완료 조건 표(AC), 빈 칸=변경 없음·`(비움)`=지움, 삭제는 삭제 구역만, 오래된 기준 차단, `ChangePlan` 1회, 실패 시 불변. Claude 보고(11/18): `CreateTrip`·`ImportNewTrip`을 뺀 거의 모든 저장이 `domainRevision`을 올린다(예외 `SaveProposal`·거절) — 복사 뒤 다른 저장이 있으면 붙여넣기가 막힌다는 점을 사용자에게 알렸다.
