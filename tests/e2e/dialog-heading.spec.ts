@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
-import { openTripMenu } from './helpers/nav';
+import { openTripMenu, skipPlaceStage } from './helpers/nav';
 
 /** T-E2 R3: 범위 선택 단추 크기, 창 제목 줄(제목 + 닫기)과 고르기 요약 줄의 위치. */
 const GUIDE = readFileSync('tests/fixtures/guide-format/hakodate.md', 'utf8');
@@ -77,8 +77,8 @@ test('"AI로 수정하기" 범위 선택 단추가 글자 줄 높이 이하이�
   await page.getByLabel('붙여 넣은 글').fill(T1);
   await page.getByRole('button', { name: '미리보기', exact: true }).click();
   await page.getByRole('button', { name: '새 여행으로 저장', exact: true }).click();
-  // 저장이 끝나야만 생기는 결과 문구를 기다린다(h1은 저장 전부터 있어 기다림이 되지 않는다).
-  await expect(page.getByText('여행을 만들었습니다.')).toBeVisible();
+  // 저장이 끝나야만 뜨는 장소 단계 창을 기다려 넘긴다(h1은 저장 전부터 있어 기다림이 되지 않는다).
+  await skipPlaceStage(page);
   await openTripMenu(page);
   await page.getByRole('button', { name: 'AI로 수정하기', exact: true }).click();
   const dialog = page.getByRole('dialog');
