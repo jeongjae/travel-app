@@ -40,7 +40,7 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 | T-P1(가이드 고르기) | 기능 확인 완료. R2 병합. 사용자: 단추 높이 OK, **U-3 숫자·U-4 길이는 확인 대기** | 사용자 확인 |
 | T-P1 R3(iPhone 날짜 칸 겹침) | R3-1 `efc700a` 병합. **사용자 iPhone 확인 완료**(11/18 15:51), 한 줄 유지 확정 | — |
 | T-E2 E2-A(기존 여행 고치기) | G-E2A 확인 완료(11/18). R1·R2(추가·날짜 이동·시각이 바뀐 활동을 시간순 자리에) **통과·병합**(11/19, [검토](claude-task-e02-review.md)) | 사용자 R1·R2 화면 확인 |
-| T-E2 E2-B(장소) | Claude가 착수 전 멈춤(11/19): `placeKind` 필수인데 장소 표에 칸이 없고 영업시간·지역 글자를 넣을 필드가 없다 | 사용자 결정 2건 → Codex가 지시서 2절 보완 → Claude 착수(`codex/e02b-places`) |
+| T-E2 E2-B(장소) | 멈춤 보고(11/19)에 사용자 확정 2건 + [지시서 "E2-B 보완"](claude-task-e02-update-import.md) 작성. Claude 착수(`codex/e02b-places`) | 완료 보고 → 검토(장소 승인·계획 승인이 각각 전부 또는 전무, 왕복 0건) → 병합 → G-E2B |
 | 이월 | U4 대본 v2 재수행(CL-20·REG-02), CL-46, Node 서버 정리, T-E3, P2 | [change-log](change-log.md) |
 
 E2-A 검토 때 볼 것: [지시서](claude-task-e02-update-import.md) "A1 검토 뒤 보완" 5건, 완료 조건 표(AC), 빈 칸=변경 없음·`(비움)`=지움, 삭제는 삭제 구역만, 오래된 기준 차단, `ChangePlan` 1회, 실패 시 불변. Claude 보고(11/18): `CreateTrip`·`ImportNewTrip`을 뺀 거의 모든 저장이 `domainRevision`을 올린다(예외 `SaveProposal`·거절) — 복사 뒤 다른 저장이 있으면 붙여넣기가 막힌다는 점을 사용자에게 알렸다.
