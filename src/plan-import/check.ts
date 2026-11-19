@@ -372,7 +372,16 @@ class PlanChecker {
     this.checkRowId(row, '장소', '장소');
     this.checkClearMarks(row, '장소', ['이름']);
     this.checkRequired(row, '장소', { 이름: row.name });
-    this.checkLink(row, '장소', row.link);
+    this.checkPlaceLink(row);
+  }
+
+  /** 장소의 링크는 http(s) 주소 하나여야 한다. 아니면 오류로 표를 버리지 않고, 링크만 넣지 않고 경고한다. */
+  private checkPlaceLink(row: PlaceRow) {
+    if (row.link === '' || (/^https?:\/\/\S+$/.test(row.link) && webUrl.safeParse(row.link).success)) {
+      return;
+    }
+    this.sink.warn(row.line, '장소', 'place-link-skipped', `링크가 http(s) 주소가 아니라 넣지 않습니다: ${row.link}`);
+    row.link = '';
   }
 
   private checkDeletions() {

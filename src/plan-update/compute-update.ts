@@ -73,6 +73,7 @@ class UpdateComputer {
   private readonly newKeys = new Set<string>();
   private readonly touched = new Set<string>();
   private readonly placeNames: ReadonlyMap<string, string>;
+  private readonly placeIds: ReadonlyMap<string, string>;
   private keyCount = 0;
 
   constructor(
@@ -81,6 +82,7 @@ class UpdateComputer {
   ) {
     const { plan } = current;
     this.placeNames = current.placeNames ?? new Map();
+    this.placeIds = current.placeIds ?? new Map();
     plan.items.forEach((item) => this.itemById.set(item.activityId, item));
     plan.stays.forEach((stay) => this.stayById.set(stay.stayId, stay));
     plan.days.forEach((day) => {
@@ -184,7 +186,8 @@ class UpdateComputer {
       this.fail(row.line, `일정 ${day.date}`, `시간 "${row.time}": ${problem}`);
       return;
     }
-    const placeMark = row.place === '' ? '' : `[장소: ${row.place}]`;
+    const approvedPlaceId = this.placeIds.get(row.place);
+    const placeMark = row.place === '' || approvedPlaceId !== undefined ? '' : `[장소: ${row.place}]`;
     const item: PlanItem = {
       tripId: header.tripId,
       planVersionId: plan.planVersionId,
@@ -197,7 +200,7 @@ class UpdateComputer {
       summary: joinText([placeMark, row.memo]),
       ...(row.reservation === '' ? {} : { reservationText: row.reservation }),
       optional: false,
-      placeLinks: [],
+      placeLinks: approvedPlaceId === undefined ? [] : [{ placeId: approvedPlaceId, relation: 'visit' }],
       bookingIds: [],
       taskRefs: [],
       executionMarkers: [],
@@ -372,7 +375,15 @@ class UpdateComputer {
       before: timeProblem ? withoutTimeNote(field.before) : field.before,
       after: timeProblem ? withoutTimeNote(field.after) : field.after,
     }));
-    if (linked !== undefined) {
+    const approvedId = placeChanged && placeAfter ? this.placeIds.get(placeAfter) : undefined;
+    if (approvedId !== undefined) {
+      next.summary = memo;
+      next.placeLinks = [
+        { placeId: approvedId, relation: 'visit' },
+        ...next.placeLinks.filter((link) => link.placeId !== approvedId),
+      ];
+      notes.push(`장소 "${placeAfter}"에 연결합니다.`);
+    } else if (linked !== undefined) {
       const placeName = placeChanged ? (placeAfter ?? '') : '';
       next.summary = placeName === '' ? memo : joinText([`[장소: ${placeName}]`, memo]);
       if (placeChanged) {

@@ -15,6 +15,11 @@ export type CurrentTrip = {
   plan: PlanVersion;
   /** 장소 id → 이름(활동에 연결된 장소의 이름을 장소 칸과 비교하는 데 쓴다). */
   placeNames?: ReadonlyMap<string, string>;
+  /**
+   * 장소 이름 → id. 장소 단계에서 사용자가 만들기·연결로 승인한 이름만 든다.
+   * 장소 칸이 이 이름이면 그 장소에 연결하고, 아니면 메모 앞 `[장소: 이름]`으로 남긴다.
+   */
+  placeIds?: ReadonlyMap<string, string>;
 };
 
 export type FieldChange = {

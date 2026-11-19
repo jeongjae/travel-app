@@ -6,6 +6,8 @@ import {
   buildUpdateRequest,
   exportPlan,
   LARGE_EXPORT_LIMIT,
+  type CatalogPlace,
+  type CatalogRegion,
   type ExportResult,
   type ExportWarning,
 } from '../plan-update';
@@ -15,7 +17,8 @@ type Props = {
   repo: ContentRepository;
   header: TripDataset['header'];
   /** 활동에 연결된 장소의 이름을 장소 칸에 적는 데 쓴다. */
-  places: { entityId: string; name: string }[];
+  places: CatalogPlace[];
+  regions: CatalogRegion[];
   onClose: () => void;
 };
 
@@ -70,7 +73,7 @@ function downloadText(fileName: string, text: string) {
 }
 
 /** "AI로 수정하기": 저장된 계획을 양식 글로 내보내 요청 틀과 함께 복사한다. 서버 호출이 없다. */
-export function UpdateExportDialog({ repo, header, places, onClose }: Props) {
+export function UpdateExportDialog({ repo, header, places, regions, onClose }: Props) {
   const plan = useLiveQuery(
     () => repo.plan(header.tripId, header.currentPlanVersionId),
     [header.tripId, header.currentPlanVersionId],
@@ -91,10 +94,10 @@ export function UpdateExportDialog({ repo, header, places, onClose }: Props) {
     }
     const placeNames = new Map(places.map((place) => [place.entityId, place.name]));
     return exportPlan(
-      { header, plan, placeNames },
+      { header, plan, placeNames, places, regions },
       { includeReservation, ...(scope === 'range' ? { range: { start, end } } : {}) },
     );
-  }, [plan, header, places, scope, start, end, includeReservation, rangeInvalid]);
+  }, [plan, header, places, regions, scope, start, end, includeReservation, rangeInvalid]);
   const fullText = exported ? buildUpdateRequest(exported.text) : '';
   const tooLarge = fullText.length > LARGE_EXPORT_LIMIT;
 
@@ -166,6 +169,7 @@ export function UpdateExportDialog({ repo, header, places, onClose }: Props) {
         <>
           <p data-testid="export-counts">
             날짜 {exported.counts.days}일 · 활동 {exported.counts.activities}개 · 숙소 {exported.counts.stays}곳 ·{' '}
+            {exported.counts.places > 0 ? `장소 ${exported.counts.places}곳 · ` : ''}
             <span data-testid="export-chars">{fullText.length.toLocaleString()}</span>자
           </p>
           {tooLarge ? (

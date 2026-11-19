@@ -7,7 +7,7 @@ type PlanItem = PlanVersion['items'][number];
 type TimeRange = PlanItem['time'];
 
 const MINUTES_PER_DAY = 24 * 60;
-const PLACE_MARK = /^\[장소: ([^\]]+)\](?: (.*))?$/s;
+export const PLACE_MARK = /^\[장소: ([^\]]+)\](?: (.*))?$/s;
 
 /** 양식 표에 적히는 활동 한 줄의 칸 값(칸 안 글 규칙 적용 전). */
 export type ActivityCells = {
@@ -127,6 +127,11 @@ function splitPlaceAndMemo(item: PlanItem, placeNames: ReadonlyMap<string, strin
     return { place: marked[1].trim(), memo: (marked[2] ?? '').trim() };
   }
   return { place: '', memo: item.summary };
+}
+
+/** 지금 저장된 활동의 장소 칸 값(연결된 장소 이름, 없으면 메모 앞 `[장소: X]`의 X, 없으면 빈 글). */
+export function placeCellOf(item: PlanItem, placeNames: ReadonlyMap<string, string>) {
+  return splitPlaceAndMemo(item, placeNames).place;
 }
 
 export function activityCellsOf(item: PlanItem, context: CellContext): ActivityCellsResult {

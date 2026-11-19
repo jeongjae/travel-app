@@ -19,3 +19,26 @@ export type {
   UpdateProblem,
   UpdateResult,
 } from './update-types';
+export {
+  buildLinkPlan,
+  buildPlaceContent,
+  chunkPlaces,
+  collectMarkCandidates,
+  collectPlaceCandidates,
+  composePlaceSummary,
+  PLACE_BATCH_SIZE,
+  PLACE_KIND_LABEL,
+  placeCellsOf,
+  placeKindOf,
+  splitPlaceSummary,
+} from './places';
+export type {
+  CatalogPlace,
+  CatalogRegion,
+  ExistingPlaceLines,
+  LinkPlan,
+  PlaceCandidate,
+  PlaceCollection,
+  PlaceContent,
+  PlaceKindCode,
+} from './places';

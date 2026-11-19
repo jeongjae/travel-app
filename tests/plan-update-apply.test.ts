@@ -1,6 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ContentRepository, TravelDB } from '../src/repository';
-import { buildSelection, computeUpdate, exportPlan } from '../src/plan-update';
+import {
+  buildLinkPlan,
+  buildPlaceContent,
+  buildSelection,
+  chunkPlaces,
+  collectMarkCandidates,
+  collectPlaceCandidates,
+  computeUpdate,
+  exportPlan,
+  type CatalogPlace,
+} from '../src/plan-update';
 import { check, createdTrip, fixture } from './plan-import-helpers';
 import { partialUpdate, ready, rewriteRow } from './plan-update-helpers';
 
@@ -289,5 +299,91 @@ describe('어떤 저장이 domainRevision을 올리는가 (E2 보완 5 조사)',
       payload: { header: other.header, initialPlan: other.initialPlan },
     });
     expect((await latest(repo, tripId)).header.domainRevision).toBe(revision);
+  });
+});
+
+describe('장소 단계 (실제 저장소)', () => {
+  async function stage(repo: ContentRepository, tripId: string, count = 0) {
+    const { header, plan } = await latest(repo, tripId);
+    const candidates = collectMarkCandidates(plan, { places: [] });
+    const contents = candidates
+      .slice(0, count === 0 ? candidates.length : count)
+      .map((candidate) => buildPlaceContent(tripId, candidate, []));
+    return { header, plan, contents };
+  }
+
+  it('장소를 만들고 ChangePlan 1회로 연결하면 왕복이 변경 0건이다 (AC-16·B1)', async () => {
+    const { repo, tripId } = await savedTrip();
+    const { header, plan, contents } = await stage(repo, tripId);
+    expect(contents.length).toBeGreaterThan(0);
+    const made = await repo.execute(
+      envelope(tripId, 'CreateContentBatch', { create: contents, updateOwners: [] }, header.domainRevision),
+    );
+    const placeIds = new Map(contents.map((content) => [content.payload.name, content.entityId]));
+    const link = buildLinkPlan(plan, placeIds);
+    expect(link.operations.length).toBeGreaterThan(0);
+    await repo.execute(
+      envelope(
+        tripId,
+        'ChangePlan',
+        { currentPlanVersionId: plan.planVersionId, operations: link.operations, reason: '장소 연결' },
+        made.domainRevision,
+      ),
+    );
+    const after = await latest(repo, tripId);
+    const catalog = await repo.catalog(tripId, 'place');
+    const places: CatalogPlace[] = catalog.flatMap((content) =>
+      content.kind === 'place'
+        ? [
+            {
+              entityId: content.entityId,
+              name: content.payload.name,
+              summary: content.payload.summary,
+              regionIds: content.payload.regionIds,
+            },
+          ]
+        : [],
+    );
+    expect(places).toHaveLength(contents.length);
+    expect(after.plan.items.filter((item) => item.placeLinks.length > 0)).toHaveLength(link.linked.length);
+    expect(after.plan.items.some((item) => item.summary.startsWith('[장소:'))).toBe(false);
+    const placeNames = new Map(places.map((place) => [place.entityId, place.name]));
+    const exported = exportPlan({ header: after.header, plan: after.plan, placeNames, places, regions: [] });
+    expect(exported.counts.places).toBeGreaterThan(0);
+    const again = check(exported.text);
+    const result = ready(computeUpdate(again, { header: after.header, plan: after.plan, placeNames }));
+    expect(result.changes).toEqual([]);
+    expect(result.errors).toEqual([]);
+    const collection = collectPlaceCandidates(again, { plan: after.plan, places, regions: [] });
+    expect(collection.candidates).toEqual([]);
+    expect(collection.existingLines).toEqual({ changed: 0, unknown: 0 });
+  });
+
+  it('만들기 묶음이 거부되면 아무 장소도 남지 않는다 (AC-16)', async () => {
+    const { repo, tripId } = await savedTrip();
+    const { header, contents } = await stage(repo, tripId);
+    const broken = [...contents, { ...contents[0], revisionId: crypto.randomUUID() }];
+    await expect(
+      repo.execute(envelope(tripId, 'CreateContentBatch', { create: broken, updateOwners: [] }, header.domainRevision)),
+    ).rejects.toThrow();
+    expect(await repo.catalog(tripId, 'place')).toEqual([]);
+    expect((await latest(repo, tripId)).header.domainRevision).toBe(header.domainRevision);
+  });
+
+  it('20개씩 나눈 묶음을 차례로 만들 수 있다', async () => {
+    const { repo, tripId } = await savedTrip();
+    const { plan } = await stage(repo, tripId);
+    const [template] = collectMarkCandidates(plan, { places: [] });
+    const many = Array.from({ length: 45 }, (_, index) =>
+      buildPlaceContent(tripId, { ...template, name: `장소 ${index}` }, []),
+    );
+    let revision = (await latest(repo, tripId)).header.domainRevision;
+    for (const chunk of chunkPlaces(many)) {
+      const result = await repo.execute(
+        envelope(tripId, 'CreateContentBatch', { create: chunk, updateOwners: [] }, revision),
+      );
+      revision = result.domainRevision;
+    }
+    expect(await repo.catalog(tripId, 'place')).toHaveLength(45);
   });
 });

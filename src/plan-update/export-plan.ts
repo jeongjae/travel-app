@@ -2,6 +2,7 @@ import type { PlanVersion, TripDataset } from '../contracts/v2';
 import { PLAN_FORMAT } from '../plan-import/input-text';
 import { activityCellsOf, tableCell } from './cells';
 import { EXPORT_RULE_LINES } from './export-rules';
+import { placeCellsOf, type CatalogPlace, type CatalogRegion } from './places';
 
 type TripHeader = TripDataset['header'];
 type PlanDay = PlanVersion['days'][number];
@@ -26,6 +27,9 @@ export type ExportInput = {
   plan: ExportablePlan;
   /** 장소 id → 이름. 활동에 연결된 장소의 이름을 장소 칸에 적는 데 쓴다. */
   placeNames?: ReadonlyMap<string, string>;
+  /** 이 여행의 장소·지역. 있으면 활동에 연결된 장소를 `## 장소` 표로 내보낸다. */
+  places?: readonly CatalogPlace[];
+  regions?: readonly CatalogRegion[];
 };
 
 export type ExportWarningCode = 'newline-flattened' | 'time-unrepresentable' | 'id-format' | 'stay-incomplete';
@@ -36,7 +40,7 @@ export type ExportWarning = { code: ExportWarningCode; where: string; message: s
 export type ExportResult = {
   text: string;
   warnings: ExportWarning[];
-  counts: { days: number; activities: number; stays: number };
+  counts: { days: number; activities: number; stays: number; places: number };
 };
 
 class PlanExporter {
@@ -45,12 +49,13 @@ class PlanExporter {
   private readonly placeNames: ReadonlyMap<string, string>;
   private activityCount = 0;
   private stayCount = 0;
+  private placeCount = 0;
 
   constructor(
     private readonly input: ExportInput,
     private readonly options: ExportOptions,
   ) {
-    this.placeNames = input.placeNames ?? new Map();
+    this.placeNames = input.placeNames ?? new Map(input.places?.map((place) => [place.entityId, place.name]));
   }
 
   run(): ExportResult {
@@ -61,11 +66,12 @@ class PlanExporter {
       this.writeDay(day);
     }
     this.writeStays();
+    this.writePlaces(days);
     this.lines.push('', '## 삭제', '| 종류 | ID | 제목 |', '|---|---|---|');
     return {
       text: `${this.lines.join('\n')}\n`,
       warnings: this.warnings,
-      counts: { days: days.length, activities: this.activityCount, stays: this.stayCount },
+      counts: { days: days.length, activities: this.activityCount, stays: this.stayCount, places: this.placeCount },
     };
   }
 
@@ -176,6 +182,41 @@ class PlanExporter {
     ];
     this.lines.push(`| ${values.join(' | ')} |`);
     this.activityCount++;
+  }
+
+  /** 장소 표: 보이는 날짜의 활동에 연결된 장소만. 지역·영업시간은 설명 끝 표시에서 칸으로 올린다. */
+  private writePlaces(days: PlanDay[]) {
+    const { places = [], regions = [] } = this.input;
+    const dayIds = new Set(days.map((day) => day.dayId));
+    const linkedIds: string[] = [];
+    for (const day of days) {
+      for (const item of this.itemsOf(day)) {
+        for (const link of item.placeLinks) {
+          if (!linkedIds.includes(link.placeId)) {
+            linkedIds.push(link.placeId);
+          }
+        }
+      }
+    }
+    const shown = linkedIds.flatMap((id) => places.filter((place) => place.entityId === id));
+    if (shown.length === 0 || dayIds.size === 0) {
+      return;
+    }
+    this.lines.push('', '## 장소', '| ID | 이름 | 지역 | 설명 | 영업시간 | 링크 |', '|---|---|---|---|---|---|');
+    for (const place of shown) {
+      const where = `장소 ${place.name}`;
+      const cells = placeCellsOf(place, regions);
+      const values = [
+        this.checkId(place.entityId, where),
+        this.cell(place.name, where),
+        this.cell(cells.region, where),
+        this.cell(cells.description, where),
+        this.cell(cells.hours, where),
+        this.cell(cells.link, where),
+      ];
+      this.lines.push(`| ${values.join(' | ')} |`);
+      this.placeCount++;
+    }
   }
 
   private datesOf(stay: PlanStay) {

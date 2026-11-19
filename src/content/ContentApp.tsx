@@ -19,6 +19,8 @@ import { AssetImage, GuideDetail } from './Guide';
 import { buildNewTrip } from './trip-factory';
 import { PlanPasteDialog } from './PlanPaste';
 import { UpdateExportDialog } from './UpdateExport';
+import { PlaceMarksDialog } from './PlaceStage';
+import type { CatalogPlace, CatalogRegion } from '../plan-update';
 import { PlanBriefDialog } from './PlanBrief';
 import { browserStorage, clearDraft } from '../guide-import/draft';
 import { readPrepDraft } from './prep-state';
@@ -94,6 +96,7 @@ export function ContentApp() {
     [newTrip, setNewTrip] = useState(false),
     [planPaste, setPlanPaste] = useState(false),
     [updateExport, setUpdateExport] = useState(false),
+    [placeMarks, setPlaceMarks] = useState(false),
     [planBrief, setPlanBrief] = useState(false),
     [draftOffer, setDraftOffer] = useState(false),
     [authoring, setAuthoring] = useState<'region' | 'place' | 'guide' | null>(null),
@@ -174,6 +177,22 @@ export function ContentApp() {
     },
     [tripId],
     [] as ContentRevision[],
+  );
+  const catalogPlaces: CatalogPlace[] = catalog.flatMap((content) =>
+    content.kind === 'place'
+      ? [
+          {
+            entityId: content.entityId,
+            name: content.payload.name,
+            summary: content.payload.summary,
+            wikiRef: content.payload.wikiRef,
+            regionIds: content.payload.regionIds,
+          },
+        ]
+      : [],
+  );
+  const catalogRegions: CatalogRegion[] = catalog.flatMap((content) =>
+    content.kind === 'region' ? [{ entityId: content.entityId, name: content.payload.name }] : [],
   );
   const activePlaces = catalog.filter((c): c is Extract<ContentRevision, { kind: 'place' }> => c.kind === 'place');
   const guides = useLiveQuery(
@@ -577,6 +596,11 @@ export function ContentApp() {
             {!planId ? (
               <button onClick={() => setUpdateExport(true)} disabled={!header || meta?.mode !== 'v2'}>
                 AI로 수정하기
+              </button>
+            ) : null}
+            {!planId ? (
+              <button onClick={() => setPlaceMarks(true)} disabled={!header || meta?.mode !== 'v2'}>
+                메모의 장소 표시 정리
               </button>
             ) : null}
             <button onClick={() => setPlanPaste(true)} disabled={meta?.mode !== 'v2'}>
@@ -1415,8 +1439,20 @@ export function ContentApp() {
         <UpdateExportDialog
           repo={repo}
           header={header}
-          places={activePlaces.map((place) => ({ entityId: place.entityId, name: place.payload.name }))}
+          places={catalogPlaces}
+          regions={catalogRegions}
           onClose={() => setUpdateExport(false)}
+        />
+      ) : null}
+      {placeMarks && header ? (
+        <PlaceMarksDialog
+          repo={repo}
+          tripId={header.tripId}
+          onClose={() => setPlaceMarks(false)}
+          onFinished={(resultText) => {
+            setPlaceMarks(false);
+            setNotice(`장소를 정리했습니다. ${resultText}`);
+          }}
         />
       ) : null}
       {planPaste ? (
@@ -1428,7 +1464,8 @@ export function ContentApp() {
             header
               ? {
                   header,
-                  places: activePlaces.map((place) => ({ entityId: place.entityId, name: place.payload.name })),
+                  places: catalogPlaces,
+                  regions: catalogRegions,
                   trips: headers.map((h) => ({ tripId: h.tripId, name: h.name })),
                 }
               : undefined

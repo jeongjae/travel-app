@@ -1,10 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { TripDataset } from '../contracts/v2';
+import type { CheckedPlanFile } from '../plan-import';
 import type { ContentRepository } from '../repository';
 import { buildPlanPreview, canSavePreview, type ExistingTrip, type PlanPreview } from '../plan-import/preview';
 import { ChosenList } from './ChosenList';
 import { readPrepDraft } from './prep-state';
+import { collectPlaceCandidates, type CatalogPlace, type CatalogRegion } from '../plan-update';
+import { PlaceFlow, PlaceStage, type StageDone } from './PlaceStage';
 import { UpdatePreview } from './UpdatePreview';
 import { command, errorText, ErrorText, Modal } from './ui';
 
@@ -16,7 +19,8 @@ type Props = {
   /** 지금 열려 있는 여행. 있으면 수정 글(`update`)을 이 여행과 비교해 적용할 수 있다. */
   current?: {
     header: TripDataset['header'];
-    places: { entityId: string; name: string }[];
+    places: CatalogPlace[];
+    regions: CatalogRegion[];
     trips: { tripId: string; name: string }[];
   };
   onUpdated?: (resultText: string) => void;
@@ -95,7 +99,9 @@ function PreviewSummary({ preview }: { preview: PlanPreview }) {
 function NotImportedList({ preview }: { preview: PlanPreview }) {
   const lines = [...preview.notImported];
   if (preview.placeCount > 0) {
-    lines.push(`구역 "장소" ${preview.placeCount}줄 — 장소는 다음 단계에서 지원합니다. 이름은 메모에 남깁니다.`);
+    lines.push(
+      `구역 "장소" ${preview.placeCount}줄 — 장소 단계에서 만들 장소를 고릅니다(새 여행은 저장한 뒤). 고르지 않은 이름은 메모에 남깁니다.`,
+    );
   }
   if (lines.length === 0) {
     return null;
@@ -138,6 +144,8 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
+  const [stage, setStage] = useState<StageDone | null>(null);
+  const [created, setCreated] = useState<{ tripId: string; resultText: string; file: CheckedPlanFile } | null>(null);
   const savingRef = useRef(false);
   const [draft] = useState(readPrepDraft);
   const currentPlan = useLiveQuery(
@@ -151,13 +159,22 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
             header: current.header,
             plan: currentPlan,
             placeNames: new Map(current.places.map((place) => [place.entityId, place.name])),
+            ...(stage ? { placeIds: stage.placeIds } : {}),
           }
         : undefined,
-    [current, currentPlan],
+    [current, currentPlan, stage],
+  );
+  const updateCollection = useMemo(
+    () =>
+      preview?.state === 'update' && current && currentPlan
+        ? collectPlaceCandidates(preview.file, { plan: currentPlan, places: current.places, regions: current.regions })
+        : undefined,
+    [preview, current, currentPlan],
   );
 
   function showPreview(source: string) {
     setPreview(buildPlanPreview(source, existing));
+    setStage(null);
     setConfirmedDropped(false);
     setConfirmedDuplicate(false);
     setError('');
@@ -167,6 +184,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
   function changeText(value: string) {
     setText(value);
     setPreview(null);
+    setStage(null);
     setConfirmedDropped(false);
     setConfirmedDuplicate(false);
     setError('');
@@ -206,7 +224,13 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
       await repo.execute(
         command(trip.header.tripId, 'CreateTrip', { header: trip.header, initialPlan: trip.initialPlan }),
       );
-      onSaved(trip.header.tripId, `활동 ${preview.activityCount}개 · 숙소 ${preview.stayCount}곳`);
+      const resultText = `활동 ${preview.activityCount}개 · 숙소 ${preview.stayCount}곳`;
+      const hasPlaces = collectPlaceCandidates(preview.file, { places: [], regions: [] }).candidates.length > 0;
+      if (hasPlaces) {
+        setCreated({ tripId: trip.header.tripId, resultText, file: preview.file });
+      } else {
+        onSaved(trip.header.tripId, resultText);
+      }
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -216,6 +240,28 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
   }
 
   const saveable = preview ? canSavePreview(preview, confirmedDropped, confirmedDuplicate) : false;
+  if (created) {
+    return (
+      <Modal title="장소 단계" onClose={() => onSaved(created.tripId, created.resultText)}>
+        <p role="status" data-testid="new-trip-created">
+          여행을 만들었습니다. 장소 이름은 지금 활동 메모의 [장소: 이름]에 남아 있습니다. 아래에서 장소를 만들고 연결할
+          수 있고, 건너뛰면 메모에 그대로 남습니다.
+        </p>
+        <PlaceFlow
+          repo={repo}
+          tripId={created.tripId}
+          intro="새 여행의 장소 후보입니다. 장소 표와 일정의 장소 칸에서 모았습니다."
+          source={(loaded) => collectPlaceCandidates(created.file, { places: loaded.places, regions: loaded.regions })}
+          onFinish={(text) => onSaved(created.tripId, `${created.resultText}. ${text}`)}
+        />
+        <div className="button-row prep-actions">
+          <button type="button" onClick={() => onSaved(created.tripId, created.resultText)}>
+            장소 없이 닫기
+          </button>
+        </div>
+      </Modal>
+    );
+  }
   return (
     <Modal title="AI 결과 붙여넣기" onClose={onClose}>
       <p className="muted">
@@ -270,8 +316,29 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
                 {preview.message}
               </p>
             ) : null}
+            {updateCollection &&
+            current &&
+            (updateCollection.candidates.length > 0 ||
+              updateCollection.existingLines.changed + updateCollection.existingLines.unknown > 0) ? (
+              stage ? (
+                <p role="status" data-testid="place-stage-done">
+                  장소 단계 완료: 만든 장소 {stage.created}개 · 기존 장소 연결 {stage.linked}개. 아래 미리보기에서
+                  활동에 연결합니다.
+                </p>
+              ) : (
+                <PlaceStage
+                  repo={repo}
+                  tripId={current.header.tripId}
+                  candidates={updateCollection.candidates}
+                  existingLines={updateCollection.existingLines}
+                  regions={current.regions}
+                  onDone={setStage}
+                />
+              )
+            ) : null}
             {preview.state === 'update' && current && currentTrip ? (
               <UpdatePreview
+                key={stage ? `placed-${stage.placeIds.size}` : 'plain'}
                 repo={repo}
                 file={preview.file}
                 current={currentTrip}
