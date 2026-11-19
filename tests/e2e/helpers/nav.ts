@@ -75,13 +75,17 @@ export async function guideMenu(scope: Page | Locator, item: string) {
   await scope.getByRole('button', { name: item, exact: true }).click();
 }
 
-/** 새 여행을 저장한 뒤 장소 단계 창이 뜨면(장소 표가 든 글) "장소 없이 닫기"로 넘긴다. 없으면 그대로 둔다. */
-export async function skipPlaceStage(page: Page) {
-  const skip = page.getByRole('button', { name: '장소 없이 닫기', exact: true });
-  const created = page.getByTestId('new-trip-created');
-  const heading = page.locator('h1').first();
-  await expect(skip.or(heading).first()).toBeVisible();
-  if (await created.isVisible()) {
-    await skip.click();
+/**
+ * 새 여행을 저장한 뒤 장소 단계 창을 "장소 없이 닫기"로 넘긴다. 장소가 든 글(기본)은 저장이 끝나야만 뜨는
+ * 창(`new-trip-created`)을 기다린다. 장소 후보가 없는 글이면 `places: false`로 결과 문구를 기다린다.
+ * 저장 전부터 화면에 있는 요소(h1 등)는 기다림이 되지 않으므로 쓰지 않는다.
+ */
+export async function skipPlaceStage(page: Page, options: { places: boolean } = { places: true }) {
+  if (!options.places) {
+    await expect(page.getByText('여행을 만들었습니다.')).toBeVisible();
+    return;
   }
+  await expect(page.getByTestId('new-trip-created')).toBeVisible();
+  await page.getByRole('button', { name: '장소 없이 닫기', exact: true }).click();
+  await expect(page.getByTestId('new-trip-created')).toBeHidden();
 }
