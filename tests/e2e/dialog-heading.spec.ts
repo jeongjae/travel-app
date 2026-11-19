@@ -63,8 +63,6 @@ test('가이드 고르기: 끝까지 스크롤해도 제목·닫기가 보이고
   expect(closeBox.height).toBeLessThanOrEqual(30);
   const fixedHeight = Math.round(stickyBox.y + stickyBox.height - dialogBox.y);
   console.log(`고정 영역 높이 ${test.info().project.name}: ${fixedHeight}px`);
-  {
-  }
   if (CAPTURE_DIR) {
     await page.screenshot({ path: `${CAPTURE_DIR}/guide-select-scrolled-${test.info().project.name}.png` });
   }
@@ -79,24 +77,32 @@ test('"AI로 수정하기" 범위 선택 단추가 글자 줄 높이 이하이�
   await page.getByLabel('붙여 넣은 글').fill(T1);
   await page.getByRole('button', { name: '미리보기', exact: true }).click();
   await page.getByRole('button', { name: '새 여행으로 저장', exact: true }).click();
-  const skip = page.getByRole('button', { name: '장소 없이 닫기', exact: true });
-  await expect(skip.or(page.locator('h1').first()).first()).toBeVisible();
-  if (await skip.isVisible()) {
-    await skip.click();
-  }
+  // 저장이 끝나야만 생기는 결과 문구를 기다린다(h1은 저장 전부터 있어 기다림이 되지 않는다).
+  await expect(page.getByText('여행을 만들었습니다.')).toBeVisible();
   await openTripMenu(page);
   await page.getByRole('button', { name: 'AI로 수정하기', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  const radio = dialog.getByRole('radio', { name: '전체' });
-  const label = radio.locator('xpath=..');
-  const radioBox = await box(radio);
-  const labelBox = await box(label);
-  expect(radioBox.height).toBeLessThanOrEqual(20);
-  expect(radioBox.width).toBeLessThanOrEqual(20);
-  expect(labelBox.height).toBeGreaterThanOrEqual(44);
-  expect(Math.abs(radioBox.y + radioBox.height / 2 - (labelBox.y + labelBox.height / 2))).toBeLessThanOrEqual(2);
-  const closeBox = await box(dialog.locator('.dialog-heading').getByRole('button', { name: '닫기', exact: true }));
-  expect(closeBox.height).toBeLessThanOrEqual(30);
+  // 창의 마지막 요소(내보내기 글)가 보인 뒤, 한 번의 evaluate로 단추·글자 줄·닫기를 함께 잰다.
+  await expect(dialog.getByTestId('export-counts')).toBeVisible();
+  const measured = await dialog.evaluate((element) => {
+    const radio = element.querySelector<HTMLInputElement>('input[name="export-scope"]')!;
+    const label = radio.parentElement!.getBoundingClientRect();
+    const radioRect = radio.getBoundingClientRect();
+    const close = element.querySelector('.dialog-heading button')!.getBoundingClientRect();
+    return {
+      radioWidth: radioRect.width,
+      radioHeight: radioRect.height,
+      radioCenter: radioRect.y + radioRect.height / 2,
+      labelHeight: label.height,
+      labelCenter: label.y + label.height / 2,
+      closeHeight: close.height,
+    };
+  });
+  expect(measured.radioHeight).toBeLessThanOrEqual(20);
+  expect(measured.radioWidth).toBeLessThanOrEqual(20);
+  expect(measured.labelHeight).toBeGreaterThanOrEqual(44);
+  expect(Math.abs(measured.radioCenter - measured.labelCenter)).toBeLessThanOrEqual(2);
+  expect(measured.closeHeight).toBeLessThanOrEqual(30);
   if (CAPTURE_DIR) {
     await page.screenshot({ path: `${CAPTURE_DIR}/export-scope-${test.info().project.name}.png` });
   }
