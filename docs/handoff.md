@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: [R3](claude-task-e02-review.md)(이동이 연결된 활동도 옮김, 범위 단추 크기, `codex/e02a-r3-leg-radio`) → Codex 검토·병합 → 사용자 확인.
+1. Claude: [R3](claude-task-e02-review.md) 1~11번(이동 연결 활동도 옮김, 범위 단추, 창 제목 줄 가림·닫기 높이, `codex/e02a-r3-leg-radio`) → Codex 검토·병합 → 사용자 확인.
 2. Claude: R3 뒤 [E2-B](claude-task-e02-update-import.md)(2절 + "E2-B 보완", `codex/e02b-places`) → Codex 검토·병합 → G-E2B.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
