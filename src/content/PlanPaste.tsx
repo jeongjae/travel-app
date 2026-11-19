@@ -159,7 +159,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
             header: current.header,
             plan: currentPlan,
             placeNames: new Map(current.places.map((place) => [place.entityId, place.name])),
-            ...(stage ? { placeIds: stage.placeIds } : {}),
+            ...(stage ? { placeIds: stage.placeIds, revisionBridge: stage.revision } : {}),
           }
         : undefined,
     [current, currentPlan, stage],

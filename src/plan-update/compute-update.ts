@@ -45,7 +45,11 @@ function checkTarget(file: CheckedPlanFile, current: CurrentTrip): UpdateResult 
   if (basePlanId !== header.currentPlanVersionId || plan.planVersionId !== header.currentPlanVersionId) {
     return { status: 'blocked', reason: 'stale-plan', message: STALE_PLAN_MESSAGE };
   }
-  if (baseRevision !== header.domainRevision) {
+  const bridged =
+    current.revisionBridge !== undefined &&
+    baseRevision === current.revisionBridge.from &&
+    header.domainRevision === current.revisionBridge.to;
+  if (baseRevision !== header.domainRevision && !bridged) {
     return { status: 'blocked', reason: 'stale-revision', message: STALE_REVISION_MESSAGE };
   }
   return undefined;

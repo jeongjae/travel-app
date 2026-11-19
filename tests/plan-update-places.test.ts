@@ -255,3 +255,24 @@ describe('수정 글에서 승인된 장소에 연결', () => {
     expect(change.operation.item.placeLinks).toEqual([{ placeId: 'p-new', relation: 'visit' }]);
   });
 });
+
+describe('장소 만들기가 올린 revision', () => {
+  const created = createdTrip(fixture('chatgpt-t1-run2.md'));
+  const text = exportPlan({ header: created.header, plan: created.initialPlan }).text;
+  const base = created.header.domainRevision;
+
+  it('글의 기준revision → 장소 만들기로 올라간 revision은 오래된 기준으로 보지 않는다', () => {
+    const current = currentOf(created);
+    current.header.domainRevision = base + 1;
+    expect(computeUpdate(check(text), current).status).toBe('blocked');
+    const bridged = { ...current, revisionBridge: { from: base, to: base + 1 } };
+    expect(computeUpdate(check(text), bridged).status).toBe('ready');
+  });
+
+  it('그 사이 다른 변경이 더 있으면 막는다', () => {
+    const current = currentOf(created);
+    current.header.domainRevision = base + 2;
+    const bridged = { ...current, revisionBridge: { from: base, to: base + 1 } };
+    expect(computeUpdate(check(text), bridged).status).toBe('blocked');
+  });
+});

@@ -17,7 +17,13 @@ import { command, errorText, ErrorText, Modal } from './ui';
 
 type Action = 'create' | 'link' | 'skip';
 
-export type StageDone = { placeIds: Map<string, string>; created: number; linked: number };
+export type StageDone = {
+  placeIds: Map<string, string>;
+  created: number;
+  linked: number;
+  /** 장소 만들기가 올린 여행 revision(만든 것이 없으면 없다). */
+  revision?: { from: number; to: number };
+};
 
 type StageProps = {
   repo: ContentRepository;
@@ -67,6 +73,7 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
   const [error, setError] = useState('');
   const createdRef = useRef(new Map<string, string>());
   const workingRef = useRef(false);
+  const revisionRef = useRef<{ from: number; to: number } | undefined>(undefined);
 
   const actionOf = (candidate: PlaceCandidate) => actions.get(candidate.name) ?? defaultAction(candidate);
   const creates = candidates.filter((candidate) => actionOf(candidate) === 'create');
@@ -93,9 +100,13 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
         if (!header) {
           throw new Error('여행을 찾을 수 없습니다.');
         }
-        await repo.execute(
+        const result = await repo.execute(
           command(tripId, 'CreateContentBatch', { create: batch, updateOwners: [] }, header.domainRevision),
         );
+        revisionRef.current = {
+          from: revisionRef.current?.from ?? header.domainRevision,
+          to: result.domainRevision,
+        };
         batch.forEach((content) => createdRef.current.set(content.payload.name, content.entityId));
         done += batch.length;
         setProgress(`장소를 만드는 중 ${done}/${pending.length}`);
@@ -104,7 +115,12 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
       for (const candidate of links) {
         placeIds.set(candidate.name, candidate.existing!.entityId);
       }
-      onDone({ placeIds, created: createdRef.current.size, linked: links.length });
+      onDone({
+        placeIds,
+        created: createdRef.current.size,
+        linked: links.length,
+        ...(revisionRef.current ? { revision: revisionRef.current } : {}),
+      });
     } catch (err) {
       const made = createdRef.current.size;
       setError(

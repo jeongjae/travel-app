@@ -20,6 +20,11 @@ export type CurrentTrip = {
    * 장소 칸이 이 이름이면 그 장소에 연결하고, 아니면 메모 앞 `[장소: 이름]`으로 남긴다.
    */
   placeIds?: ReadonlyMap<string, string>;
+  /**
+   * 장소 단계가 올린 revision. 글의 기준revision이 `from`이고 지금 revision이 `to`이면 그 사이의 변경은
+   * 이 장소 만들기뿐이므로(계획 버전은 그대로) 오래된 기준으로 보지 않는다.
+   */
+  revisionBridge?: { from: number; to: number };
 };
 
 export type FieldChange = {
