@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-18 · **AI 개편 T-E1 확인 완료 / T-P1 확인 완료(11/19, 화면 의견 4건 종결) / T-E2 R1 확인 완료, R2 수정 요청 → R3, E2-B 진행**
+2026-11-18 · **AI 개편 T-E1 확인 완료 / T-P1 확인 완료(11/19, 화면 의견 4건 종결) / T-E2 R3·E2-B 조건부(CI 실패, 11/19) → R3-1·E2B-R1**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -15,15 +15,15 @@
 
 ## 최근 검증·한계
 
-- CI: R2 `940bba8` 성공(전체 E2E). 병합 뒤 main CI·Pages는 [결정](decisions.md) 최신 절.
+- CI: R3 `fa6f453` 실패 2건, E2-B `32e44dc` 실패 7건. 배포본은 R2(`5a1fb6e`)까지.
 - G3 사용자 확인: iPhone 1시간 만료 재로그인 OK, PC 평소 공간 불변.
 - 미검증인 채 종료(사용자 수용): C3 미리보기 수·1회차 거절·작업 상태·이전 버전 조회, 운영 재작성 경로·429, U3·U4 일부, CL-29, CL-32(CPU 미측정).
 - T-E1 변환기는 고정 자료 8개 통과. 사용자 확인 G-E1 완료.
 
 ## 다음 작업·확인 관문
 
-1. Claude: [R3](claude-task-e02-review.md) 1~11번(이동 연결 활동도 옮김, 범위 단추, 창 제목 줄·닫기, `codex/e02a-r3-leg-radio`) → Codex 검토·병합 → 사용자 확인.
-2. Claude: R3 뒤 [E2-B](claude-task-e02-update-import.md)(2절 + "E2-B 보완", `codex/e02b-places`) → Codex 검토·병합 → G-E2B.
+1. Claude: [R3-1·E2B-R1](claude-task-e02-review.md)(시험의 기다림 경합, 전체 E2E·CI 확인 뒤 보고) → Codex 검토·병합 → 사용자 확인.
+2. Codex: E2-B 나머지 정독(`PlaceStage.tsx`·내보내기) → 병합 → 사용자 G-E2B.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 

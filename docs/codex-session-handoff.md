@@ -39,8 +39,8 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 | AI 개편 T-E1(새 여행 가져오기) | 확인 완료(G-E1 11/17) | — |
 | T-P1(가이드 고르기) | **확인 완료**(11/19: U-3·U-4 OK, 날짜 칸 11/18) | — |
 | T-P1 R3(iPhone 날짜 칸 겹침) | R3-1 `efc700a` 병합. **사용자 iPhone 확인 완료**(11/18 15:51), 한 줄 유지 확정 | — |
-| T-E2 E2-A(기존 여행 고치기) | G-E2A·R1 확인 완료. R2 병합 뒤 **수정 요청**(11/19): 이동이 연결된 활동이 제자리에 남아 틀린 일정. 범위 선택 단추가 큼 | Claude [R3](claude-task-e02-review.md)(`codex/e02a-r3-leg-radio`) → 검토·병합 → 사용자 확인 |
-| T-E2 E2-B(장소) | 멈춤 보고(11/19)에 사용자 확정 2건 + [지시서 "E2-B 보완"](claude-task-e02-update-import.md) 작성. Claude 착수(`codex/e02b-places`) | 완료 보고 → 검토(장소 승인·계획 승인이 각각 전부 또는 전무, 왕복 0건) → 병합 → G-E2B |
+| T-E2 E2-A(기존 여행 고치기) | G-E2A·R1 확인 완료. R3(`fa6f453`: 이동 연결 활동도 옮김, 범위 단추, 창 제목 줄·닫기) **조건부 — CI 실패 2건** | Claude R3-1 → CI 통과 확인 → 병합 → 사용자 확인 4항목 |
+| T-E2 E2-B(장소) | `32e44dc` **조건부 — CI 실패 7건**(시험 도우미 `skipPlaceStage` 경합으로 추정). `places.ts`·기준 연결은 읽고 수용 | Claude E2B-R1 → CI 통과 → Codex가 `PlaceStage.tsx`·내보내기 정독 → 병합 → G-E2B |
 | 이월 | U4 대본 v2 재수행(CL-20·REG-02), CL-46, Node 서버 정리, T-E3, P2 | [change-log](change-log.md) |
 
 E2-A 검토 때 볼 것: [지시서](claude-task-e02-update-import.md) "A1 검토 뒤 보완" 5건, 완료 조건 표(AC), 빈 칸=변경 없음·`(비움)`=지움, 삭제는 삭제 구역만, 오래된 기준 차단, `ChangePlan` 1회, 실패 시 불변. Claude 보고(11/18): `CreateTrip`·`ImportNewTrip`을 뺀 거의 모든 저장이 `domainRevision`을 올린다(예외 `SaveProposal`·거절) — 복사 뒤 다른 저장이 있으면 붙여넣기가 막힌다는 점을 사용자에게 알렸다.
