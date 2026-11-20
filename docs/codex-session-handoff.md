@@ -42,7 +42,8 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 | T-E2 E2-A(기존 여행 고치기) | **확인 완료**(G-E2A 11/18, R1 11/19, R3 4항목 11/20) | — |
 | T-E2 E2-B(장소) | **확인 완료**(G-E2B 11/20) | — |
 | T-M1(시험 실행 정리) | **통과·병합**(11/20, [검토](claude-task-m01-review.md)). PC 전체 E2E는 `pnpm run test:e2e:all` | — |
-| E3 | **E3-1 통과·병합**(11/20 14:25, [검토](claude-task-e03-1-review.md)). **E3-2**(직접 입력 보완, 기존 장소 내용 수정)는 사용자의 실사용 점검 뒤 | 사용자 G-E3-1 → 그 뒤 순서(P2·E4, 이월)는 미정 |
+| E3 | E3-1 병합·배포(11/20). **사용자 확인 대기 — UI는 한꺼번에 확인**([일괄 확인 목록](batch-check-list.md)). E3-2·P2는 사용자의 실사용 점검 뒤 | 화면이 바뀌는 작업은 병합 때 일괄 확인 목록에 더한다 |
+| E4 정리 | [T-E4-1](claude-task-e04-1-node-server.md)(개발용 Node 서버 정리) 작성(11/20). 구 화면 제거는 사용자 결정 대기 | Claude(`codex/e04-1-node-server`) → 검토·병합(사용자 화면 확인 없음) |
 | 이월 | U4 대본 v2 재수행(CL-20·REG-02), CL-46, Node 서버 정리, T-E3, P2 | [change-log](change-log.md) |
 
 E2-A 검토 때 볼 것: [지시서](claude-task-e02-update-import.md) "A1 검토 뒤 보완" 5건, 완료 조건 표(AC), 빈 칸=변경 없음·`(비움)`=지움, 삭제는 삭제 구역만, 오래된 기준 차단, `ChangePlan` 1회, 실패 시 불변. Claude 보고(11/18): `CreateTrip`·`ImportNewTrip`을 뺀 거의 모든 저장이 `domainRevision`을 올린다(예외 `SaveProposal`·거절) — 복사 뒤 다른 저장이 있으면 붙여넣기가 막힌다는 점을 사용자에게 알렸다.
