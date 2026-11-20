@@ -127,5 +127,5 @@ it.each(['content_revisions', 'import_packages'] as const)(
     expect(await empty.repository.meta()).toEqual(originalSpace);
     expect(await empty.repository.list()).toEqual([]);
   },
-  30000,
+  90000,
 );

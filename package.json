@@ -23,6 +23,7 @@
     "test:e2e:cross-origin": "node scripts/e2e-cross-origin.mjs",
     "preview:ui": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test:e2e": "node scripts/playwright.mjs test",
+    "test:e2e:all": "node scripts/e2e-all.mjs",
     "browser:install": "node scripts/playwright.mjs install chromium webkit",
     "format": "prettier --write --ignore-unknown src server worker scripts tests \"*.{ts,mjs,json,yaml}\" index.html .github",
     "format:check": "prettier --check --ignore-unknown src server worker scripts tests \"*.{ts,mjs,json,yaml}\" index.html .github",

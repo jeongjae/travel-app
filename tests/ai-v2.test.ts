@@ -26,7 +26,7 @@ async function setup() {
 }
 
 async function persisted(jobs: AiV2Jobs, directory: string, id: string, status: string) {
-  await vi.waitFor(() => expect(jobs.get(id)?.status).toBe(status), { timeout: 5000 });
+  await vi.waitFor(() => expect(jobs.get(id)?.status).toBe(status), { timeout: 20000 });
   // A restarted process reads after the prior writer has finished, not while it renames its file.
   await (jobs as unknown as { writes: Promise<void> }).writes;
   const rows = JSON.parse(await readFile(join(directory, 'jobs.json'), 'utf8'));
@@ -158,7 +158,7 @@ it('중단 뒤 늦게 도착한 결과가 초안을 만들지 않는다', async 
   let finish!: (value: Research) => void;
   provider.research = vi.fn(() => new Promise<Research>((accept) => (finish = accept)));
   await jobs.create(input);
-  await vi.waitFor(() => expect(provider.research).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(provider.research).toHaveBeenCalledOnce(), { timeout: 20000 });
   await jobs.cancel(input.id);
   finish(research);
   await persisted(jobs, directory, input.id, 'cancelled');

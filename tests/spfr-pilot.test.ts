@@ -230,7 +230,7 @@ it('고정 원천 실행 없이 AST/XLSX/본문을 추출하고 v2 후보/원문
     n.mappings,
   );
   await expect(readPackage(p.blob)).rejects.toThrow('미해결');
-}, 15000);
+}, 30000);
 it('고정 원천 변조·깨진 이동 참조를 거부하고 없는 Fact 근거/미상 필드를 발명하지 않는다', async () => {
   const f = await fixture();
   execFileSync(python, f.args, { stdio: 'pipe' });
@@ -254,4 +254,4 @@ it('고정 원천 변조·깨진 이동 참조를 거부하고 없는 Fact 근�
   await expect(
     normalizeSpfrCandidate(broken, { days: [28], tripId: 'synthetic-spfr', createdAt: '2026-10-22T00:00:00Z' }),
   ).rejects.toThrow();
-}, 15000);
+}, 30000);

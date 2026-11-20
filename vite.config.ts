@@ -60,5 +60,13 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
-  test: { include: ['tests/**/*.test.ts'], environment: 'node', setupFiles: ['tests/setup.ts'] },
+  test: {
+    include: ['tests/**/*.test.ts'],
+    environment: 'node',
+    setupFiles: ['tests/setup.ts'],
+    // PC에서 다른 작업(E2E·빌드)과 CPU를 나눠 쓰면 5초 기본 한도에 걸려 시험이 간헐 실패했다(T-M1 M1-1).
+    // 통과하는 시험은 느려지지 않는다. 한도는 멈춘 시험을 끊는 안전장치로만 둔다.
+    testTimeout: 60000,
+    hookTimeout: 60000,
+  },
 });

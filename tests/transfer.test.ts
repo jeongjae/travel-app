@@ -93,7 +93,7 @@ it('선택 원천을 실행 없이 읽고 JSON/AST/XLSX를 공유 계약·패키
   }
   const p = await buildPackage(normalized.dataset, assets, source, normalized.report, normalized.mappings);
   expect((await readPackage(p.blob)).dataset.contents.filter((c) => c.kind === 'booking')).toHaveLength(2);
-}, 10000);
+}, 30000);
 it('패키지의 모든 NDJSON·첨부 바이트·해시를 왕복하고 취소·미해결 자료를 거부한다', async () => {
   const p = await pack(),
     parsed = await readPackage(p.blob);

@@ -64,7 +64,7 @@ async function finishedJob() {
   const jobs = new AiV2Jobs(provider, directory);
   await jobs.init();
   await jobs.create(input);
-  await vi.waitFor(() => expect(jobs.get(input.id)?.status).toBe('awaiting-decision'));
+  await vi.waitFor(() => expect(jobs.get(input.id)?.status).toBe('awaiting-decision'), { timeout: 20000 });
   await (jobs as unknown as { writes: Promise<void> }).writes;
   return { jobs, input, directory, fixture };
 }

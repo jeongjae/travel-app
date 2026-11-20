@@ -65,8 +65,10 @@ async function manager(p: AiProvider) {
   return m;
 }
 async function finished(m: JobManager, id: string) {
-  await vi.waitFor(() => expect(['awaiting-decision', 'failed', 'cancelled']).toContain(m.get(id)?.status));
-  await vi.waitFor(() => expect(m.controllers.has(id)).toBe(false));
+  await vi.waitFor(() => expect(['awaiting-decision', 'failed', 'cancelled']).toContain(m.get(id)?.status), {
+    timeout: 20000,
+  });
+  await vi.waitFor(() => expect(m.controllers.has(id)).toBe(false), { timeout: 20000 });
   return m.get(id)!;
 }
 it('실제 조사 출처로 검증된 초안을 만들되 계획과 실제 기록을 변경하지 않는다', async () => {
@@ -149,10 +151,10 @@ it('진행 작업 중단은 저장되며 늦게 도착한 결과로 덮어쓰지
   );
   const m = await manager(p);
   await m.create(input);
-  await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+  await vi.waitFor(() => expect(finish).toBeTypeOf('function'), { timeout: 20000 });
   await m.cancel(input.id);
   finish(research);
-  await vi.waitFor(() => expect(m.controllers.size).toBe(0));
+  await vi.waitFor(() => expect(m.controllers.size).toBe(0), { timeout: 20000 });
   expect(m.get(input.id)?.status).toBe('cancelled');
   expect(p.plan).not.toHaveBeenCalled();
 });
