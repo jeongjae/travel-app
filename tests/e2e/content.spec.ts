@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { buildPackage } from '../../src/transfer/package';
 import { pilotTrip, fixtureAssets } from '../fixtures/pilot';
 import { digestBytes } from '../../src/contracts/v2';
+import { demoTrips } from '../../src/demo';
 import {
   currentDate,
   menuAction,
@@ -502,12 +503,44 @@ test('예약·작업 체크·메모·계획 수정과 새 여행을 공통 화�
   await expect(page.getByRole('heading', { name: '새 여행 첫 활동', exact: true })).toBeVisible();
 });
 test('기존 여행을 검토한 뒤 전환하고 이전 실제 기록을 공통 화면에서 조회한다', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '예시 여행 불러오기', exact: true }).click();
-  await page.getByRole('button', { name: '건너뜀', exact: true }).first().click();
-  await page.getByLabel('메모', { exact: true }).fill('이전 화면에서 남긴 기록');
-  await page.getByRole('button', { name: '실제 기록 저장', exact: true }).click();
-  await expect(page.getByRole('dialog')).not.toBeVisible();
+  // 구 화면이 없으므로, 구 형식 여행을 같은 기기 저장 공간(travel-app의 trips 표)에 직접 넣어 둔다.
+  const [paris, seoul] = demoTrips();
+  const first = paris.versions.at(-1)!.activities[0];
+  paris.actuals.push({
+    id: 'legacy-note',
+    activityId: first.id,
+    title: first.title,
+    outcome: 'skipped',
+    start: first.start,
+    end: first.end,
+    timeZone: paris.timeZone,
+    note: '이전 화면에서 남긴 기록',
+    createdAt: first.start,
+  });
+  paris.revision += 1;
+  await page.goto('/manifest.webmanifest');
+  await page.evaluate(
+    (trips) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('travel-app', 10);
+        open.onupgradeneeded = () => {
+          const store = open.result.createObjectStore('trips', { keyPath: 'id' });
+          store.createIndex('name', 'name');
+          store.createIndex('startDate', 'startDate');
+        };
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction('trips', 'readwrite');
+          trips.forEach((trip) => tx.objectStore('trips').put(trip));
+          tx.oncomplete = () => {
+            open.result.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    [paris, seoul],
+  );
   await page.goto('/?workspace=content');
   await page.getByRole('button', { name: '기존 여행 전환 검토', exact: true }).click();
   await expect(page.getByRole('heading', { name: '기존 여행 전환 확인', exact: true })).toBeVisible();

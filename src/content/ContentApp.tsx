@@ -634,7 +634,6 @@ export function ContentApp() {
               />
             </label>
           ) : null}
-          <a href={workspaceUrl('legacy', location.search)}>기존 일정 열기</a>
         </section>
       ) : null}
       <main className="main" id="content-main">

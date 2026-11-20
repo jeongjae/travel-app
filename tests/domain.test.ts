@@ -14,7 +14,6 @@ import {
   type ProposalInput,
   type Trip,
 } from '../src/domain';
-import { convertLegacy, parseFile } from '../src/import-export';
 
 let repo: TravelRepository;
 let trip: Trip;
@@ -211,41 +210,7 @@ describe('여행과 변경안 저장 경계', () => {
   });
 });
 
-describe('파일과 시간 검증', () => {
-  const legacy = () => ({
-    format: 'spfr-daily-cards',
-    name: '가상 일일카드',
-    timeZone: 'Europe/Paris',
-    days: [
-      {
-        schemaVersion: '1.0',
-        day: 1,
-        date: '2026-11-07',
-        city: 'Paris',
-        title: '첫날',
-        sourceRefs: ['원본의 자유 텍스트 근거'],
-        stops: [
-          { id: 'night', name: '야간 산책', start: '23:30', end: '00:30', place_ref: 'river', summary: '가상 일정' },
-        ],
-      },
-      {
-        schemaVersion: '1.0',
-        day: 2,
-        date: '2026-11-08',
-        city: 'Paris',
-        title: '둘째 날',
-        stops: [{ id: 'night', name: '다시 산책', start: '10:00', end: '11:00', place_ref: 'river' }],
-      },
-    ],
-  });
-  it('일일카드 두 개에서 날짜별 독립 일정과 자정 경계를 변환한다', () => {
-    const t = convertLegacy(legacy());
-    expect(t.places).toHaveLength(1);
-    expect(t.actuals).toHaveLength(0);
-    expect(currentPlan(t).activities.map((a) => a.id)).toEqual(['day-1/night', 'day-2/night']);
-    expect(localDate(currentPlan(t).activities[0].end, t.timeZone)).toBe('2026-11-08');
-    expect(currentPlan(t).evidence[0].status).toBe('unverified');
-  });
+describe('시간 검증', () => {
   it('잘못된 날짜·시간대·종료 순서·오프셋·외부 필드를 거부한다', () => {
     expect(() =>
       newTrip({ name: '잘못된 날짜', startDate: '2026-02-30', endDate: '2026-03-02', timeZone: 'Europe/Paris' }),
@@ -275,22 +240,6 @@ describe('파일과 시간 검증', () => {
     } finally {
       await restoredRepo.db.delete();
     }
-  });
-  it('파일 미리보기 검증은 저장하지 않고 잘못된 JSON·참조·중복 일차를 거부한다', async () => {
-    const parsed = parseFile(JSON.stringify(legacy()));
-    expect(parsed.kind).toBe('trip');
-    expect(await repo.list()).toHaveLength(1);
-    const bad = legacy();
-    bad.days.push(bad.days[0]);
-    expect(() => convertLegacy(bad)).toThrow('중복');
-    const unknown = structuredClone(trip);
-    unknown.actuals.push({ ...actualInput(), activityId: 'missing', id: 'a', createdAt: now() });
-    unknown.revision++;
-    expect(() => parseFile(JSON.stringify({ format: 'travel-app-trip', schemaVersion: 1, trip: unknown }))).toThrow(
-      '원본 일정',
-    );
-    expect(() => parseFile('{ broken')).toThrow();
-    expect(() => parseFile(JSON.stringify({ format: 'unknown' }))).toThrow('지원하지');
   });
   it('빈 변경안과 중복 변경 대상은 거부한다', async () => {
     await expect(repo.propose({ ...proposal(trip), operations: [] })).rejects.toThrow();

@@ -87,13 +87,13 @@ test('하단 탭 다섯 개로 기존 모든 기능에 닿는다', async ({ page
   await expect(page.getByRole('dialog').getByRole('heading', { name: '저장소·백업', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '닫기', exact: true }).click();
 
-  // 여행 전환·새 여행·가져오기·기존 일정은 헤더의 여행 이름에서 연다.
+  // 여행 전환·새 여행·가져오기는 헤더의 여행 이름에서 연다.
   await openTripMenu(page);
   for (const name of ['새 여행', '가상 여행 둘러보기']) {
     await expect(page.locator('.journey-library').getByRole('button', { name, exact: true })).toBeVisible();
   }
   await expect(page.getByLabel('원천 패키지 가져오기')).toBeVisible();
-  await expect(page.getByRole('link', { name: '기존 일정 열기', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: '기존 일정 열기', exact: true })).toHaveCount(0);
   await expect(
     page.getByRole('navigation', { name: '여행 선택' }).getByRole('button', { name: '가상 탐색 여행', exact: true }),
   ).toBeVisible();
