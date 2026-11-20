@@ -48,3 +48,7 @@ ContentApp이 커진 이유: 구 `App`이 지금 앱과 공유하던 모듈(백�
 ## 검사
 
 - `pnpm run check`: 통과(743, 1 skip). `check:pilot`: 통과.
+
+## CI
+
+- run 44707188752: 첫 실행에서 `ai-v2.spec.ts:148`(mobile, 지연 fixture를 쓰는 시간 의존 시험) 1건이 실패했다. 이 변경(구 화면 삭제)과 닿는 곳이 없고 E4-1 CI에서는 통과했다. 실패 작업만 다시 돌려 success(static + E2E 4작업). 같은 시험이 다시 흔들리면 별도 안정화 대상이다.
