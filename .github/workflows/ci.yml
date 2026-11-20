@@ -1,7 +1,26 @@
 name: travel-app checks
-on: [push, pull_request]
+
+# Branches and pull requests. main is checked once by pages.yml before it deploys (same checks.yml),
+# so a commit is not tested twice. Documentation-only pushes do not run the suite.
+on:
+  push:
+    branches-ignore: [main]
+    paths-ignore:
+      - docs/**
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - docs/**
+      - '**.md'
+
 permissions:
   contents: read
+
+# A newer push to the same branch replaces the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     uses: ./.github/workflows/checks.yml

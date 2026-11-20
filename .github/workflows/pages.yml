@@ -4,17 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - src/**
-      - public/**
-      - index.html
-      - vite.config.ts
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - .node-version
-      - .github/workflows/pages.yml
-      - .github/workflows/checks.yml
+    # Every change to main except documentation is checked once here and then deployed.
+    # ci.yml skips main, so this is main's only run of checks.yml.
+    paths-ignore:
+      - docs/**
+      - '**.md'
 
 permissions:
   contents: read
