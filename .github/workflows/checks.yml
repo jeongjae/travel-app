@@ -43,17 +43,25 @@ jobs:
         include:
           - name: chromium 1/3
             browsers: chromium
+            install: --with-deps chromium
             args: --project=desktop --project=mobile --shard=1/3
           - name: chromium 2/3
             browsers: chromium
+            install: --with-deps chromium
             args: --project=desktop --project=mobile --shard=2/3
           - name: chromium 3/3
             browsers: chromium
+            install: --with-deps chromium
             args: --project=desktop --project=mobile --shard=3/3
+          # Installing WebKit's system packages with apt took 13 minutes on the hosted runner (2026-11-20).
+          # Playwright's own image already has them; keep its tag equal to @playwright/test in package.json.
           - name: webkit
             browsers: webkit
+            install: webkit
+            container: mcr.microsoft.com/playwright:v1.64.1-noble
             args: --project=webkit-iphone
     name: e2e (${{ matrix.name }})
+    container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -71,5 +79,5 @@ jobs:
           key: playwright-${{ runner.os }}-${{ matrix.browsers }}-${{ hashFiles('pnpm-lock.yaml') }}
       # The preview server serves dist; the static job's build is not shared between jobs.
       - run: pnpm run build
-      - run: node scripts/playwright.mjs install --with-deps ${{ matrix.browsers }}
+      - run: node scripts/playwright.mjs install ${{ matrix.install }}
       - run: node scripts/playwright.mjs test ${{ matrix.args }}
