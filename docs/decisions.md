@@ -1,5 +1,12 @@
 # 결정 기록
 
+## 2026-11-20 13:40 · T-M1 통과·병합 (Codex 판정)
+
+- `codex/m01-test-cleanup` `491e610`: 앱 코드 변경 0건, 데이터 경계 0건, CI 성공. [검토](claude-task-m01-review.md). main 병합. 화면이 바뀌지 않아 사용자 확인은 없다.
+- CL-36의 원인은 rename 경쟁이 아니라 시험 시간 한도였다(Claude가 재현·확인). 한도만 올려 해소.
+- PC 전체 E2E 명령 `pnpm run test:e2e:all` 추가 — 이후 Claude 보고는 이 명령의 4묶음 결과를 붙인다.
+- 다음: Claude에 [T-E3-1](claude-task-e03-1-request-helpers.md) 전달.
+
 ## 2026-11-20 13:15 · E3 범위 확정 — E3-1 먼저, 질문 4건은 추천대로 (사용자 확정)
 
 - **사용자 확정**: [E3 범위안](e3-scope-proposal.md) "모두 추천대로".

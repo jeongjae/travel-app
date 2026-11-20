@@ -41,7 +41,7 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 | T-P1 R3(iPhone 날짜 칸 겹침) | R3-1 `efc700a` 병합. **사용자 iPhone 확인 완료**(11/18 15:51), 한 줄 유지 확정 | — |
 | T-E2 E2-A(기존 여행 고치기) | **확인 완료**(G-E2A 11/18, R1 11/19, R3 4항목 11/20) | — |
 | T-E2 E2-B(장소) | **확인 완료**(G-E2B 11/20) | — |
-| T-M1(시험 실행 정리) | [지시서](claude-task-m01-cleanup.md) 작성(11/20). 사용자 결정: 정리 → E3, 실사용 점검은 사용자가 따로 | Claude(`codex/m01-test-cleanup`) → 검토·병합 |
+| T-M1(시험 실행 정리) | **통과·병합**(11/20, [검토](claude-task-m01-review.md)). PC 전체 E2E는 `pnpm run test:e2e:all` | — |
 | E3 | 범위 확정(11/20): **E3-1** 먼저 — [지시서](claude-task-e03-1-request-helpers.md) 작성, T-M1 병합 뒤 전달. **E3-2**(직접 입력 보완, 기존 장소 내용 수정)는 사용자의 실사용 점검 뒤 | T-M1 병합 → E3-1 전달 → 검토 → 사용자 확인(G-E3-1) |
 | 이월 | U4 대본 v2 재수행(CL-20·REG-02), CL-46, Node 서버 정리, T-E3, P2 | [change-log](change-log.md) |
 

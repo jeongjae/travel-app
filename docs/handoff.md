@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-18 · **AI 개편 T-E1 확인 완료 / T-P1 확인 완료(11/19, 화면 의견 4건 종결) / AI 개편 E1·P1·E2 확인 완료(11/20) → T-M1 정리 → E3**
+2026-11-18 · **AI 개편 T-E1 확인 완료 / T-P1 확인 완료(11/19, 화면 의견 4건 종결) / AI 개편 E1·P1·E2 확인 완료, T-M1 병합(11/20) → E3-1**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -22,8 +22,8 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: [T-M1](claude-task-m01-cleanup.md)(PC `check` 흔들림, PC 전체 E2E 명령, `codex/m01-test-cleanup`) → Codex 검토·병합.
-2. Claude: T-M1 뒤 [T-E3-1](claude-task-e03-1-request-helpers.md)(요청문 도우미) → 검토 → 사용자 확인. E3-2는 실사용 점검 뒤.
+1. Claude: [T-E3-1](claude-task-e03-1-request-helpers.md)(요청문 도우미 4건) → Codex 검토·병합 → 사용자 확인.
+2. E3-2는 사용자의 실사용 점검 뒤 범위를 정한다.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
