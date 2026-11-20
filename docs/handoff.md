@@ -23,7 +23,7 @@
 ## 다음 작업·확인 관문
 
 1. Claude: [T-M1](claude-task-m01-cleanup.md)(PC `check` 흔들림, PC 전체 E2E 명령, `codex/m01-test-cleanup`) → Codex 검토·병합.
-2. 사용자: [E3 범위안](e3-scope-proposal.md) 결정(나누기, 질문 4건) → Codex 지시서. 실사용 점검은 사용자가 따로 한다.
+2. 사용자: [E3 범위안](e3-scope-proposal.md) 결정(질문 4건) → Codex 지시서. 실사용 점검은 사용자가 따로 한다.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
