@@ -96,6 +96,7 @@ export function ContentApp() {
     [newTrip, setNewTrip] = useState(false),
     [planPaste, setPlanPaste] = useState(false),
     [updateExport, setUpdateExport] = useState(false),
+    [exportDate, setExportDate] = useState<string | undefined>(undefined),
     [placeMarks, setPlaceMarks] = useState(false),
     [planBrief, setPlanBrief] = useState(false),
     [draftOffer, setDraftOffer] = useState(false),
@@ -594,7 +595,13 @@ export function ContentApp() {
             </button>
             <button onClick={() => setPlanBrief(true)}>AI로 계획 만들기</button>
             {!planId ? (
-              <button onClick={() => setUpdateExport(true)} disabled={!header || meta?.mode !== 'v2'}>
+              <button
+                onClick={() => {
+                  setExportDate(undefined);
+                  setUpdateExport(true);
+                }}
+                disabled={!header || meta?.mode !== 'v2'}
+              >
                 AI로 수정하기
               </button>
             ) : null}
@@ -756,6 +763,15 @@ export function ContentApp() {
                   <button onClick={() => void record('unplanned')}>예정 외 활동 기록</button>
                   <button disabled={historical} onClick={() => setPlanEditor({ header: { ...header }, plan })}>
                     활동 추가
+                  </button>
+                  <button
+                    disabled={historical || !header || meta?.mode !== 'v2'}
+                    onClick={() => {
+                      setExportDate(activeDay?.date);
+                      setUpdateExport(true);
+                    }}
+                  >
+                    AI에게 요청
                   </button>
                 </div>
                 <div className="day-timeline">
@@ -1441,6 +1457,7 @@ export function ContentApp() {
           header={header}
           places={catalogPlaces}
           regions={catalogRegions}
+          initialDate={exportDate}
           onClose={() => setUpdateExport(false)}
         />
       ) : null}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { browserStorage } from '../guide-import/draft';
 import { buildGuideSection } from '../guide-import/guide-request';
 import { PLAN_FORMAT_PROMPT } from '../plan-import/format-prompt';
 import {
@@ -13,6 +14,15 @@ import {
   VISIT_OPTIONS,
   type TravelAnswers,
 } from '../plan-import/travel-brief';
+import {
+  applyLastAnswers,
+  applyPreset,
+  clearLastAnswers,
+  loadLastAnswers,
+  saveLastAnswers,
+  STYLE_PRESETS,
+  type LastAnswers,
+} from '../plan-import/prep-helpers';
 import { GuidePanel } from './GuidePanel';
 import { usePrepState } from './prep-state';
 import { Modal } from './ui';
@@ -82,6 +92,8 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
   const answers = prep.answers;
   const [status, setStatus] = useState('');
   const [fallbackText, setFallbackText] = useState('');
+  const [lastAnswers, setLastAnswers] = useState<LastAnswers | undefined>(() => loadLastAnswers(browserStorage()));
+  const [fillNote, setFillNote] = useState('');
   const problem = travelBriefProblem(answers);
   const guideSection = prep.guide ? buildGuideSection(prep.guide.items, prep.selections) : '';
   const brief = buildTravelBrief(answers, { guideSection });
@@ -90,6 +102,38 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
     setPrep({ ...prep, answers: { ...answers, ...patch } });
     setStatus('');
     setFallbackText('');
+  }
+
+  function fillWithPreset(preset: (typeof STYLE_PRESETS)[number]) {
+    setPrep({ ...prep, answers: applyPreset(answers, preset) });
+    setStatus('');
+    setFallbackText('');
+    setFillNote(
+      `"${preset.label}"로 관심사·속도${preset.visit ? '·방문 경험' : ''}을 바꿨습니다. 그대로 고칠 수 있습니다.`,
+    );
+  }
+
+  function loadLast() {
+    if (!lastAnswers) {
+      return;
+    }
+    setPrep({ ...prep, answers: applyLastAnswers(answers, lastAnswers) });
+    setStatus('');
+    setFallbackText('');
+    setFillNote('지난번 답을 불러왔습니다(여행지·날짜는 그대로).');
+  }
+
+  function forgetLast() {
+    clearLastAnswers(browserStorage());
+    setLastAnswers(undefined);
+    setFillNote('지난번 답을 지웠습니다.');
+  }
+
+  /** 요청서를 복사하거나 저장할 때, 여행마다 달라지지 않는 답을 "지난번 답"으로 남긴다. */
+  function rememberAnswers() {
+    if (saveLastAnswers(browserStorage(), answers)) {
+      setLastAnswers(loadLastAnswers(browserStorage()));
+    }
   }
 
   async function copy(text: string, doneMessage: string) {
@@ -112,6 +156,10 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
       <p className="muted" data-testid="draft-notice">
         준비 초안(답·가이드·고른 것)은 이 기기에만 저장됩니다. 백업에 들어가지 않고 다른 기기로 옮겨지지 않습니다.
       </p>
+      <p className="muted" data-testid="last-notice">
+        요청서를 복사하면 관심사·속도·예산·동행·인원·이동·숙소 답을 "지난번 답"으로 이 기기에 남깁니다(여행지·날짜·방문
+        경험·메모는 남기지 않음). 백업에 들어가지 않습니다.
+      </p>
       {discardedNotice ? <p role="status">{discardedNotice}</p> : null}
       {saveFailed ? (
         <p role="alert" className="error">
@@ -119,6 +167,29 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
         </p>
       ) : null}
       <h3>빠른 설정</h3>
+      <div className="button-row preset-row" role="group" aria-label="한 번에 채우기">
+        <span className="muted">한 번에 채우기</span>
+        {STYLE_PRESETS.map((preset) => (
+          <button type="button" key={preset.id} onClick={() => fillWithPreset(preset)}>
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      {lastAnswers ? (
+        <div className="button-row preset-row">
+          <button type="button" onClick={loadLast}>
+            지난번 답 불러오기
+          </button>
+          <button type="button" onClick={forgetLast}>
+            지난번 답 지우기
+          </button>
+        </div>
+      ) : null}
+      {fillNote ? (
+        <p role="status" data-testid="fill-note">
+          {fillNote}
+        </p>
+      ) : null}
       <label>
         여행지 (여러 곳은 쉼표로)
         <input value={answers.destination ?? ''} onChange={(event) => update({ destination: event.target.value })} />
@@ -216,7 +287,10 @@ export function PlanBriefDialog({ onClose }: { onClose: () => void }) {
           type="button"
           className="primary"
           disabled={Boolean(problem)}
-          onClick={() => void copy(brief, '요청서를 복사했습니다. 챗봇에 붙여 넣으세요.')}
+          onClick={() => {
+            rememberAnswers();
+            void copy(brief, '요청서를 복사했습니다. 챗봇에 붙여 넣으세요.');
+          }}
         >
           요청서 복사
         </button>

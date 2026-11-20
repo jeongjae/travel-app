@@ -6,10 +6,13 @@ import {
   buildUpdateRequest,
   exportPlan,
   LARGE_EXPORT_LIMIT,
+  REQUEST_KIND_LABEL,
+  requestTextOf,
   type CatalogPlace,
   type CatalogRegion,
   type ExportResult,
   type ExportWarning,
+  type RequestKind,
 } from '../plan-update';
 import { Modal } from './ui';
 
@@ -19,6 +22,8 @@ type Props = {
   /** 활동에 연결된 장소의 이름을 장소 칸에 적는 데 쓴다. */
   places: CatalogPlace[];
   regions: CatalogRegion[];
+  /** 날짜 화면에서 열면 그 날짜 하루로 범위를 채운다. 창에서 넓힐 수 있다. */
+  initialDate?: string;
   onClose: () => void;
 };
 
@@ -73,14 +78,16 @@ function downloadText(fileName: string, text: string) {
 }
 
 /** "AI로 수정하기": 저장된 계획을 양식 글로 내보내 요청 틀과 함께 복사한다. 서버 호출이 없다. */
-export function UpdateExportDialog({ repo, header, places, regions, onClose }: Props) {
+export function UpdateExportDialog({ repo, header, places, regions, initialDate, onClose }: Props) {
   const plan = useLiveQuery(
     () => repo.plan(header.tripId, header.currentPlanVersionId),
     [header.tripId, header.currentPlanVersionId],
   );
-  const [scope, setScope] = useState<Scope>('all');
-  const [rangeStart, setRangeStart] = useState('');
-  const [rangeEnd, setRangeEnd] = useState('');
+  const [scope, setScope] = useState<Scope>(initialDate ? 'range' : 'all');
+  const [rangeStart, setRangeStart] = useState(initialDate ?? '');
+  const [rangeEnd, setRangeEnd] = useState(initialDate ?? '');
+  const [requestKind, setRequestKind] = useState<RequestKind>('free');
+  const [request, setRequest] = useState('');
   const [includeReservation, setIncludeReservation] = useState(false);
   const [status, setStatus] = useState('');
   const [showText, setShowText] = useState(false);
@@ -98,14 +105,16 @@ export function UpdateExportDialog({ repo, header, places, regions, onClose }: P
       { includeReservation, ...(scope === 'range' ? { range: { start, end } } : {}) },
     );
   }, [plan, header, places, regions, scope, start, end, includeReservation, rangeInvalid]);
-  const fullText = exported ? buildUpdateRequest(exported.text) : '';
+  const fullText = exported ? buildUpdateRequest(exported.text, request) : '';
   const tooLarge = fullText.length > LARGE_EXPORT_LIMIT;
 
   async function copy() {
     setStatus('');
     try {
       await navigator.clipboard.writeText(fullText);
-      setStatus('복사했습니다. 챗봇에 붙여 넣고 [요청] 자리에 고칠 내용을 적으세요.');
+      const where =
+        request.trim() === '' ? ' 챗봇에 붙여 넣고 [요청] 자리에 고칠 내용을 적으세요.' : ' 챗봇에 붙여 넣으세요.';
+      setStatus(`복사했습니다.${where} 돌아온 글은 "AI 결과 붙여넣기"로 가져오세요.`);
     } catch {
       setShowText(true);
       setStatus('복사하지 못했습니다. 아래 글을 길게 눌러 전체 선택한 뒤 복사하세요.');
@@ -165,6 +174,32 @@ export function UpdateExportDialog({ repo, header, places, regions, onClose }: P
       {includeReservation ? (
         <p className="muted">예약 메모는 챗봇 서비스에 그대로 전달됩니다. 필요할 때만 넣으세요.</p>
       ) : null}
+      <label>
+        요청 종류
+        <select
+          value={requestKind}
+          onChange={(event) => {
+            const kind = event.target.value as RequestKind;
+            setRequestKind(kind);
+            setRequest(requestTextOf(kind));
+          }}
+        >
+          {(Object.keys(REQUEST_KIND_LABEL) as RequestKind[]).map((kind) => (
+            <option key={kind} value={kind}>
+              {REQUEST_KIND_LABEL[kind]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        요청 내용
+        <textarea
+          rows={4}
+          value={request}
+          placeholder="고칠 내용을 적으세요. 비워 두면 챗봇에 붙여 넣은 뒤 [요청] 자리에 직접 적습니다."
+          onChange={(event) => setRequest(event.target.value)}
+        />
+      </label>
       {exported ? (
         <>
           <p data-testid="export-counts">
