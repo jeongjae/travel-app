@@ -75,7 +75,7 @@
 | CL-33 | Origin 헤더 없는 요청 허용(Bearer 필수). `tick()` 한 작업 예외가 뒤 작업을 건너뜀(alarm 재시도로 체인은 유지) | 기록. T-D3 복구 훈련에 N1 포함 | T-D2 검토 §3-3·§4 |
 | CL-34 | 등록 잠금(5회 실패) 해제 운영 경로 없음 — 비밀값 교체 + settings 초기화 절차 미문서화 | T-D4 배포 절차에 포함 | [T-D3 검토](claude-task-d03-review.md) §3 |
 | CL-35 | `acknowledged` 작업은 24h 만료 대상이 아니고 200건 prune만 적용(내용 필드 없음) | 기록. 통일 원하면 T-D4에서 만료 대상 포함 | T-D3 검토 §3 |
-| CL-36 | PC(Windows)에서 `pnpm run check` 중 Node 서버 시험(retention·ai-v2·ai) 6~13건 간헐 실패. 단독 실행·CI(Linux)는 통과. CL-27 패턴(jobs.json rename 경쟁) | Node 서버 정리(T-D5 이후)와 함께 격리 또는 순차 실행. 그 전까지 Claude 보고에 실패 메시지 첨부 | [T-D4 C1 검토](claude-task-d04-c1-review.md) §3 |
+| CL-36 | PC(Windows)에서 `pnpm run check` 중 Node 서버 시험(retention·ai-v2·ai) 6~13건 간헐 실패. 단독 실행·CI(Linux)는 통과. CL-27 패턴(jobs.json rename 경쟁) | [T-M1](claude-task-m01-cleanup.md) M1-1로 지시(11/20): 시험 격리 또는 순차 실행, PC 연속 5회 통과 | [T-D4 C1 검토](claude-task-d04-c1-review.md) §3 |
 | CL-37 | 조사 호출의 `web_search_call` 출력 항목이 3개(max_tool_calls=2)로 기록된 사례. 과금 단위와의 관계 미확인 | T-D5 관찰: OpenAI 대시보드 도구 호출 수와 대조 | [T-D4 C4 검토](claude-task-d04-c4-review.md) |
 | CL-38 | 인증된 작업 목록 경로가 없어 서버 집계와 화면 기록이 어긋날 때 원인 추적 불가(C4의 설명 안 되는 1건) | **구현(T-D5 C1 `99e7da8`)**, Worker 재배포 뒤 사용자 확인 | T-D4 C4 검토 |
 | CL-39 | **AI 활용 방식 대대적 개편**(사용자 판단 11/11). 지난 여행 수정이 아니라 새 여행 계획에 쓰는 방향 | [설계서 v0.3](ai-rework-requirements-design.md) 결정 9건 승인(11/13). E0 챗봇 시험 진행, 코드(E1~)는 D 종료 뒤 | [결정 11/11](decisions.md) |

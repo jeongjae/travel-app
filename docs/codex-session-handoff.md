@@ -16,7 +16,7 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 1. 지시서를 main에 push → 전달 문구 제공.
 2. 보고를 받으면: `git fetch -q --depth=200 origin +refs/heads/X:refs/remotes/origin/X` → 데이터 경계 diff(`src/contracts`·`src/storage`·`src/transfer`·`src/repository.ts`) **0건** → 변경 범위 → `gh run list --branch X`로 CI → 위험한 diff 정독 → 캡처가 있으면 본다.
 3. 검토 절 작성(통과/조건부). 조건부면 R 지시.
-4. 통과: main을 브랜치에 병합 → 브랜치 push → main fast-forward → `decisions.md`(맨 위에 `## 날짜 시각 · 제목`)·`handoff.md`(**50줄·2,500자**, `wc -lm`) → push → CI·Pages 확인(각 약 15분, 30초 간격 `gh run list` 반복이 `gh run watch`보다 안정적) → PC `git fetch; git branch -f main origin/main`.
+4. 통과: main을 브랜치에 병합 → 브랜치 push → main fast-forward → `decisions.md`(맨 위에 `## 날짜 시각 · 제목`)·`handoff.md`(**50줄·2,500자**, `wc -lm`) → push → Pages 실행 확인(약 10~15분, 30초 간격 `gh run list` 반복이 `gh run watch`보다 안정적. 문서만 push했으면 실행이 없다) → PC `git fetch; git branch -f main origin/main`.
 5. 프로젝트 문서 `claude/status-review-YYYY-MM-DD-HHMM.md`에 상태를 남긴다(사실/해석/미확인/다음 행동). 지시서 사본도 `claude/`에 올린다.
 
 ## 3. 환경과 함정
@@ -27,7 +27,7 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 | 커밋 | `-c user.name="Jason-jeongjae" -c user.email="jeongjae.kim@bankwareglobal.com"`, 메시지 끝에 세션 attribution 두 줄. push는 `git -c push.negotiate=true push origin HEAD:main` |
 | PC git | fetch가 `.git/objects/maintenance.lock`을 남긴다. 삭제 권한 없이 `mv … .git/stale-…`로 치운다. 체크아웃된 브랜치가 main이면 `branch -f` 불가. 작업 트리는 건드리지 않는다 |
 | 접근 불가 | `github.io`(배포 화면). 배포는 워크플로 성공까지만 확인하고 그렇게 적는다 |
-| CI | `travel-app checks` 한 job(check → check:pilot → 전체 E2E). 11/18부터 chromium + **webkit** 설치. Claude의 PC 로컬 vitest 흔들림(서버 시험)은 CI에서 재현되지 않는다 |
+| CI | 11/20부터: `checks.yml` = `static`(check·check:pilot) + `e2e` 4작업(chromium 1/3·2/3·3/3, webkit은 Playwright 이미지). 약 7~11분. **문서만 바뀐 push는 실행 없음**, 브랜치는 `ci.yml`(`gh run list --branch X`), **main은 `pages.yml`만**(검사 후 배포 — main 확인은 Pages 실행을 본다). 같은 브랜치의 새 push는 앞 실행을 취소한다. `@playwright/test` 버전을 올리면 이미지 태그도 올린다. Claude의 PC 로컬 vitest 흔들림은 CI에서 재현되지 않는다 |
 | 자동 시험의 한계 | Playwright는 실기기 iPhone Safari의 날짜 입력 폭을 재현하지 못했다(R2-3 통과 → 실기기 겹침). iPhone 화면은 사용자 확인이 기준 |
 | 문서 | LF. 파이썬으로 고치고 치환이 실제로 됐는지 확인한다 |
 | 금지 | 실제 여행 데이터·백업·비밀값 커밋, 기존 여행 삭제, PC 평소 공간 DB·"Clear site data" |
@@ -40,7 +40,9 @@ Codex 역할(계획·검증·병합)을 이어받는 세션이 읽는 문서다.
 | T-P1(가이드 고르기) | **확인 완료**(11/19: U-3·U-4 OK, 날짜 칸 11/18) | — |
 | T-P1 R3(iPhone 날짜 칸 겹침) | R3-1 `efc700a` 병합. **사용자 iPhone 확인 완료**(11/18 15:51), 한 줄 유지 확정 | — |
 | T-E2 E2-A(기존 여행 고치기) | **확인 완료**(G-E2A 11/18, R1 11/19, R3 4항목 11/20) | — |
-| T-E2 E2-B(장소) | **확인 완료**(G-E2B 11/20) | 다음 순서 사용자 결정 대기(실사용 점검 / E3 / 이월·정리) |
+| T-E2 E2-B(장소) | **확인 완료**(G-E2B 11/20) | — |
+| T-M1(시험 실행 정리) | [지시서](claude-task-m01-cleanup.md) 작성(11/20). 사용자 결정: 정리 → E3, 실사용 점검은 사용자가 따로 | Claude(`codex/m01-test-cleanup`) → 검토·병합 |
+| E3 | 미착수. 설계서 §5: 날짜 화면의 AI에게 요청, 직접 입력 보완, 세부 자료 1·2단계, 프로필 재사용·스타일 프리셋 | Codex가 범위안 → 사용자 결정 → 지시서 |
 | 이월 | U4 대본 v2 재수행(CL-20·REG-02), CL-46, Node 서버 정리, T-E3, P2 | [change-log](change-log.md) |
 
 E2-A 검토 때 볼 것: [지시서](claude-task-e02-update-import.md) "A1 검토 뒤 보완" 5건, 완료 조건 표(AC), 빈 칸=변경 없음·`(비움)`=지움, 삭제는 삭제 구역만, 오래된 기준 차단, `ChangePlan` 1회, 실패 시 불변. Claude 보고(11/18): `CreateTrip`·`ImportNewTrip`을 뺀 거의 모든 저장이 `domainRevision`을 올린다(예외 `SaveProposal`·거절) — 복사 뒤 다른 저장이 있으면 붙여넣기가 막힌다는 점을 사용자에게 알렸다.
