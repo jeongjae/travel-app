@@ -38,3 +38,5 @@ webkit: 통과 · 통과 4 · 실패 0 · 불안정 0 · 건너뜀 0 · 16초
 - 남은 것: Windows에서 `shell: true`로 `pnpm.cmd`를 부를 때 Node `DEP0190` 경고가 한 줄 나온다(동작에는 영향 없음).
 
 ## CI
+
+- 코드 커밋 포함 push(`docs(T-M1)` 커밋, run 44672013727): **success**. `static` 58초(약 1분 유지), E2E 4작업(chromium 1/3·2/3·3/3, webkit) 모두 통과.
