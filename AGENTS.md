@@ -10,7 +10,7 @@
 - 계획 버전·실제 기록·변경안은 분리한다. 저장 명령은 `src/repository.ts`의 트랜잭션과 검증을 거치고 오래된 revision을 덮어쓰지 않는다.
 - AI 컨텍스트/JSON 교환만 구현된 상태를 자동 AI 실행 완료로 보고하지 않는다. 사용자 확정: 개인용·모바일 우선, 오프라인 일정 조회·현장 기록·백업, 앱 내부 OpenAI API 실행, 모든 변경안 확인 후 적용. 2026-10-25 사용자 요청으로 프런트엔드는 GitHub Pages에 공개했다. AI 서버의 호스팅·인증·공개 범위는 미정이다.
 - 패키지 관리자는 pnpm이며 package.json의 packageManager 버전과 pnpm-lock.yaml을 따른다. 프로젝트 내부 의존성, `.cache/`의 캐시·테스트 브라우저를 사용한다. 개발 5173, 프로덕션 미리보기 4173을 쓴다.
-- 의미 있는 변경 후 `pnpm run check`, UI/저장 흐름 변경 후 빌드와 `pnpm run test:e2e`를 실행한다. 검증 결과와 미검증 외부 연동을 `docs/handoff.md`에 구분한다.
+- 의미 있는 변경 후 `pnpm run check`, UI/저장 흐름 변경 후 빌드와 `pnpm run test:e2e:all`(PC 전체 E2E, CI와 같은 4묶음을 순서대로)을 실행한다. 검증 결과와 미검증 외부 연동을 `docs/handoff.md`에 구분한다.
 - 이전 세션의 동작 중인 서버·로컬 데이터·권한이 그대로 있다고 가정하지 않는다. `git status`와 실제 프로세스를 먼저 확인한다.
 
 ## Agent Behavioral Guidelines: Token & Resource Guardrails
