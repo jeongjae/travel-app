@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { OpenAiV2Provider, rateLimitMessage } from '../server/ai-v2';
+import { assertCompleted, rateLimitMessage, readPlan, usageOf, type ResponseData } from '../src/ai-v2-openai';
 import { consentFingerprint, type AiV2Output } from '../src/ai-v2-contract';
 import { buildAiV2Payload, deriveDayTimes, selectableRecords } from '../src/ai-v2-context';
 import { materializeV2Proposal, validateAiV2Output } from '../src/ai-v2-semantics';
@@ -318,32 +318,30 @@ it('429를 예산 차단과 일반 속도 제한으로 구분한다', async () =
   expect(await rateLimitMessage(new Response('not json', { status: 429 }))).toContain('잠시 후');
 });
 
-async function runProvider(body: unknown, status = 200) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => jsonResponse(status, body)),
-  );
-  const fixture = await aiV2Fixture();
-  const usage = vi.fn();
-  const provider = new OpenAiV2Provider('sk-fictional-not-a-key', 'fictional');
-  const run = provider.plan(fixture.input.planning, fixture.research, '', new AbortController().signal, usage);
-  return { run, usage, fixture };
+/** 응답 본문을 Worker와 같은 읽기 함수(usageOf·assertCompleted·readPlan)로 처리한다. */
+function readResponse(body: ResponseData) {
+  const usage = usageOf(body);
+  return {
+    usage,
+    run: () => {
+      assertCompleted(body);
+      return readPlan(body);
+    },
+  };
 }
 
-it('거절·길이 초과·미완성 응답을 구분하고 사용량을 읽는다', async () => {
-  const refused = await runProvider({
+it('거절·길이 초과·미완성 응답을 구분하고 사용량을 읽는다', () => {
+  const refused = readResponse({
     status: 'completed',
     usage: { input_tokens: 5, output_tokens: 1, total_tokens: 6 },
-    output: [{ type: 'message', content: [{ type: 'refusal', refusal: '거절' }] }],
+    output: [{ type: 'message', content: [{ type: 'refusal' }] }],
   });
-  await expect(refused.run).rejects.toThrow('거절');
-  expect(refused.usage).toHaveBeenCalledWith(expect.objectContaining({ inputTokens: 5, totalTokens: 6, calls: 1 }));
-  const cut = await runProvider({ status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } });
-  await expect(cut.run).rejects.toThrow('길이 한도');
-  const other = await runProvider({ status: 'incomplete', incomplete_details: { reason: 'content_filter' } });
-  await expect(other.run).rejects.toThrow('완성되지');
-  const limited = await runProvider({ error: { code: 'project_spend_limit_exceeded' } }, 429);
-  await expect(limited.run).rejects.toThrow('예산 한도');
+  expect(refused.run).toThrow('거절');
+  expect(refused.usage).toEqual(expect.objectContaining({ inputTokens: 5, totalTokens: 6, calls: 1 }));
+  const cut = readResponse({ status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } });
+  expect(cut.run).toThrow('길이 한도');
+  const other = readResponse({ status: 'incomplete', incomplete_details: { reason: 'content_filter' } });
+  expect(other.run).toThrow('완성되지');
 });
 
 it.each([

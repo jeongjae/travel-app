@@ -1,6 +1,5 @@
 // T-D0 프로브를 승격한 시험. 필드마다 표식을 심고 실제 provider body에서 찾아 허용 목록 밖 값이 0인지 단언한다.
-import { expect, it, vi } from 'vitest';
-import { OpenAiV2Provider } from '../server/ai-v2';
+import { expect, it } from 'vitest';
 import { buildAiV2Payload, consentedRequest } from '../src/ai-v2-context';
 import { aiV2Limits, aiV2WorkerServer } from '../src/ai-v2-contract';
 import { workerHarness } from './worker/harness';
@@ -130,36 +129,6 @@ async function captureWorker(recordIds: string[]) {
   };
 }
 
-async function capture(recordIds: string[]) {
-  const { fixture, payload } = await canaryPayload(recordIds);
-  const bodies: Record<string, unknown>[] = [];
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-      bodies.push(JSON.parse(String(init?.body)));
-      const text = bodies.length > 1 ? JSON.stringify(fixture.output) : '가상 조사';
-      return new Response(
-        JSON.stringify({
-          status: 'completed',
-          output: [
-            { type: 'web_search_call', action: { sources: [{ url: fixture.research.sources[0].url, title: '가상' }] } },
-            { type: 'message', content: [{ type: 'output_text', text, annotations: [] }] },
-          ],
-        }),
-      );
-    }),
-  );
-  try {
-    const provider = new OpenAiV2Provider('sk-fictional-not-a-key', 'fictional-model');
-    const signal = new AbortController().signal;
-    const research = await provider.research(payload.research, signal);
-    await provider.plan(payload.planning, research, '', signal);
-  } finally {
-    vi.unstubAllGlobals();
-  }
-  return { research: String(bodies[0].input), planning: String(bodies[1].input) };
-}
-
 const allowedForPlanning = [
   'CANARY-day-cityText',
   'CANARY-day-title',
@@ -172,33 +141,28 @@ const allowedForPlanning = [
 ];
 
 it('조사 호출에는 선택 활동의 장소 이름만 가고 요청 원문은 가지 않는다', async () => {
-  const { research } = await capture([]);
+  const { research } = await captureWorker([]);
   expect(canariesIn(research)).toEqual(['CANARY-referenced-place-name']);
   expect(research).not.toContain('ABC123');
 });
 
 it('작성 호출의 표식은 허용 목록과 정확히 같다', async () => {
-  const { planning } = await capture([]);
+  const { planning } = await captureWorker([]);
   expect(canariesIn(planning)).toEqual(allowedForPlanning);
 });
 
 it('고른 기록의 최신 유효값만 추가되고 정정 전·다른 날짜·고르지 않은 기록은 가지 않는다', async () => {
-  const { planning, research } = await capture(['r-new', 'r-old', 'r-memo']);
+  const { planning, research } = await captureWorker(['r-new', 'r-old', 'r-memo']);
   expect(canariesIn(planning)).toEqual(
     [...allowedForPlanning, 'CANARY-latest-record-note', 'CANARY-r-new-title'].sort(),
   );
   expect(canariesIn(research)).toEqual(['CANARY-referenced-place-name']);
 });
 
-it('Worker 경로의 조사·작성 본문도 Node 경로와 같은 허용 집합이고 DO 행에는 표식이 없다', async () => {
+it('Worker 경로의 요청 DTO는 허용 집합과 같고 DO 행에는 표식이 없다', async () => {
   for (const recordIds of [[], ['r-new', 'r-old', 'r-memo']]) {
-    const node = await capture(recordIds);
     const worker = await captureWorker(recordIds);
-    expect(canariesIn(worker.research)).toEqual(canariesIn(node.research));
-    expect(canariesIn(worker.planning)).toEqual(canariesIn(node.planning));
-    expect(worker.research).toBe(node.research);
-    // 조사 결과 문장은 가짜마다 다르므로 작성 호출의 요청 DTO 부분만 같은지 본다.
-    expect(JSON.parse(worker.planning).input).toEqual(JSON.parse(node.planning).input);
+    expect(canariesIn(worker.research)).toEqual(['CANARY-referenced-place-name']);
     expect(canariesIn(worker.stored)).toEqual([]);
     expect(worker.stored).not.toContain('ABC123');
   }

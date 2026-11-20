@@ -1,7 +1,7 @@
 import { buildAiV2Payload, consentedRequest } from '../../src/ai-v2-context';
 import { aiV2Limits, aiV2LocalServer, type AiV2Output, type AiV2Policy } from '../../src/ai-v2-contract';
 import { toValidationScope, type AiV2LocalContext } from '../../src/ai-v2-semantics';
-import type { Research } from '../../server/ai';
+import type { AiV2Research as Research } from '../../src/ai-v2-openai';
 import { pilotTrip } from './pilot';
 
 export const fictionalPolicy = (model = 'fictional-v2-provider'): AiV2Policy => ({

@@ -3,7 +3,7 @@ import { ContentRepository, TravelDB } from '../src/repository';
 import { digestBytes } from '../src/contracts/v2';
 import { command } from '../src/content/ui';
 import { currentMappings } from '../src/transfer/normalize';
-import { materializeV2Proposal } from '../server/ai-v2';
+import { materializeV2Proposal } from '../src/ai-v2-semantics';
 import { fixtureAssets } from './fixtures/pilot';
 import { aiV2Fixture } from './fixtures/ai-v2';
 
