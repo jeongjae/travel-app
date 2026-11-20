@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: [T-E4-1](claude-task-e04-1-node-server.md)(Node 서버 정리) → 이어서 [T-E4-2](claude-task-e04-2-legacy-screen.md)(구 화면 제거, 사용자 확정). Codex 검토·병합.
+1. Claude: [T-E4-2](claude-task-e04-2-legacy-screen.md)(구 화면 제거) — 포트 충돌로 E2E 전 멈춤. push 뒤 CI로 판정하거나 사용자가 서버를 끈다 → Codex 검토·병합.
 2. 사용자: UI는 [일괄 확인 목록](batch-check-list.md)으로 한 번에. E3-2·P2는 실사용 뒤.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
