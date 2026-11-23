@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: [T-E4-3](claude-task-e04-3-legacy-leftovers.md)(잔여 코드 정리) → [T-E5-1](claude-task-e05-1-ops-runbook.md)(운영 설명서). [단계 E 계획](stage-e-plan.md). E3-2·P2는 실사용 점검 뒤.
+1. Claude: [T-E4-3](claude-task-e04-3-legacy-leftovers.md)(잔여 코드 정리) → [T-E5-1](claude-task-e05-1-ops-runbook.md)(운영 설명서). [단계 E 계획](stage-e-plan.md). E3-2·P2는 실사용 뒤.
 2. 사용자: UI는 [일괄 확인 목록](batch-check-list.md)으로 한 번에. E3-2·P2는 실사용 뒤.
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
