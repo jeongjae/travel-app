@@ -8,6 +8,9 @@ import { reviewWorkspace } from '../storage/workspace-name';
 
 type ErrorPlace = 'restore' | 'repair' | 'other';
 
+/** 백업이 아닌 파일(zip 형식이 아님)을 골랐을 때 영문 오류 대신 보이는 안내. */
+const NOT_BACKUP_MESSAGE = '전체 백업 파일이 아닙니다. travel-app-backup-…zip 파일을 고르세요.';
+
 /** 평소 공간을 건드리지 않고 복원용 새 검토 공간 주소를 만든다: restore-YYYYMMDD-N. */
 function newRestoreWorkspaceUrl() {
   const today = new Date().toISOString().slice(0, 10).replaceAll('-', '');
@@ -73,7 +76,9 @@ export default function Recovery({
           ? '작업을 취소했습니다. 기존 여행은 보존됩니다.'
           : /quota/i.test(`${e instanceof Error ? e.name : ''} ${message}`)
             ? '저장 공간이 부족해 완료하지 못했습니다. 기존 여행은 보존됩니다. 중단된 준비 작업을 정리하거나 공간을 확보한 뒤 다시 시도하세요.'
-            : message,
+            : place === 'restore' && /not recognized/i.test(message)
+              ? NOT_BACKUP_MESSAGE
+              : message,
       );
       setStatus('');
     } finally {

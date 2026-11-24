@@ -134,3 +134,53 @@ test('수정 글: 장소 칸에 새 이름 → 장소 단계 승인 → 미리�
   const after = await exportedText(page);
   expect(after).toMatch(/\| 가상 호수 \|/);
 });
+
+async function tripWithPlaces(page: Page) {
+  await page.goto('/?workspace=content');
+  await pastePlan(page, PLAN);
+  await page.getByRole('button', { name: '새 여행으로 저장', exact: true }).click();
+  await expect(page.getByTestId('new-trip-created')).toBeVisible();
+  await page.getByRole('button', { name: /^장소 3개 만들기/ }).click();
+  await page.getByRole('button', { name: /^활동 \d+개에 연결/ }).click();
+  await expect(page.getByRole('heading', { name: NAME, exact: true, level: 1 })).toBeVisible();
+  return exportedText(page);
+}
+
+const RAMEN_ROW = /^(\| [0-9a-f-]{36} \| 가상 라멘집 \| 가상 구역 \| )작은 가게( \| 11:00-20:00 \|)/m;
+
+test('수정 글: 기존 장소의 설명을 고쳐 고르면 장소 화면에 반영되고, 같은 글의 일정 변경도 이어서 적용된다', async ({
+  page,
+}) => {
+  const text = await tripWithPlaces(page);
+  expect(text).toMatch(RAMEN_ROW);
+  const edited = text.replace(RAMEN_ROW, '$1줄이 긴 가게$2').replace('| 줄 서기 |', '| 줄 서기 30분 |');
+  await pastePlan(page, edited);
+  const editStage = page.getByRole('region', { name: '기존 장소 수정' });
+  await expect(editStage).toContainText('기존 장소 수정 1건');
+  await expect(editStage).toContainText('설명: 작은 가게 → 줄이 긴 가게');
+  await expect(page.getByRole('region', { name: '장소 단계' })).toHaveCount(0);
+  await expect(editStage.getByRole('checkbox')).not.toBeChecked();
+  await expect(editStage.getByRole('button', { name: '장소 0건 수정' })).toBeDisabled();
+  await editStage.getByRole('checkbox').check();
+  await editStage.getByRole('button', { name: '장소 1건 수정' }).click();
+  await expect(page.getByTestId('place-edit-done')).toContainText('1건');
+  await page.getByRole('button', { name: /^고른 \d+건 적용/ }).click();
+  await expect(page.getByText('계획을 고쳤습니다')).toBeVisible();
+  const after = await exportedText(page);
+  expect(after).toMatch(/\| 가상 라멘집 \| 가상 구역 \| 줄이 긴 가게 \| 11:00-20:00 \|/);
+  expect(after).toContain('줄 서기 30분');
+  await pastePlan(page, after);
+  await expect(page.getByTestId('update-counts')).toContainText('추가 0 · 수정 0 · 삭제 0');
+  await expect(page.getByRole('region', { name: '기존 장소 수정' })).toHaveCount(0);
+});
+
+test('수정 글: 장소 수정을 고르지 않으면 장소는 그대로다', async ({ page }) => {
+  const text = await tripWithPlaces(page);
+  await pastePlan(page, text.replace(RAMEN_ROW, '$1줄이 긴 가게$2').replace('| 줄 서기 |', '| 줄 서기 30분 |'));
+  await expect(page.getByRole('region', { name: '기존 장소 수정' })).toContainText('기존 장소 수정 1건');
+  await page.getByRole('button', { name: /^고른 \d+건 적용/ }).click();
+  await expect(page.getByText('계획을 고쳤습니다')).toBeVisible();
+  const after = await exportedText(page);
+  expect(after).toMatch(/\| 가상 라멘집 \| 가상 구역 \| 작은 가게 \| 11:00-20:00 \|/);
+  expect(after).toContain('줄 서기 30분');
+});

@@ -28,8 +28,10 @@ export type {
   UpdateResult,
 } from './update-types';
 export {
+  applyPlaceEdit,
   buildLinkPlan,
   buildPlaceContent,
+  buildPlaceEdit,
   chunkPlaces,
   collectMarkCandidates,
   collectPlaceCandidates,
@@ -37,6 +39,7 @@ export {
   PLACE_BATCH_SIZE,
   PLACE_KIND_LABEL,
   placeCellsOf,
+  placeEditIsFresh,
   placeKindOf,
   splitPlaceSummary,
 } from './places';
@@ -47,6 +50,9 @@ export type {
   LinkPlan,
   PlaceCandidate,
   PlaceCollection,
+  PlaceEdit,
+  PlaceEditChange,
+  PlaceEditPatch,
   PlaceContent,
   PlaceKindCode,
 } from './places';

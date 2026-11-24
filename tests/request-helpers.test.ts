@@ -152,7 +152,7 @@ describe('빈 칸 채우기 요청문(B)', () => {
     expect(FILL_BLANKS_REQUEST).toMatch(/시간·제목·순서는 바꾸지 말고/);
     expect(FILL_BLANKS_REQUEST).toMatch(/메모·링크 칸만/);
     expect(FILL_BLANKS_REQUEST).toMatch(/ID 없는 새 줄/);
-    expect(FILL_BLANKS_REQUEST).toMatch(/ID가 있는 장소 줄은 고치지 말아/);
+    expect(FILL_BLANKS_REQUEST).toMatch(/ID가 있는 장소 줄은 비어 있는 칸만 채우고 이름은 바꾸지 말아/);
     expect(FILL_BLANKS_REQUEST).toMatch(/확인되지 않은 것은 채우지 말고/);
   });
 });

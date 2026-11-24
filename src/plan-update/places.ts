@@ -103,9 +103,31 @@ export type PlaceCandidate = {
   warnings: string[];
 };
 
-export type ExistingPlaceLines = { changed: number; unknown: number };
+/** 글에 있지만 받지 않는 기존 장소 줄: 이름만 다른 줄(이름은 글로 고치지 않는다)과 이 여행에 없는 ID. */
+export type ExistingPlaceLines = { nameIgnored: number; unknown: number };
 
-export type PlaceCollection = { candidates: PlaceCandidate[]; existingLines: ExistingPlaceLines };
+export type PlaceEditColumn = '지역' | '설명' | '영업시간' | '링크';
+
+export type PlaceEditChange = { column: PlaceEditColumn; before: string; after: string; cleared: boolean };
+
+/** 기존 장소 한 줄의 수정 후보. 바뀌는 칸의 전·후와, 저장할 값(`patch`)을 담는다. */
+export type PlaceEdit = {
+  entityId: string;
+  name: string;
+  changes: PlaceEditChange[];
+  patch: PlaceEditPatch;
+  /** 후보를 만들 때 본 장소의 저장값. 저장 직전 값과 같은지 본다. */
+  base: PlaceEditPatch;
+  warnings: string[];
+};
+
+export type PlaceEditPatch = { summary: string; regionIds: string[]; wikiRef: string | undefined };
+
+export type PlaceCollection = {
+  candidates: PlaceCandidate[];
+  existingLines: ExistingPlaceLines;
+  edits: PlaceEdit[];
+};
 
 export type CollectContext = {
   /** 열려 있는 여행의 현재 계획. 새 여행이면 없다. */
@@ -152,15 +174,22 @@ export function collectPlaceCandidates(file: CheckedPlanFile, context: CollectCo
       uses.set(name, list);
     }
   }
-  const existingLines: ExistingPlaceLines = { changed: 0, unknown: 0 };
+  const existingLines: ExistingPlaceLines = { nameIgnored: 0, unknown: 0 };
+  const edits: PlaceEdit[] = [];
   const tableRows = new Map<string, CheckedPlanFile['places'][number]>();
   for (const row of file.places) {
     if (row.id !== '' && plan) {
       const known = places.find((place) => place.entityId === row.id);
       if (!known) {
         existingLines.unknown++;
-      } else if (differsFromCurrent(row, known, context.regions)) {
-        existingLines.changed++;
+      } else {
+        if (nameDiffers(row, known)) {
+          existingLines.nameIgnored++;
+        }
+        const edit = buildPlaceEdit(row, known, context.regions);
+        if (edit) {
+          edits.push(edit);
+        }
       }
       continue;
     }
@@ -171,29 +200,102 @@ export function collectPlaceCandidates(file: CheckedPlanFile, context: CollectCo
   }
   const names = [...new Set([...tableRows.keys(), ...uses.keys()])];
   const candidates = names.map((name) => buildCandidate(name, tableRows.get(name), uses.get(name) ?? [], places));
-  return { candidates, existingLines };
+  return { candidates, existingLines, edits };
 }
 
-function differsFromCurrent(
+function nameDiffers(row: CheckedPlanFile['places'][number], place: CatalogPlace) {
+  return !row.cleared.includes('이름') && row.name !== '' && viaTable(row.name) !== viaTable(place.name);
+}
+
+const EDIT_COLUMNS: PlaceEditColumn[] = ['지역', '설명', '영업시간', '링크'];
+
+/**
+ * 기존 장소 줄에서 지역·설명·영업시간·링크가 현재와 다른 칸을 모은다. 이름 칸은 보지 않는다.
+ * 빈 칸은 변경 없음, `(비움)`은 지움. 링크는 http(s) 주소만 받고 아니면 그 칸은 넣지 않는다.
+ */
+export function buildPlaceEdit(
   row: CheckedPlanFile['places'][number],
   place: CatalogPlace,
   regions: readonly CatalogRegion[],
-) {
+): PlaceEdit | undefined {
   const current = placeCellsOf(place, regions);
-  const pairs: [string, string, string][] = [
-    ['이름', row.name, place.name],
-    ['지역', row.region, current.region],
-    ['설명', row.description, current.description],
-    ['영업시간', row.hours, current.hours],
-    ['링크', row.link, current.link],
-  ];
-  return pairs.some(([column, value, now]) => {
+  const given: Record<PlaceEditColumn, string> = {
+    지역: row.region,
+    설명: row.description,
+    영업시간: row.hours,
+    링크: row.link,
+  };
+  const now: Record<PlaceEditColumn, string> = {
+    지역: current.region,
+    설명: current.description,
+    영업시간: current.hours,
+    링크: current.link,
+  };
+  const warnings: string[] = [];
+  const changes: PlaceEditChange[] = [];
+  for (const column of EDIT_COLUMNS) {
     const cleared = row.cleared.includes(column);
+    const value = viaTable(given[column]);
     if (cleared) {
-      return now !== '';
+      if (now[column] !== '') {
+        changes.push({ column, before: now[column], after: '', cleared: true });
+      }
+      continue;
     }
-    return value !== '' && viaTable(value) !== viaTable(now);
-  });
+    if (value === '' || value === viaTable(now[column])) {
+      continue;
+    }
+    if (column === '링크' && !isWebUrl(value)) {
+      warnings.push(`링크 "${value}"는 http(s) 주소가 아니라 넣지 않습니다.`);
+      continue;
+    }
+    changes.push({ column, before: now[column], after: value, cleared: false });
+  }
+  if (changes.length === 0 && warnings.length === 0) {
+    return undefined;
+  }
+  return {
+    entityId: place.entityId,
+    name: place.name,
+    changes,
+    patch: buildPatch(place, regions, changes),
+    base: { summary: place.summary, regionIds: [...place.regionIds], wikiRef: place.wikiRef },
+    warnings,
+  };
+}
+
+function buildPatch(
+  place: CatalogPlace,
+  regions: readonly CatalogRegion[],
+  changes: readonly PlaceEditChange[],
+): PlaceEditPatch {
+  const after = (column: PlaceEditColumn) => changes.find((change) => change.column === column);
+  const parts = splitPlaceSummary(place.summary);
+  const description = after('설명') ? after('설명')!.after : parts.description;
+  const hours = after('영업시간') ? after('영업시간')!.after : parts.hours;
+  let regionIds = place.regionIds;
+  let regionText = parts.regionText;
+  const region = after('지역');
+  if (region) {
+    const match = region.after === '' ? undefined : regions.find((item) => item.name.trim() === region.after);
+    regionIds = match ? [match.entityId] : [];
+    regionText = match ? '' : region.after;
+  }
+  const link = after('링크');
+  return {
+    summary: composePlaceSummary({ description, regionText, hours }),
+    regionIds: [...regionIds],
+    wikiRef: link ? (link.after === '' ? undefined : link.after) : place.wikiRef,
+  };
+}
+
+/** 저장 직전 다시 읽은 장소가 후보를 만들 때와 같은지 본다(그사이 바뀌었으면 막는다). */
+export function placeEditIsFresh(edit: PlaceEdit, place: CatalogPlace) {
+  return (
+    edit.base.summary === place.summary &&
+    edit.base.wikiRef === place.wikiRef &&
+    JSON.stringify(edit.base.regionIds) === JSON.stringify(place.regionIds)
+  );
 }
 
 function buildCandidate(
@@ -335,4 +437,18 @@ export function buildLinkPlan(plan: PlanVersion, placeIds: ReadonlyMap<string, s
     linked.push({ date: dayDate.get(item.dayId) ?? '', title: item.title, place: marked[1].trim() });
   }
   return { operations, linked };
+}
+
+/** `UpdateContent`에 넣을 새 장소 본문: 기존 장소의 다른 칸은 그대로 두고 설명·지역·링크만 바꾼다. */
+export function applyPlaceEdit<T extends { payload: { wikiRef?: string } }>(content: T, patch: PlaceEditPatch) {
+  const { wikiRef: _old, ...rest } = content.payload;
+  return {
+    ...content,
+    payload: {
+      ...rest,
+      summary: patch.summary,
+      regionIds: patch.regionIds,
+      ...(patch.wikiRef === undefined ? {} : { wikiRef: patch.wikiRef }),
+    },
+  };
 }

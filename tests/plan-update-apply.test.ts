@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ContentRepository, TravelDB } from '../src/repository';
 import {
+  applyPlaceEdit,
   buildLinkPlan,
   buildPlaceContent,
   buildSelection,
@@ -302,6 +303,45 @@ describe('어떤 저장이 domainRevision을 올리는가 (E2 보완 5 조사)',
   });
 });
 
+describe('기존 장소 수정 (실제 저장소)', () => {
+  it('UpdateContent로 장소를 고치면 revision이 오르고, 기준 연결로 같은 글의 일정 변경이 이어진다', async () => {
+    const { repo, tripId } = await savedTrip();
+    const { header, plan } = await latest(repo, tripId);
+    const candidates = collectMarkCandidates(plan, { places: [] });
+    const contents = candidates.map((candidate) => buildPlaceContent(tripId, candidate, []));
+    const made = await repo.execute(
+      envelope(tripId, 'CreateContentBatch', { create: contents, updateOwners: [] }, header.domainRevision),
+    );
+    const content = (await repo.catalog(tripId, 'place')).find((row) => row.kind === 'place')!;
+    if (content.kind !== 'place') {
+      throw new Error('place expected');
+    }
+    const { commitSeq: _seq, recordedAt: _at, actor: _actor, ...stable } = content;
+    const next = {
+      ...applyPlaceEdit(stable, { summary: '고친 설명', regionIds: [], wikiRef: 'https://example.com/a' }),
+      revisionId: crypto.randomUUID(),
+      previousRevisionId: content.revisionId,
+    };
+    const edited = await repo.execute(
+      envelope(tripId, 'UpdateContent', { expectedRevisionId: content.revisionId, content: next }, made.domainRevision),
+    );
+    expect(edited.domainRevision).toBe(made.domainRevision + 1);
+    const after = (await repo.catalog(tripId, 'place')).find((row) => row.entityId === content.entityId)!;
+    expect(after.kind === 'place' && after.payload.summary).toBe('고친 설명');
+    expect(after.kind === 'place' && after.payload.wikiRef).toBe('https://example.com/a');
+    expect(after.kind === 'place' && after.payload.name).toBe(content.payload.name);
+    const fresh = await latest(repo, tripId);
+    const text = exportPlan({ header, plan }).text;
+    const bridged = {
+      header: fresh.header,
+      plan: fresh.plan,
+      revisionBridge: { from: header.domainRevision, to: edited.domainRevision },
+    };
+    expect(computeUpdate(check(text), bridged).status).toBe('ready');
+    expect(computeUpdate(check(text), { ...bridged, revisionBridge: undefined }).status).toBe('blocked');
+  });
+});
+
 describe('장소 단계 (실제 저장소)', () => {
   async function stage(repo: ContentRepository, tripId: string, count = 0) {
     const { header, plan } = await latest(repo, tripId);
@@ -356,7 +396,7 @@ describe('장소 단계 (실제 저장소)', () => {
     expect(result.errors).toEqual([]);
     const collection = collectPlaceCandidates(again, { plan: after.plan, places, regions: [] });
     expect(collection.candidates).toEqual([]);
-    expect(collection.existingLines).toEqual({ changed: 0, unknown: 0 });
+    expect(collection.existingLines).toEqual({ nameIgnored: 0, unknown: 0 });
   });
 
   it('만들기 묶음이 거부되면 아무 장소도 남지 않는다 (AC-16)', async () => {
