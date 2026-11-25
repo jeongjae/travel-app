@@ -6,7 +6,7 @@ import type { ContentRepository } from '../repository';
 import { buildPlanPreview, canSavePreview, type ExistingTrip, type PlanPreview } from '../plan-import/preview';
 import { ChosenList } from './ChosenList';
 import { readPrepDraft } from './prep-state';
-import { collectPlaceCandidates, type CatalogPlace, type CatalogRegion } from '../plan-update';
+import { collectPlaceCandidates, joinSpans, type CatalogPlace, type CatalogRegion } from '../plan-update';
 import { PlaceEditStage, PlaceFlow, PlaceStage, type EditDone, type StageDone } from './PlaceStage';
 import { UpdatePreview } from './UpdatePreview';
 import { command, errorText, ErrorText, Modal } from './ui';
@@ -136,15 +136,6 @@ function DroppedList({ preview }: { preview: PlanPreview }) {
   );
 }
 
-/** 장소 만들기·수정이 올린 revision 구간을 하나로 잇는다. 둘 다 이 화면의 저장이므로 사이의 변경은 모두 우리 것이다. */
-function bridgeOf(...parts: ({ from: number; to: number } | undefined)[]) {
-  const found = parts.filter((part): part is { from: number; to: number } => part !== undefined);
-  if (found.length === 0) {
-    return undefined;
-  }
-  return { from: Math.min(...found.map((part) => part.from)), to: Math.max(...found.map((part) => part.to)) };
-}
-
 export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onUpdated }: Props) {
   const [text, setText] = useState('');
   const [preview, setPreview] = useState<PlanPreview | null>(null);
@@ -162,7 +153,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
     () => (current ? repo.plan(current.header.tripId, current.header.currentPlanVersionId) : undefined),
     [current?.header.tripId, current?.header.currentPlanVersionId],
   );
-  const bridge = useMemo(() => bridgeOf(stage?.revision, edited?.revision), [stage, edited]);
+  const bridge = useMemo(() => joinSpans(stage?.revision, edited?.revision), [stage, edited]);
   const currentTrip = useMemo(
     () =>
       current && currentPlan

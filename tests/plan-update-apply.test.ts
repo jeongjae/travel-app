@@ -10,7 +10,10 @@ import {
   collectPlaceCandidates,
   computeUpdate,
   exportPlan,
+  extendSpan,
+  joinSpans,
   type CatalogPlace,
+  type SaveSpan,
 } from '../src/plan-update';
 import { check, createdTrip, fixture } from './plan-import-helpers';
 import { partialUpdate, ready, rewriteRow } from './plan-update-helpers';
@@ -339,6 +342,59 @@ describe('기존 장소 수정 (실제 저장소)', () => {
     };
     expect(computeUpdate(check(text), bridged).status).toBe('ready');
     expect(computeUpdate(check(text), { ...bridged, revisionBridge: undefined }).status).toBe('blocked');
+  });
+});
+
+describe('저장 구간 잇기 (실제 저장소)', () => {
+  async function editTwice(interleave: boolean) {
+    const { repo, tripId } = await savedTrip();
+    const { header, plan } = await latest(repo, tripId);
+    const candidates = collectMarkCandidates(plan, { places: [] });
+    const contents = candidates.map((candidate) => buildPlaceContent(tripId, candidate, []));
+    const made = await repo.execute(
+      envelope(tripId, 'CreateContentBatch', { create: contents, updateOwners: [] }, header.domainRevision),
+    );
+    const created = extendSpan(undefined, header.domainRevision, made.domainRevision);
+    const places = (await repo.catalog(tripId, 'place')).filter((row) => row.kind === 'place');
+    let revision = made.domainRevision;
+    const save = async (index: number, summary: string) => {
+      const row = places[index];
+      if (row.kind !== 'place') {
+        throw new Error('place expected');
+      }
+      const current = (await repo.catalog(tripId, 'place')).find((item) => item.entityId === row.entityId)!;
+      const { commitSeq: _seq, recordedAt: _at, actor: _actor, ...stable } = current as typeof row;
+      const next = {
+        ...applyPlaceEdit(stable, { summary, regionIds: [], wikiRef: undefined }),
+        revisionId: crypto.randomUUID(),
+        previousRevisionId: current.revisionId,
+      };
+      const before = revision;
+      const result = await repo.execute(
+        envelope(tripId, 'UpdateContent', { expectedRevisionId: current.revisionId, content: next }, before),
+      );
+      revision = result.domainRevision;
+      return { before, after: result.domainRevision };
+    };
+    let edited: SaveSpan | undefined;
+    const first = await save(0, '첫째');
+    edited = extendSpan(edited, first.before, first.after);
+    if (interleave) {
+      await save(places.length > 1 ? 1 : 0, '끼어든 저장');
+    }
+    const second = await save(0, '둘째');
+    edited = extendSpan(edited, second.before, second.after);
+    return { created, edited, revision };
+  }
+
+  it('끼어든 저장이 없으면 만들기와 수정 구간이 이어진다', async () => {
+    const { created, edited, revision } = await editTwice(false);
+    expect(joinSpans(created, edited)).toEqual({ from: created.from, to: revision });
+  });
+
+  it('장소 수정 사이에 다른 저장이 끼면 연결하지 않는다', async () => {
+    const { created, edited } = await editTwice(true);
+    expect(joinSpans(created, edited)).toBeUndefined();
   });
 });
 

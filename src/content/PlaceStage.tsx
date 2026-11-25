@@ -15,6 +15,8 @@ import {
   type LinkPlan,
   type PlaceCandidate,
   type PlaceEdit,
+  extendSpan,
+  type SaveSpan,
 } from '../plan-update';
 import { command, errorText, ErrorText, Modal } from './ui';
 
@@ -25,7 +27,7 @@ export type StageDone = {
   created: number;
   linked: number;
   /** 장소 만들기가 올린 여행 revision(만든 것이 없으면 없다). */
-  revision?: { from: number; to: number };
+  revision?: SaveSpan;
 };
 
 type StageProps = {
@@ -76,7 +78,7 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
   const [error, setError] = useState('');
   const createdRef = useRef(new Map<string, string>());
   const workingRef = useRef(false);
-  const revisionRef = useRef<{ from: number; to: number } | undefined>(undefined);
+  const revisionRef = useRef<SaveSpan | undefined>(undefined);
 
   const actionOf = (candidate: PlaceCandidate) => actions.get(candidate.name) ?? defaultAction(candidate);
   const creates = candidates.filter((candidate) => actionOf(candidate) === 'create');
@@ -106,10 +108,7 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
         const result = await repo.execute(
           command(tripId, 'CreateContentBatch', { create: batch, updateOwners: [] }, header.domainRevision),
         );
-        revisionRef.current = {
-          from: revisionRef.current?.from ?? header.domainRevision,
-          to: result.domainRevision,
-        };
+        revisionRef.current = extendSpan(revisionRef.current, header.domainRevision, result.domainRevision);
         batch.forEach((content) => createdRef.current.set(content.payload.name, content.entityId));
         done += batch.length;
         setProgress(`장소를 만드는 중 ${done}/${pending.length}`);
@@ -195,7 +194,7 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
 export type EditDone = {
   count: number;
   /** 장소 수정이 올린 여행 revision. */
-  revision: { from: number; to: number };
+  revision: SaveSpan;
 };
 
 /**
@@ -237,8 +236,7 @@ export function PlaceEditStage({
     workingRef.current = true;
     setBusy(true);
     setError('');
-    let from: number | undefined;
-    let to = 0;
+    let span: SaveSpan | undefined;
     let saved = 0;
     try {
       for (const edit of chosen) {
@@ -273,11 +271,12 @@ export function PlaceEditStage({
             header.domainRevision,
           ),
         );
-        from ??= header.domainRevision;
-        to = result.domainRevision;
+        span = extendSpan(span, header.domainRevision, result.domainRevision);
         saved++;
       }
-      onDone({ count: saved, revision: { from: from ?? 0, to } });
+      if (span) {
+        onDone({ count: saved, revision: span });
+      }
     } catch (err) {
       setError(`${errorText(err)}${saved > 0 ? ` 이미 저장한 장소 ${saved}개는 남아 있습니다.` : ''}`);
     } finally {
