@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { guideOf, type PrepState } from '../guide-import/draft';
 import { buildGuideRequest } from '../guide-import/guide-request';
 import { parseGuide } from '../guide-import/parse';
+import { buildPrepFile, parsePrepFile, prepFileName, type PrepFileResult } from '../guide-import/prep-file';
 import {
   CHOICE_LABEL,
   CHOICES,
@@ -133,13 +134,89 @@ function GuideCard({ item, items, prep, open, onToggleOpen, onChange }: CardProp
   );
 }
 
-function downloadGuide(text: string, destination: string) {
+function downloadText(text: string, fileName: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `가이드-${destination}.md`;
+  link.download = fileName;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function localToday() {
+  const now = new Date();
+  const two = (value: number) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
+}
+
+type ReadyPrepFile = Extract<PrepFileResult, { accepted: true }>;
+
+/** 준비 자료 파일을 읽은 뒤, 무엇을 가져올지 고르고 반영하는 미리보기. */
+function PrepFilePreview({
+  file,
+  prep,
+  onApply,
+  onCancel,
+}: {
+  file: ReadyPrepFile;
+  prep: PrepState;
+  onApply: (chosen: boolean, answers: boolean) => void;
+  onCancel: () => void;
+}) {
+  const [withChosen, setWithChosen] = useState(true);
+  const [withAnswers, setWithAnswers] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const total = file.counts.must + file.counts.interest + file.counts.exclude;
+  const answerCount = Object.keys(file.answers).length;
+  const currentChosen = Object.keys(prep.selections).length;
+  const replacesDraft = prep.guide !== undefined || currentChosen > 0;
+
+  return (
+    <section aria-label="준비 자료 미리보기" className="notice">
+      <h3>준비 자료 · {file.destination}</h3>
+      <ul>
+        <li>가이드 항목 {file.items.length}개</li>
+        <li>
+          고른 것 {total}건 ({CHOICE_LABEL.must} {file.counts.must} · {CHOICE_LABEL.interest} {file.counts.interest} ·{' '}
+          {CHOICE_LABEL.exclude} {file.counts.exclude}
+          {file.dropped > 0 ? `, 맞지 않아 버린 것 ${file.dropped}건` : ''})
+        </li>
+        <li>취향 답 {answerCount}칸</li>
+      </ul>
+      <label>
+        <input type="checkbox" checked={withChosen} onChange={(event) => setWithChosen(event.target.checked)} /> 고른
+        것도 가져오기
+      </label>
+      <label>
+        <input type="checkbox" checked={withAnswers} onChange={(event) => setWithAnswers(event.target.checked)} /> 취향
+        답도 가져오기
+      </label>
+      {confirming ? (
+        <div role="alert">
+          <p>지금의 가이드와 고른 것 {currentChosen}건을 바꿉니다.</p>
+          <button type="button" className="danger" onClick={() => onApply(withChosen, withAnswers)}>
+            바꾸기
+          </button>
+          <button type="button" onClick={() => setConfirming(false)}>
+            취소
+          </button>
+        </div>
+      ) : (
+        <div className="button-row prep-actions">
+          <button
+            type="button"
+            className="primary"
+            onClick={() => (replacesDraft ? setConfirming(true) : onApply(withChosen, withAnswers))}
+          >
+            준비 자료 반영
+          </button>
+          <button type="button" onClick={onCancel}>
+            취소
+          </button>
+        </div>
+      )}
+    </section>
+  );
 }
 
 type BrowserProps = { prep: PrepState; onChange: (next: PrepState) => void };
@@ -271,6 +348,7 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
   const [text, setText] = useState('');
   const [result, setResult] = useState<GuideResult | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [prepFile, setPrepFile] = useState<ReadyPrepFile | null>(null);
   const [hint, setHint] = useState('');
   const [replacing, setReplacing] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -291,6 +369,23 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
   function read(source: string) {
     setHint('');
     setClearing(false);
+    setPrepFile(null);
+    const prepResult = parsePrepFile(source);
+    if (prepResult) {
+      setPending(null);
+      if (prepResult.accepted) {
+        setResult(null);
+        setPrepFile(prepResult);
+      } else {
+        setResult({
+          accepted: false,
+          rejection: { code: 'not-guide', message: prepResult.message },
+          issues: [],
+          notImported: [],
+        });
+      }
+      return;
+    }
     const parsed = parseGuide(source);
     setResult(parsed);
     if (!parsed.accepted) {
@@ -323,10 +418,41 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
     }
   }
 
+  function applyPrepFile(withChosen: boolean, withAnswers: boolean) {
+    if (!prepFile) {
+      return;
+    }
+    onChange({
+      ...prep,
+      guideText: prepFile.guideText,
+      guide: guideOf(prepFile.guideText),
+      selections: withChosen ? prepFile.selections : {},
+      answers: withAnswers ? { ...prep.answers, ...prepFile.answers } : prep.answers,
+    });
+    setPrepFile(null);
+    setText('');
+    setResult(null);
+    setReplacing(false);
+  }
+
   function clearGuide() {
     onChange({ ...prep, guideText: '', guide: undefined, selections: {} });
     setClearing(false);
     setResult(null);
+  }
+
+  function savePrepFile() {
+    const built = buildPrepFile(prep, localToday());
+    if (built && guide) {
+      downloadText(built, prepFileName(guide.destination));
+    }
+  }
+
+  async function copyPrepFile() {
+    const built = buildPrepFile(prep, localToday());
+    if (built) {
+      await copy(built, '준비 자료를 복사했습니다.');
+    }
   }
 
   const pasteArea = (
@@ -370,6 +496,9 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
         </button>
       </div>
       {result ? <GuideProblems result={result} /> : null}
+      {prepFile ? (
+        <PrepFilePreview file={prepFile} prep={prep} onApply={applyPrepFile} onCancel={() => setPrepFile(null)} />
+      ) : null}
       {pending !== null ? (
         <div role="alert" className="notice">
           <p>고른 것이 모두 지워집니다. 다른 가이드로 바꿀까요?</p>
@@ -399,13 +528,20 @@ export function GuidePanel({ prep, onChange, copy }: Props) {
             <button type="button" onClick={() => setReplacing(!replacing)}>
               가이드 바꾸기
             </button>
-            <button type="button" onClick={() => downloadGuide(prep.guideText, guide.destination)}>
+            <button type="button" onClick={() => downloadText(prep.guideText, `가이드-${guide.destination}.md`)}>
               가이드를 파일로 저장
+            </button>
+            <button type="button" onClick={savePrepFile}>
+              준비 자료 저장
+            </button>
+            <button type="button" onClick={() => void copyPrepFile()}>
+              준비 자료 복사
             </button>
             <button type="button" onClick={() => (hasSelections ? setClearing(true) : clearGuide())}>
               가이드 지우기
             </button>
           </div>
+          <p className="muted">가이드, 고른 것, 취향 답(예산·동행 포함)이 글 그대로 들어갑니다.</p>
           {clearing ? (
             <div role="alert" className="notice">
               <p>가이드와 고른 것이 모두 지워집니다.</p>

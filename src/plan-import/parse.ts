@@ -1,4 +1,4 @@
-import { MAX_INPUT_CHARS, MAX_INPUT_LINES, selectBody, splitSourceLines } from './input-text';
+import { isPrepFileText, MAX_INPUT_CHARS, MAX_INPUT_LINES, selectBody, splitSourceLines } from './input-text';
 import { mapColumns, readCells, readRawTable, type ColumnMap, type RawTable } from './table';
 import type {
   ActivityRow,
@@ -336,6 +336,12 @@ class PlanReader {
 export function parsePlanFile(text: string): PlanFile {
   if (text.length > MAX_INPUT_CHARS) {
     return rejected({ code: 'too-large', message: `글이 ${MAX_INPUT_CHARS.toLocaleString('ko-KR')}자를 넘습니다.` });
+  }
+  if (isPrepFileText(text)) {
+    return rejected({
+      code: 'is-prep',
+      message: "준비 자료입니다. 'AI로 계획 만들기'의 가이드 칸에 넣어 주세요.",
+    });
   }
   const lines = splitSourceLines(text);
   if (lines.length > MAX_INPUT_LINES) {

@@ -104,7 +104,7 @@ function stateOf(file: CheckedPlanFile): PreviewState {
 }
 
 function messageOf(file: CheckedPlanFile, state: PreviewState) {
-  if (state === 'not-plan' && file.rejection?.code === 'is-guide') {
+  if (state === 'not-plan' && (file.rejection?.code === 'is-guide' || file.rejection?.code === 'is-prep')) {
     return file.rejection.message;
   }
   if (state === 'not-plan') {
