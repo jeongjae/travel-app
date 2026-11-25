@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-25 · **AI 개편 E1·P1·E2 확인 완료, 이후 배포분은 확인 대기(일괄). 단계 E는 미룸 → E3-2**
+2026-11-25 · **AI 개편 E1·P1·E2 확인 완료, 이후 배포분은 확인 대기(일괄). 단계 E는 미룸 → E3-2·P2-1**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: T-E3-2 [R1](claude-task-e03-2-review.md) → Codex 검토·병합. P2: [설계서](p2-design.md) Q1~Q3 답 받음, 범위 확인 1건 대기.
+1. Claude: T-E3-2 [R1](claude-task-e03-2-review.md) → Codex 검토·병합. 이어서 [T-P2-1](claude-task-p02-1-prep-file.md)(준비 자료 파일).
 2. 사용자 테스트(화면·실사용·단계 E)는 나중에 한꺼번에 — [일괄 확인 목록](batch-check-list.md). 단계 E는 미룸(미판정).
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
