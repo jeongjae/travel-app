@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude: T-E3-2 [R1](claude-task-e03-2-review.md) → Codex 검토·병합. P2: [설계서 v0.1](p2-design.md) **사용자 승인 대기**(Q1~Q3).
+1. Claude: T-E3-2 [R1](claude-task-e03-2-review.md) → Codex 검토·병합. P2: [설계서](p2-design.md) Q1~Q3 답 받음, 범위 확인 1건 대기.
 2. 사용자 테스트(화면·실사용·단계 E)는 나중에 한꺼번에 — [일괄 확인 목록](batch-check-list.md). 단계 E는 미룸(미판정).
 3. 사용자 확인 대기: G-2(준비 초안을 기기 설정에 저장), 가이드 화면 위치.
 4. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
