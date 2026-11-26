@@ -5,6 +5,7 @@
 - T-E3-2 R1 `e69d906`: 기준 연결은 끊김 없이 이어진 이 화면의 저장에만 준다(순수 함수 + 시험 6건). [검토](claude-task-e03-2-review.md) R1 절. CL-48 해결(한글 문구).
 - T-P2-1 `00248b4`: 준비 자료 파일(가이드 + 고른 것 + 취향 답 8칸). [검토](claude-task-p02-1-review.md). 기존 가이드 변환기·시험 변경 0건.
 - 둘 다 데이터 경계·Worker·CI 설정 변경 0건, 브랜치 CI 성공. main에 차례로 병합(충돌 없음). 사용자 확인은 [일괄 확인 목록](batch-check-list.md)에 더했다 — **확인 대기**.
+- 배포: [Pages](https://github.com/jeongjae/travel-app/actions/runs/45788085670) 검사 5작업·빌드·배포 성공, 11/26 18:09(main `ff4123c`). 공개 `deployment.json` 대조는 하지 않았다(미확인). PC main 참조 `ff4123c`로 갱신.
 
 ## 2026-11-25 12:25 · P2 1단계 범위 확정 → T-P2-1 지시 (사용자 결정)
 
