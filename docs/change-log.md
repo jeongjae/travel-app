@@ -87,7 +87,7 @@
 | CL-45 | iPhone에서 계획 버전 선택·`revision` 표시가 제대로 보이지 않음(드롭다운 단추로 표시 등, 사용자 보고) | 원인 미조사. UI 후속 | [T-D5 결과](claude-task-d05-result.md) §C3 화면 관찰 |
 | CL-46 | ~~구 저장소 모드 화면(`?workspace=legacy`)의 AI 변경안 적용이 차단 대상이 아님~~ | **종결(T-E4-2 `663457a`, 11/20)**: 사용자 결정으로 구 화면 자체를 제거 | [검토](claude-task-e04-2-review.md) |
 | CL-47 | E2E `ai-v2.spec.ts:148`(mobile, 지연 fixture를 쓰는 시간 의존 시험)이 CI에서 1회 실패 뒤 재실행 통과(11/20, T-E4-2) | 다시 흔들리면 안정화 지시 | [검토](claude-task-e04-2-review.md) |
-| CL-48 | 전체 백업 복원에서 백업이 아닌 파일을 고르면 오류가 영문 `File format is not recognized` 그대로 나온다(T-E5-1에서 발견, 11/23) | 한글 안내로 바꾸는 작은 수정 — 다음 화면 작업에 묶는다 | [검토](claude-task-e04-3-review.md) |
+| CL-48 | **해결(T-E3-2, 11/26 병합)** · 전체 백업 복원에서 백업이 아닌 파일을 고르면 오류가 영문 `File format is not recognized` 그대로 나온다(T-E5-1에서 발견, 11/23) | 한글 안내로 바꾸는 작은 수정 — 다음 화면 작업에 묶는다 | [검토](claude-task-e04-3-review.md) |
 
 ## 처리 이력
 
