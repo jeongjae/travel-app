@@ -2,16 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import type { PlanVersion } from '../contracts/v2';
 import type { ContentRepository } from '../repository';
 import {
+  applyPlaceEdit,
   buildLinkPlan,
   buildPlaceContent,
   chunkPlaces,
   collectMarkCandidates,
   PLACE_KIND_LABEL,
+  placeEditIsFresh,
   type CatalogPlace,
   type CatalogRegion,
   type ExistingPlaceLines,
   type LinkPlan,
   type PlaceCandidate,
+  type PlaceEdit,
+  extendSpan,
+  type SaveSpan,
 } from '../plan-update';
 import { command, errorText, ErrorText, Modal } from './ui';
 
@@ -22,7 +27,7 @@ export type StageDone = {
   created: number;
   linked: number;
   /** 장소 만들기가 올린 여행 revision(만든 것이 없으면 없다). */
-  revision?: { from: number; to: number };
+  revision?: SaveSpan;
 };
 
 type StageProps = {
@@ -73,7 +78,7 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
   const [error, setError] = useState('');
   const createdRef = useRef(new Map<string, string>());
   const workingRef = useRef(false);
-  const revisionRef = useRef<{ from: number; to: number } | undefined>(undefined);
+  const revisionRef = useRef<SaveSpan | undefined>(undefined);
 
   const actionOf = (candidate: PlaceCandidate) => actions.get(candidate.name) ?? defaultAction(candidate);
   const creates = candidates.filter((candidate) => actionOf(candidate) === 'create');
@@ -103,10 +108,7 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
         const result = await repo.execute(
           command(tripId, 'CreateContentBatch', { create: batch, updateOwners: [] }, header.domainRevision),
         );
-        revisionRef.current = {
-          from: revisionRef.current?.from ?? header.domainRevision,
-          to: result.domainRevision,
-        };
+        revisionRef.current = extendSpan(revisionRef.current, header.domainRevision, result.domainRevision);
         batch.forEach((content) => createdRef.current.set(content.payload.name, content.entityId));
         done += batch.length;
         setProgress(`장소를 만드는 중 ${done}/${pending.length}`);
@@ -137,11 +139,12 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
     <section aria-label="장소 단계">
       <h3>장소 단계 · 후보 {candidates.length}개</h3>
       <p className="muted">고른 장소만 만들어 활동에 연결합니다. 고르지 않은 장소는 남지 않고 이름은 메모에 둡니다.</p>
-      {existingLines && (existingLines.changed > 0 || existingLines.unknown > 0) ? (
+      {existingLines && (existingLines.nameIgnored > 0 || existingLines.unknown > 0) ? (
         <p className="muted" data-testid="place-existing-lines">
-          기존 장소의 내용은 글로 고치지 않습니다
-          {existingLines.changed > 0 ? ` (내용이 다른 줄 ${existingLines.changed}줄)` : ''}
-          {existingLines.unknown > 0 ? ` (이 여행에 없는 ID ${existingLines.unknown}줄)` : ''}.
+          {existingLines.nameIgnored > 0
+            ? `이름은 글로 고치지 않습니다 (이름이 다른 줄 ${existingLines.nameIgnored}줄). `
+            : ''}
+          {existingLines.unknown > 0 ? `이 여행에 없는 ID ${existingLines.unknown}줄은 받지 않습니다.` : ''}
         </p>
       ) : null}
       <ul>
@@ -182,6 +185,140 @@ export function PlaceStage({ repo, tripId, candidates, existingLines, regions, o
             장소 없이 계속
           </button>
         ) : null}
+      </div>
+      <ErrorText error={error} />
+    </section>
+  );
+}
+
+export type EditDone = {
+  count: number;
+  /** 장소 수정이 올린 여행 revision. */
+  revision: SaveSpan;
+};
+
+/**
+ * 기존 장소 수정 단계: 고른 줄만 `UpdateContent`로 저장한다(장소마다 한 번). 새 장소 만들기와 따로 승인한다.
+ * 저장 직전에 장소를 다시 읽어, 후보를 만든 뒤 바뀌었으면 그 줄은 저장하지 않고 멈춘다.
+ */
+export function PlaceEditStage({
+  repo,
+  tripId,
+  edits,
+  onDone,
+}: {
+  repo: ContentRepository;
+  tripId: string;
+  edits: PlaceEdit[];
+  onDone: (done: EditDone) => void;
+}) {
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const workingRef = useRef(false);
+  const chosen = edits.filter((edit) => picked.has(edit.entityId));
+
+  function toggle(entityId: string) {
+    const next = new Set(picked);
+    if (next.has(entityId)) {
+      next.delete(entityId);
+    } else {
+      next.add(entityId);
+    }
+    setPicked(next);
+    setError('');
+  }
+
+  async function approve() {
+    if (workingRef.current || chosen.length === 0) {
+      return;
+    }
+    workingRef.current = true;
+    setBusy(true);
+    setError('');
+    let span: SaveSpan | undefined;
+    let saved = 0;
+    try {
+      for (const edit of chosen) {
+        const header = (await repo.list()).find((row) => row.tripId === tripId);
+        if (!header) {
+          throw new Error('여행을 찾을 수 없습니다.');
+        }
+        const content = (await repo.catalog(tripId, 'place')).find((row) => row.entityId === edit.entityId);
+        const fresh =
+          content?.kind === 'place' &&
+          placeEditIsFresh(edit, {
+            entityId: content.entityId,
+            name: content.payload.name,
+            summary: content.payload.summary,
+            wikiRef: content.payload.wikiRef,
+            regionIds: content.payload.regionIds,
+          });
+        if (content?.kind !== 'place' || !fresh) {
+          throw new Error(`장소 "${edit.name}"이 그사이 바뀌었습니다. 다시 'AI로 수정하기'로 복사해 작업하세요.`);
+        }
+        const { commitSeq: _seq, recordedAt: _at, actor: _actor, ...stable } = content;
+        const next = {
+          ...applyPlaceEdit(stable, edit.patch),
+          revisionId: crypto.randomUUID(),
+          previousRevisionId: content.revisionId,
+        };
+        const result = await repo.execute(
+          command(
+            tripId,
+            'UpdateContent',
+            { expectedRevisionId: content.revisionId, content: next },
+            header.domainRevision,
+          ),
+        );
+        span = extendSpan(span, header.domainRevision, result.domainRevision);
+        saved++;
+      }
+      if (span) {
+        onDone({ count: saved, revision: span });
+      }
+    } catch (err) {
+      setError(`${errorText(err)}${saved > 0 ? ` 이미 저장한 장소 ${saved}개는 남아 있습니다.` : ''}`);
+    } finally {
+      workingRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section aria-label="기존 장소 수정">
+      <h3>기존 장소 수정 {edits.length}건</h3>
+      <p className="muted">고른 장소만 고칩니다. 이름은 바꾸지 않고, 고르지 않으면 그대로 둡니다.</p>
+      <ul>
+        {edits.map((edit) => (
+          <li key={edit.entityId}>
+            <label>
+              <input
+                type="checkbox"
+                checked={picked.has(edit.entityId)}
+                disabled={busy}
+                onChange={() => toggle(edit.entityId)}
+              />{' '}
+              <strong>{edit.name}</strong>
+            </label>
+            {edit.changes.map((change) => (
+              <p key={change.column} className="muted">
+                {change.column}: {change.before === '' ? '(없음)' : change.before} →{' '}
+                {change.cleared ? '(비움)' : change.after}
+              </p>
+            ))}
+            {edit.warnings.map((warning) => (
+              <p key={warning} className="muted">
+                {warning}
+              </p>
+            ))}
+          </li>
+        ))}
+      </ul>
+      <div className="button-row prep-actions">
+        <button type="button" className="primary" disabled={busy || chosen.length === 0} onClick={() => void approve()}>
+          {`장소 ${chosen.length}건 수정`}
+        </button>
       </div>
       <ErrorText error={error} />
     </section>

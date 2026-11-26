@@ -3,6 +3,7 @@ export type { ExportInput, ExportOptions, ExportResult, ExportWarning, ExportWar
 export { activityCellsOf, tableCell, timeCellOf } from './cells';
 export type { ActivityCells, ActivityCellsResult, CellContext } from './cells';
 export { EXPORT_RULE_LINES } from './export-rules';
+export { extendSpan, joinSpans, type SaveSpan } from './revision-chain';
 export { computeUpdate } from './compute-update';
 export { buildSelection } from './apply-selection';
 export {
@@ -28,8 +29,10 @@ export type {
   UpdateResult,
 } from './update-types';
 export {
+  applyPlaceEdit,
   buildLinkPlan,
   buildPlaceContent,
+  buildPlaceEdit,
   chunkPlaces,
   collectMarkCandidates,
   collectPlaceCandidates,
@@ -37,6 +40,7 @@ export {
   PLACE_BATCH_SIZE,
   PLACE_KIND_LABEL,
   placeCellsOf,
+  placeEditIsFresh,
   placeKindOf,
   splitPlaceSummary,
 } from './places';
@@ -47,6 +51,9 @@ export type {
   LinkPlan,
   PlaceCandidate,
   PlaceCollection,
+  PlaceEdit,
+  PlaceEditChange,
+  PlaceEditPatch,
   PlaceContent,
   PlaceKindCode,
 } from './places';

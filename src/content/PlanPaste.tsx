@@ -6,8 +6,8 @@ import type { ContentRepository } from '../repository';
 import { buildPlanPreview, canSavePreview, type ExistingTrip, type PlanPreview } from '../plan-import/preview';
 import { ChosenList } from './ChosenList';
 import { readPrepDraft } from './prep-state';
-import { collectPlaceCandidates, type CatalogPlace, type CatalogRegion } from '../plan-update';
-import { PlaceFlow, PlaceStage, type StageDone } from './PlaceStage';
+import { collectPlaceCandidates, joinSpans, type CatalogPlace, type CatalogRegion } from '../plan-update';
+import { PlaceEditStage, PlaceFlow, PlaceStage, type EditDone, type StageDone } from './PlaceStage';
 import { UpdatePreview } from './UpdatePreview';
 import { command, errorText, ErrorText, Modal } from './ui';
 
@@ -145,6 +145,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
   const [stage, setStage] = useState<StageDone | null>(null);
+  const [edited, setEdited] = useState<EditDone | null>(null);
   const [created, setCreated] = useState<{ tripId: string; resultText: string; file: CheckedPlanFile } | null>(null);
   const savingRef = useRef(false);
   const [draft] = useState(readPrepDraft);
@@ -152,6 +153,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
     () => (current ? repo.plan(current.header.tripId, current.header.currentPlanVersionId) : undefined),
     [current?.header.tripId, current?.header.currentPlanVersionId],
   );
+  const bridge = useMemo(() => joinSpans(stage?.revision, edited?.revision), [stage, edited]);
   const currentTrip = useMemo(
     () =>
       current && currentPlan
@@ -159,10 +161,11 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
             header: current.header,
             plan: currentPlan,
             placeNames: new Map(current.places.map((place) => [place.entityId, place.name])),
-            ...(stage ? { placeIds: stage.placeIds, revisionBridge: stage.revision } : {}),
+            ...(stage ? { placeIds: stage.placeIds } : {}),
+            ...(bridge ? { revisionBridge: bridge } : {}),
           }
         : undefined,
-    [current, currentPlan, stage],
+    [current, currentPlan, stage, bridge],
   );
   const updateCollection = useMemo(
     () =>
@@ -175,6 +178,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
   function showPreview(source: string) {
     setPreview(buildPlanPreview(source, existing));
     setStage(null);
+    setEdited(null);
     setConfirmedDropped(false);
     setConfirmedDuplicate(false);
     setError('');
@@ -185,6 +189,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
     setText(value);
     setPreview(null);
     setStage(null);
+    setEdited(null);
     setConfirmedDropped(false);
     setConfirmedDuplicate(false);
     setError('');
@@ -319,7 +324,7 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
             {updateCollection &&
             current &&
             (updateCollection.candidates.length > 0 ||
-              updateCollection.existingLines.changed + updateCollection.existingLines.unknown > 0) ? (
+              updateCollection.existingLines.nameIgnored + updateCollection.existingLines.unknown > 0) ? (
               stage ? (
                 <p role="status" data-testid="place-stage-done">
                   장소 단계 완료: 만든 장소 {stage.created}개 · 기존 장소 연결 {stage.linked}개. 아래 미리보기에서
@@ -336,9 +341,23 @@ export function PlanPasteDialog({ repo, existing, onClose, onSaved, current, onU
                 />
               )
             ) : null}
+            {updateCollection && current && (updateCollection.edits.length > 0 || edited) ? (
+              edited ? (
+                <p role="status" data-testid="place-edit-done">
+                  장소 수정 완료: {edited.count}건. 아래 미리보기에서 일정 변경을 이어서 적용합니다.
+                </p>
+              ) : (
+                <PlaceEditStage
+                  repo={repo}
+                  tripId={current.header.tripId}
+                  edits={updateCollection.edits}
+                  onDone={setEdited}
+                />
+              )
+            ) : null}
             {preview.state === 'update' && current && currentTrip ? (
               <UpdatePreview
-                key={stage ? `placed-${stage.placeIds.size}` : 'plain'}
+                key={`${stage ? `placed-${stage.placeIds.size}` : 'plain'}-${edited ? `edited-${edited.count}` : 'none'}`}
                 repo={repo}
                 file={preview.file}
                 current={currentTrip}

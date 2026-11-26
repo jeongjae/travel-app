@@ -101,7 +101,7 @@ test('B: 요청 종류를 바꾸면 [요청] 줄이 바뀌고, 사용자가 고�
   await expect(text).toHaveValue(/\[요청\] \(여기에 고칠 내용을 적으세요\)/);
   await dialog.getByLabel('요청 종류').selectOption({ label: '빈 칸 채우기' });
   await expect(text).toHaveValue(/\[요청\] 일정의 시간·제목·순서는 바꾸지 말고, 비어 있는 메모·링크 칸만 채워 줘\./);
-  await expect(text).toHaveValue(/ID가 있는 장소 줄은 고치지 말아 줘\./);
+  await expect(text).toHaveValue(/ID가 있는 장소 줄은 비어 있는 칸만 채우고 이름은 바꾸지 말아 줘./);
   if (CAPTURE_DIR) {
     await page.screenshot({ path: `${CAPTURE_DIR}/request-kind-${test.info().project.name}.png` });
   }

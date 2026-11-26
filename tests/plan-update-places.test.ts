@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { contentRevisionSchema, planItemSchema } from '../src/contracts/v2';
 import {
+  applyPlaceEdit,
   buildLinkPlan,
   buildPlaceContent,
   chunkPlaces,
@@ -172,7 +173,8 @@ describe('장소가 든 여행: 내보내기 → 그대로 가져오기', () => 
     expect(result.skipped).toEqual([]);
     const collection = collectPlaceCandidates(again, { plan: current.plan, places, regions });
     expect(collection.candidates).toEqual([]);
-    expect(collection.existingLines).toEqual({ changed: 0, unknown: 0 });
+    expect(collection.existingLines).toEqual({ nameIgnored: 0, unknown: 0 });
+    expect(collection.edits).toEqual([]);
   });
 
   it('메모에만 이름이 남은 활동도 왕복에서 새 장소 후보가 되지 않는다', () => {
@@ -183,17 +185,115 @@ describe('장소가 든 여행: 내보내기 → 그대로 가져오기', () => 
     expect(collection.candidates).toEqual([]);
   });
 
-  it('기존 장소 줄(ID 있음)의 내용이 다르면 고치지 않고 줄 수만 센다', () => {
-    const edited = exported.text
-      .replace(
-        '| p-1 | 오도리 공원 | 삿포로 중심 | 넓은 공원 | 24시간 |',
-        '| p-1 | 오도리 공원 | 삿포로 중심 | 새 설명 | 24시간 |',
-      )
-      .replace('| p-2 |', '| p-9 |');
-    const current = currentOf({ ...created, initialPlan: plan }, placeNames);
-    const collection = collectPlaceCandidates(check(edited), { plan: current.plan, places, regions });
-    expect(collection.existingLines).toEqual({ changed: 1, unknown: 1 });
+  const current = () => currentOf({ ...created, initialPlan: plan }, placeNames);
+  const collect = (text: string) => collectPlaceCandidates(check(text), { plan: current().plan, places, regions });
+  const odori = '| p-1 | 오도리 공원 | 삿포로 중심 | 넓은 공원 | 24시간 | https://example.com/odori |';
+  const withOdori = (row: string) => exported.text.replace(odori, row);
+
+  it('기존 장소 줄(ID 있음)의 설명·영업시간·링크가 다르면 장소 수정 후보가 된다', () => {
+    const collection = collect(
+      withOdori('| p-1 | 오도리 공원 | 삿포로 중심 | 새 설명 | 09:00-18:00 | https://example.com/new |'),
+    );
     expect(collection.candidates).toEqual([]);
+    expect(collection.edits).toHaveLength(1);
+    const [edit] = collection.edits;
+    expect(edit.entityId).toBe('p-1');
+    expect(edit.changes.map((change) => [change.column, change.before, change.after])).toEqual([
+      ['설명', '넓은 공원', '새 설명'],
+      ['영업시간', '24시간', '09:00-18:00'],
+      ['링크', 'https://example.com/odori', 'https://example.com/new'],
+    ]);
+    expect(edit.patch).toEqual({
+      summary: '새 설명 [지역: 삿포로 중심] [영업시간(미확인): 09:00-18:00]',
+      regionIds: [],
+      wikiRef: 'https://example.com/new',
+    });
+  });
+
+  it('빈 칸은 변경 없음이고, 같은 값을 다시 적어도 후보가 아니다', () => {
+    expect(collect(withOdori('| p-1 | 오도리 공원 |  |  |  |  |')).edits).toEqual([]);
+    expect(collect(withOdori(odori)).edits).toEqual([]);
+  });
+
+  it('(비움)은 그 칸을 지운다. 지울 값이 이미 없으면 후보가 아니다', () => {
+    const [edit] = collect(withOdori('| p-1 | 오도리 공원 | (비움) | (비움) | (비움) | (비움) |')).edits;
+    expect(edit.changes.map((change) => [change.column, change.cleared])).toEqual([
+      ['지역', true],
+      ['설명', true],
+      ['영업시간', true],
+      ['링크', true],
+    ]);
+    expect(edit.patch).toEqual({ summary: '', regionIds: [], wikiRef: undefined });
+    const emptyRow = '| p-2 | 라멘 골목 | 삿포로 | (비움) | (비움) | (비움) |';
+    const text = exported.text.replace('| p-2 | 라멘 골목 | 삿포로 |  |  |  |', emptyRow);
+    expect(collect(text).edits).toEqual([]);
+  });
+
+  it('이름 칸은 받지 않는다: 이름만 달라도 후보가 아니고 안내 줄 수만 센다', () => {
+    const collection = collect(withOdori(odori.replace('오도리 공원', '다른 이름')));
+    expect(collection.edits).toEqual([]);
+    expect(collection.existingLines).toEqual({ nameIgnored: 1, unknown: 0 });
+    const both = collect(withOdori('| p-1 | 다른 이름 | 삿포로 중심 | 새 설명 | 24시간 | https://example.com/odori |'));
+    expect(both.edits).toHaveLength(1);
+    expect(both.existingLines.nameIgnored).toBe(1);
+  });
+
+  it('지역 이름이 맞으면 regionIds에 연결하고 표시를 떼며, 안 맞으면 표시로 남긴다', () => {
+    const [linked] = collect(withOdori('| p-1 | 오도리 공원 | 삿포로 |  |  |  |')).edits;
+    expect(linked.patch.regionIds).toEqual(['r-1']);
+    expect(linked.patch.summary).toBe('넓은 공원 [영업시간(미확인): 24시간]');
+    const [typed] = collect(withOdori('| p-1 | 오도리 공원 | 오타루 |  |  |  |')).edits;
+    expect(typed.patch.regionIds).toEqual([]);
+    expect(typed.patch.summary).toBe('넓은 공원 [지역: 오타루] [영업시간(미확인): 24시간]');
+    const ramen = '| p-2 | 라멘 골목 | 오타루 |  |  |  |';
+    const [moved] = collect(exported.text.replace('| p-2 | 라멘 골목 | 삿포로 |  |  |  |', ramen)).edits;
+    expect(moved.patch).toEqual({ summary: '[지역: 오타루]', regionIds: [], wikiRef: undefined });
+  });
+
+  it('http(s)가 아닌 링크는 가져오기 검사가 비워 두므로 후보가 되지 않는다', () => {
+    const edits = collect(withOdori('| p-1 | 오도리 공원 |  |  |  | ftp://example.com/x |')).edits;
+    expect(edits).toEqual([]);
+  });
+
+  it('이 여행에 없는 ID 줄은 받지 않는다', () => {
+    const collection = collect(exported.text.replace('| p-2 |', '| p-9 |'));
+    expect(collection.existingLines.unknown).toBe(1);
+    expect(collection.edits).toEqual([]);
+  });
+
+  it('고친 값은 장소 본문 검사를 통과하고 다른 칸은 그대로다', () => {
+    const [edit] = collect(withOdori('| p-1 | 오도리 공원 | 삿포로 | (비움) | (비움) | (비움) |')).edits;
+    const base = {
+      tripId: 't',
+      entityId: 'p-1',
+      revisionId: 'rev-1',
+      schemaVersion: 2,
+      sourceRefs: [],
+      kind: 'place',
+      commitSeq: 1,
+      recordedAt: '2027-01-01T00:00:00Z',
+      actor: 'user',
+      payload: {
+        regionIds: [],
+        name: '오도리 공원',
+        aliases: ['공원'],
+        placeKind: 'sight',
+        summary: 'x',
+        dontMiss: ['분수'],
+        assetRefs: [],
+        wikiRef: 'https://example.com/odori',
+      },
+    };
+    const next = applyPlaceEdit(base, edit.patch);
+    expect(next.payload).toMatchObject({
+      name: '오도리 공원',
+      aliases: ['공원'],
+      dontMiss: ['분수'],
+      regionIds: ['r-1'],
+      summary: '',
+    });
+    expect('wikiRef' in next.payload).toBe(false);
+    expect(contentRevisionSchema.safeParse(next).success).toBe(true);
   });
 });
 
