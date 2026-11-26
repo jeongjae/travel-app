@@ -3,6 +3,7 @@ import type { Rejection, SourceLine } from './types';
 export const MAX_INPUT_CHARS = 200_000;
 export const MAX_INPUT_LINES = 3_000;
 export const PLAN_FORMAT = 'travel-app-plan/1';
+export const PREP_FORMAT = 'travel-app-prep/1';
 
 // BOM과 폭 없는 글자는 버리고, 줄바꿈 없는 공백은 보통 공백으로 바꾼다.
 const INVISIBLE_CHARACTERS = /[﻿​‌‍⁠]/g;
@@ -14,6 +15,14 @@ const FENCE_OPEN = /^(`{3,}|~{3,})/;
 export function splitSourceLines(text: string): SourceLine[] {
   const cleaned = text.replace(INVISIBLE_CHARACTERS, '').replace(NO_BREAK_SPACES, ' ');
   return cleaned.split(/\r\n|\r|\n/).map((raw, index) => ({ line: index + 1, text: raw.trim() }));
+}
+
+const PREP_TITLE = /^#\s*준비\s*자료\s*:/;
+
+/** 준비 자료 글인지(첫 내용 줄이 `# 준비 자료:`). 코드 블록 여는 줄과 빈 줄은 건너뛴다. */
+export function isPrepFileText(text: string): boolean {
+  const first = splitSourceLines(text).find((entry) => entry.text !== '' && !FENCE_OPEN.test(entry.text));
+  return first !== undefined && PREP_TITLE.test(first.text);
 }
 
 export function formatLineValue(text: string): string | undefined {
