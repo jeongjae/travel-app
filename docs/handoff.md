@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-26 · **AI 개편 E1·P1·E2 확인 완료. E3-1·E3-2·P2-1 병합(확인 대기, 일괄). 단계 E는 미룸**
+2026-11-27 · **AI 개편 E1·P1·E2 확인 완료. E3-1·E3-2·P2-1 병합(확인 대기, 일괄). E3-2b·P2-2 범위안 승인 대기**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -22,8 +22,8 @@
 
 ## 다음 작업·확인 관문
 
-1. Claude에 걸린 일 없음. T-E3-2·[T-P2-1](claude-task-p02-1-review.md) 병합(11/26). 다음 작업은 사용자와 정한다.
-2. 사용자 테스트(화면·실사용·단계 E)는 나중에 한꺼번에 — [일괄 확인 목록](batch-check-list.md). 단계 E는 미룸(미판정).
+1. 사용자 승인 대기: [E3-2b 목록안](e3-2-direct-entry-proposal.md), [P2-2 설계](p2-design.md) §10(DB·백업 판 3). Claude에 걸린 일 없음.
+2. 사용자(11/27 지시): [일괄 확인 목록](batch-check-list.md)과 단계 E(E-1·E-2) 진행.
 3. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
 - 기존 여행 삭제 금지. pnpm 12.14.0/Node 24.13.1. `pnpm dev`=Vite+Worker(`worker/.dev.vars`, `localhost:5173`), UI 5173, 미리보기 4173, 회귀 `check:deferred`. PC 전체 E2E `pnpm run test:e2e:all`.
