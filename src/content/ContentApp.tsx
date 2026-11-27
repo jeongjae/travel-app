@@ -1009,9 +1009,7 @@ export function ContentApp() {
                         setBackTrail([]);
                       }}
                     >
-                      <option value="">
-                        {currentVersion ? `현재 계획 · 계획 ${currentVersion.number}` : '현재 계획'}
-                      </option>
+                      <option value="">현재 계획</option>
                       {history
                         .toSorted((a, b) => b.number - a.number)
                         .map((p) => (

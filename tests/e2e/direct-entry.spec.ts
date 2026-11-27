@@ -120,6 +120,5 @@ test('계획 버전 화면: 고른 계획과 저장 번호가 좁은 화면에�
   const section = page.locator('section.more-page').filter({ has: page.getByRole('heading', { name: '계획 버전' }) });
   await expect(section.getByText(/^보고 있는 계획: 계획 \d+ · 사용자 일정 수정$/)).toBeVisible();
   await expect(section.getByText(/^저장 번호\(revision\) \d+$/)).toBeVisible();
-  await expect(section.getByLabel('계획 버전').locator('option').first()).toHaveText(/^현재 계획 · 계획 \d+$/);
   await capture(page, 'cl45-after', section);
 });
