@@ -30,6 +30,8 @@ import { isReadingGuide } from './guide-rules';
 import { guideLabels, regionDisplayName, tripDisplayName } from './display-names';
 import { prepSections } from './prep-groups';
 import { activityPhoto, planDayPhotos } from './day-photos';
+import { activityCategoryOptions, applyActivityDetails, DEFAULT_ACTIVITY_CATEGORY } from './activity-details';
+import { TripRenameDialog } from './TripRename';
 import { LegEditor, StayEditor, type LegEditorState, type StayEditorState } from './StayLegEditors';
 import { DayDetails, DayPhotos } from './DayDetails';
 import { ActionMenu } from './ActionMenu';
@@ -80,6 +82,7 @@ const moreTabs: readonly Tab[] = ['더보기', '준비·회화', '예약·할 �
 const moreItems = ['준비·회화', '예약·할 일', '변경안', '지도', '계획 버전', '가져오기 기록'] as const;
 export function ContentApp() {
   const [recovery, setRecovery] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const [ready, setReady] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -213,6 +216,8 @@ export function ContentApp() {
       [tripId, tab],
       [],
     );
+  const currentVersion = history.find((p) => p.planVersionId === header?.currentPlanVersionId);
+  const viewedVersion = planId ? history.find((p) => p.planVersionId === planId) : currentVersion;
   // 회고는 저장소를 읽기만 한다. 회고를 열었을 때만 전체 여행 데이터를 읽는다.
   const retroTrip = useLiveQuery(
     () => (tripId && tab === '실제 기록' && retroOpen ? repo.get(tripId) : undefined),
@@ -964,6 +969,9 @@ export function ContentApp() {
                       {item}
                     </button>
                   ))}
+                  <button disabled={!ready || !header} onClick={() => setRenameOpen(true)}>
+                    여행 이름 바꾸기
+                  </button>
                   <button disabled={!ready} onClick={() => setRecovery(true)}>
                     저장소·백업
                   </button>
@@ -992,7 +1000,9 @@ export function ContentApp() {
                         setBackTrail([]);
                       }}
                     >
-                      <option value="">현재 계획</option>
+                      <option value="">
+                        {currentVersion ? `현재 계획 · 계획 ${currentVersion.number}` : '현재 계획'}
+                      </option>
                       {history
                         .toSorted((a, b) => b.number - a.number)
                         .map((p) => (
@@ -1002,7 +1012,13 @@ export function ContentApp() {
                         ))}
                     </select>
                   </label>
-                  <span className="muted">revision {header.domainRevision}</span>
+                  {/* CL-45: iPhone의 선택 상자는 고른 글을 잘라 보여 주므로, 보고 있는 계획 전체를 아래에 글로 적는다. */}
+                  {viewedVersion ? (
+                    <p className="version-summary">
+                      보고 있는 계획: 계획 {viewedVersion.number} · {viewedVersion.reason}
+                    </p>
+                  ) : null}
+                  <p className="muted version-revision">저장 번호(revision) {header.domainRevision}</p>
                 </div>
               </section>
             ) : null}
@@ -1323,6 +1339,17 @@ export function ContentApp() {
             const item = removeTarget;
             setRemoveTarget(null);
             void removeItem(item);
+          }}
+        />
+      ) : null}
+      {renameOpen && header ? (
+        <TripRenameDialog
+          repo={repo}
+          header={header}
+          onClose={() => setRenameOpen(false)}
+          onSaved={() => {
+            setRenameOpen(false);
+            setNotice('여행 이름을 바꿨습니다.');
           }}
         />
       ) : null}
@@ -1795,7 +1822,13 @@ function PlanEditor({
     [reason, setReason] = useState(''),
     [placeId, setPlaceId] = useState(item?.placeLinks[0]?.placeId ?? ''),
     [officialUrl, setOfficialUrl] = useState(item?.officialUrl ?? ''),
+    [category, setCategory] = useState(item?.category ?? DEFAULT_ACTIVITY_CATEGORY),
+    [summary, setSummary] = useState(item?.summary ?? ''),
+    [menuText, setMenuText] = useState(item?.menuText ?? ''),
+    [reservationText, setReservationText] = useState(item?.reservationText ?? ''),
+    [optional, setOptional] = useState(item?.optional ?? false),
     [error, setError] = useState('');
+  const categoryOptions = activityCategoryOptions(item?.category);
   const dayDate = editor.plan.days.find((d) => d.dayId === day)?.date ?? '';
   const startClock = 'localTime' in time ? time.localTime.slice(0, 5) : '';
   const endBeforeStart = Boolean(endClock && startClock && endClock < startClock);
@@ -1840,7 +1873,7 @@ function PlanEditor({
         dayId: day,
         order: Math.max(-1, ...editor.plan.items.filter((i) => i.dayId === day).map((i) => i.order)) + 1,
         title,
-        category: 'activity',
+        category: DEFAULT_ACTIVITY_CATEGORY,
         time: { start },
         summary: '',
         optional: false,
@@ -1855,7 +1888,10 @@ function PlanEditor({
       const placeLinks = placeId
         ? [{ placeId, relation: originalLinks[0]?.relation ?? ('visit' as const) }, ...originalLinks.slice(1)]
         : originalLinks.slice(1);
-      const next = { ...base, dayId: day, title, time: { start, ...(end ? { end } : {}) }, placeLinks };
+      const next = applyActivityDetails(
+        { ...base, dayId: day, title, time: { start, ...(end ? { end } : {}) }, placeLinks },
+        { category, summary, menuText, reservationText, optional },
+      );
       // 공식 사이트 주소(CL-26): 비우면 필드를 지운다. 형식 검사는 저장 명령의 스키마가 한다.
       const url = officialUrl.trim();
       if (url) {
@@ -1957,6 +1993,32 @@ function PlanEditor({
             </>
           }
         />
+        <label>
+          종류
+          <select value={category} onChange={(e) => setCategory(e.target.value)}>
+            {categoryOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          설명 (선택)
+          <textarea rows={3} value={summary} onChange={(e) => setSummary(e.target.value)} />
+        </label>
+        <label>
+          식사·메뉴 (선택)
+          <input value={menuText} onChange={(e) => setMenuText(e.target.value)} />
+        </label>
+        <label>
+          예약 안내 (선택)
+          <input value={reservationText} onChange={(e) => setReservationText(e.target.value)} />
+        </label>
+        <label>
+          <input type="checkbox" checked={optional} onChange={(e) => setOptional(e.target.checked)} />
+          선택 활동
+        </label>
         <label>
           공식 사이트 주소(선택)
           <input

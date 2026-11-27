@@ -53,6 +53,13 @@
   font-size: 13px;
   min-width: 220px;
 }
+/* CL-45: 보고 있는 계획과 저장 번호는 선택 상자 아래 줄에 전체 글로 적는다. */
+.content-app .version-controls .version-summary,
+.content-app .version-controls .version-revision {
+  flex-basis: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .content-row {
   padding: 20px 0;
   border-bottom: 1px solid var(--line);
