@@ -1,6 +1,6 @@
 # travel-app 현재 상태
 
-2026-11-27 · **AI 개편 E1·P1·E2 확인 완료. E3-1·E3-2·P2-1 병합(확인 대기, 일괄). E3-2b·P2-2 범위안 승인 대기**
+2026-11-27 · **AI 개편 E1·P1·E2 확인 완료. E3-1·E3-2·P2-1 병합(확인 대기, 일괄). E3-2b·P2-2 승인, Claude 지시**
 
 새 Codex 역할 세션은 먼저 [세션 인계](codex-session-handoff.md)를 읽는다.
 
@@ -22,7 +22,7 @@
 
 ## 다음 작업·확인 관문
 
-1. 사용자 승인 대기: [E3-2b 목록안](e3-2-direct-entry-proposal.md), [P2-2 설계](p2-design.md) §10(DB·백업 판 3). Claude에 걸린 일 없음.
+1. Claude: [T-E3-2b](claude-task-e03-2b-direct-entry.md) → [T-P2-2a](claude-task-p02-2a-storage.md)(DB·백업 판 3, b·c 뒤 한 번에 병합). **P2-2 병합 조건: 다른 매체 백업(사용자).**
 2. 사용자(11/27 지시): [일괄 확인 목록](batch-check-list.md)과 단계 E(E-1·E-2) 진행.
 3. 사용자(이월): U4 대본 v2 재수행 → CL-20. 평소 공간 파리 확인 → REG-02.
 
