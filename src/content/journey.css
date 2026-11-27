@@ -584,6 +584,11 @@ body:has(.journey-bottomnav) .update-bar {
   box-shadow: 0 8px 28px #122b2033;
   scroll-margin-bottom: 96px;
 }
+/* 아래 공간이 모자라면 단추 위로 연다(ActionMenu가 열 때 잰다). */
+.action-menu-panel.opens-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
 .content-app .action-menu-panel button {
   justify-content: flex-start;
   border-color: transparent;

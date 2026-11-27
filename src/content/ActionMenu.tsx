@@ -1,4 +1,24 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+
+/** 패널과 단추 사이 간격(`action-menu-panel`의 4px). */
+const PANEL_GAP = 4;
+
+/** 메뉴가 내려올 수 있는 아래 끝: 보이는 하단 탭 줄의 위쪽, 없으면 창 아래 끝. */
+function bottomLimit() {
+  const nav = document.querySelector('.journey-bottomnav');
+  const navTop = nav?.getBoundingClientRect().top;
+  if (navTop !== undefined && navTop > 0 && navTop < window.innerHeight) {
+    return navTop;
+  }
+  return window.innerHeight;
+}
+
+/** 아래에 들어가지 않고 위에는 들어가면 위로 연다. 위·아래 모두 모자라면 아래로 연다. */
+export function shouldOpenUp(toggle: { top: number; bottom: number }, panelHeight: number, limit: number) {
+  const below = limit - toggle.bottom - PANEL_GAP;
+  const above = toggle.top - PANEL_GAP;
+  return panelHeight > below && panelHeight <= above;
+}
 
 export type MenuAction = {
   label: string;
@@ -26,10 +46,24 @@ export function ActionMenu({
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [opensUp, setOpensUp] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
+  // 그리기 전에 방향을 정한다. 아래 공간(하단 탭 줄 또는 창 아래 끝까지)이 모자라고 위에는 들어가면 위로 연다.
+  useLayoutEffect(() => {
+    if (!open) {
+      setOpensUp(false);
+      return;
+    }
+    const toggle = toggleRef.current;
+    const panel = panelRef.current;
+    if (!toggle || !panel) {
+      return;
+    }
+    setOpensUp(shouldOpenUp(toggle.getBoundingClientRect(), panel.offsetHeight, bottomLimit()));
+  }, [open]);
   useEffect(() => {
     if (!open) {
       return;
@@ -67,7 +101,7 @@ export function ActionMenu({
         {caption ? <span>{caption}</span> : <span aria-hidden="true">⋯</span>}
       </button>
       {open ? (
-        <div className="action-menu-panel" id={panelId} ref={panelRef}>
+        <div className={opensUp ? 'action-menu-panel opens-up' : 'action-menu-panel'} id={panelId} ref={panelRef}>
           {children}
           {actions.map((action) => (
             <button
