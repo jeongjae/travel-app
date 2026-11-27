@@ -32,6 +32,7 @@ import { prepSections } from './prep-groups';
 import { activityPhoto, planDayPhotos } from './day-photos';
 import { activityCategoryOptions, applyActivityDetails, DEFAULT_ACTIVITY_CATEGORY } from './activity-details';
 import { TripRenameDialog } from './TripRename';
+import { DayInfoDialog } from './DayInfo';
 import { LegEditor, StayEditor, type LegEditorState, type StayEditorState } from './StayLegEditors';
 import { DayDetails, DayPhotos } from './DayDetails';
 import { ActionMenu } from './ActionMenu';
@@ -83,6 +84,7 @@ const moreItems = ['준비·회화', '예약·할 일', '변경안', '지도', '
 export function ContentApp() {
   const [recovery, setRecovery] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [dayInfoOpen, setDayInfoOpen] = useState(false);
   const [ready, setReady] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -731,6 +733,13 @@ export function ContentApp() {
                 ) : null}
                 <DayStrip plan={plan} dayId={activeDay?.dayId} onSelect={openDay} />
                 {activeDay ? (
+                  <div className="day-info-actions">
+                    <button disabled={historical || !header} onClick={() => setDayInfoOpen(true)}>
+                      날짜 정보 수정
+                    </button>
+                  </div>
+                ) : null}
+                {activeDay ? (
                   <DayLead
                     day={activeDay}
                     dayNumber={plan.days.toSorted((a, b) => a.ordinal - b.ordinal).indexOf(activeDay) + 1}
@@ -1339,6 +1348,19 @@ export function ContentApp() {
             const item = removeTarget;
             setRemoveTarget(null);
             void removeItem(item);
+          }}
+        />
+      ) : null}
+      {dayInfoOpen && header && plan && activeDay ? (
+        <DayInfoDialog
+          repo={repo}
+          header={header}
+          plan={plan}
+          day={activeDay}
+          onClose={() => setDayInfoOpen(false)}
+          onSaved={() => {
+            setDayInfoOpen(false);
+            setNotice('날짜 정보를 저장했습니다.');
           }}
         />
       ) : null}

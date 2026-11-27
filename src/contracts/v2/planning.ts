@@ -190,6 +190,13 @@ export const planEditOperationSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('remove-stay'), stayId: id }),
   z.strictObject({ type: z.literal('upsert-leg'), leg: planLegSchema }),
   z.strictObject({ type: z.literal('remove-leg'), legId: id }),
+  // 날짜 제목·도시만 바꾼다(E3-2b D2). 제목은 앞뒤 공백을 빼고도 글이 있어야 한다. 도시는 비워도 된다.
+  z.strictObject({
+    type: z.literal('update-day'),
+    dayId: id,
+    title: z.string().refine((value) => value.trim() !== '', '날짜 제목을 입력하세요.'),
+    cityText: z.string(),
+  }),
 ]);
 export const proposalSchema = z
   .strictObject({

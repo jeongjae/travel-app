@@ -873,6 +873,16 @@ export class ContentRepository {
           p.legs = p.legs.filter((leg) => leg.legId !== op.legId);
           break;
         }
+        case 'update-day': {
+          // 날짜 제목·도시만 바꾼다. 일자·순서·지역·피로도 등 다른 칸은 그대로 둔다.
+          const day = p.days.find((d) => d.dayId === op.dayId);
+          must(day, 'BROKEN_REFERENCE', '수정할 날짜가 없습니다.');
+          const title = op.title.trim();
+          must(title !== '', 'INVALID_INPUT', '날짜 제목을 입력하세요.');
+          day.title = title;
+          day.cityText = op.cityText.trim();
+          break;
+        }
       }
     }
     // 숙박이 바뀐 날짜(이전·새 기간의 합집합)만 하루 지역·야간 지역을 다시 계산한다. 다른 날과 필드는 그대로 둔다.

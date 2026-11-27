@@ -218,6 +218,16 @@
   padding: 4px 14px;
   font-size: 14px;
 }
+.content-app .day-info-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 8px 0 0;
+}
+.content-app .day-info-actions button {
+  min-height: 40px;
+  padding: 4px 14px;
+  font-size: 14px;
+}
 .day-intro {
   margin: 12px 0 12px;
 }
